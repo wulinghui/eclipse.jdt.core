@@ -43,7 +43,7 @@ public class TypeDeclaration extends Statement implements ProblemSeverities, Ref
 	public MethodScope initializerScope;
 	public MethodScope staticInitializerScope;
 	public boolean ignoreFurtherInvestigation = false;
-	public int maxFieldCount;
+	public int maxFieldCount; // maximum cumulative number of fields of this type and its inners (see updateMaxFieldCount())
 	public int declarationSourceStart;
 	public int declarationSourceEnd;
 	public int bodyStart;

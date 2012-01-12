@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -280,8 +280,9 @@ public long getAnnotationTagBits() {
 }
 
 public int getAnalysisId(int maxFieldCount) {
-	if (this.declaringClass instanceof NestedTypeBinding)
-		return ((NestedTypeBinding) this.declaringClass).enclosingType.cumulativeFieldCount + this.id;
+	ReferenceBinding enclosing = this.declaringClass.enclosingType();
+	if (enclosing instanceof SourceTypeBinding)
+		return ((SourceTypeBinding)enclosing).cumulativeFieldCount + this.id;
 	return this.id;
 }
 
