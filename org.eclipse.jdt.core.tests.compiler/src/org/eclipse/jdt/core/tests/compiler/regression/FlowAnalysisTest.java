@@ -31,7 +31,7 @@ import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
 
 public class FlowAnalysisTest extends AbstractRegressionTest {
 static {
-//	TESTS_NAMES = new String[] { "testInnerClassesWithFields" };
+//	TESTS_NAMES = new String[] { "testInnerClassesWithFields1" };
 //	TESTS_NUMBERS = new int[] { 69 };
 }
 public FlowAnalysisTest(String name) {
@@ -2540,6 +2540,37 @@ public void testInnerClassesWithFields1() {
 					"                l1 += \" test.\";\n" +
 					"            }\n" +
 					"            return l1;\n" +
+					"        }\n" +
+					"    }\n" +
+					"    class I2 {\n" +
+					"        int f5, f6, f7;\n" +
+					"    }\n" +
+					"}\n"
+				}, 
+				"");
+	}
+}
+// witness a regression during working on Bug 247564 - [compiler][null] Detecting null field reference
+// local variable in local class triggered IAE in StackMapFrame.addStackItem
+public void testInnerClassesWithFields1a() {
+	if (this.complianceLevel >= ClassFileConstants.JDK1_6) { // we're specifically interested in StackMap generation
+		this.runConformTest(
+				new String[] {
+					"X.java",
+					"public class X {\n" +
+					"    int f1, f2, f3;\n" +
+					"    void foo() {\n" +
+					"        class I1 {\n" +
+					"            int f4;\n" +
+					"            String m(boolean b) {\n" +
+					"                String l1 = \"Hello\";\n" +
+					"                if (b) {\n" +
+					"                    l1 += \" world!\";\n" +
+					"                } else {\n" +
+					"                    l1 += \" test.\";\n" +
+					"                }\n" +
+					"                return l1;\n" +
+					"            }\n" +
 					"        }\n" +
 					"    }\n" +
 					"    class I2 {\n" +

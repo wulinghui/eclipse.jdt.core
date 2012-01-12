@@ -214,7 +214,7 @@ public void analyseCode(ClassScope enclosingClassScope) {
 	if (this.ignoreFurtherInvestigation)
 		return;
 	try {
-		internalAnalyseCode(null, FlowInfo.initial(this.maxFieldCount));
+		internalAnalyseCode(null, FlowInfo.initial(this.scope.outerMostClassScope().referenceType().maxFieldCount));
 	} catch (AbortType e) {
 		this.ignoreFurtherInvestigation = true;
 	}
@@ -1055,9 +1055,10 @@ public void resolve() {
 		// field count from enclosing and supertypes should be included in maxFieldCount,
 		// to make field-ids unique among all fields in scope.
 		// 1.: enclosing:
-		if (sourceType instanceof NestedTypeBinding) {
+		TypeBinding original = sourceType.original();
+		if (original instanceof NestedTypeBinding) {
 			// note: local types have no enclosingType in the AST but only in the binding:
-			sourceType.cumulativeFieldCount += ((NestedTypeBinding)sourceType).enclosingType.cumulativeFieldCount;
+			sourceType.cumulativeFieldCount += ((NestedTypeBinding)original).enclosingType.cumulativeFieldCount;
 		}
 		// 2.: supers:
 		int superFieldsCount = 0;

@@ -280,9 +280,9 @@ public long getAnnotationTagBits() {
 }
 
 public int getAnalysisId(int maxFieldCount) {
-	ReferenceBinding enclosing = this.declaringClass.enclosingType();
-	if (enclosing instanceof SourceTypeBinding)
-		return ((SourceTypeBinding)enclosing).cumulativeFieldCount + this.id;
+	TypeBinding original = this.declaringClass.original();
+	if (original instanceof NestedTypeBinding)
+		return ((NestedTypeBinding)original).enclosingType.cumulativeFieldCount + this.id;
 	return this.id;
 }
 
