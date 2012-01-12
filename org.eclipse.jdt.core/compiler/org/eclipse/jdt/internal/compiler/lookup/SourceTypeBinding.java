@@ -11,6 +11,7 @@
  *								bug 328281 - visibility leaks not detected when analyzing unused field in private class
  *								bug 349326 - [1.7] new warning for missing try-with-resources
  *								bug 186342 - [compiler][null] Using annotations for null checking
+ *								bug 365836 - [compiler][null] Incomplete propagation of null defaults.
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -1621,7 +1622,7 @@ private void createArgumentBindings(MethodBinding method) {
 	if (methodDecl != null) {
 		if (method.parameters != Binding.NO_PARAMETERS)
 			methodDecl.createArgumentBindings();
-		TypeBinding annotationBinding = findDefaultNullness(method, methodDecl.scope.environment());
+		TypeBinding annotationBinding = findDefaultNullness(methodDecl.scope, methodDecl.scope.environment());
 		if (annotationBinding != null && annotationBinding.id == TypeIds.T_ConfiguredAnnotationNonNull)
 			method.fillInDefaultNonNullness(annotationBinding);
 	}
@@ -1653,29 +1654,42 @@ private TypeBinding getNullnessDefaultAnnotation() {
  * <li>the synthetic type {@link ReferenceBinding#NULL_UNSPECIFIED} if a default from outer scope has been canceled</li>
  * <li>null if no default has been defined</li>
  * </ul>
+ * @param currentScope where to start search for lexically enclosing default
+ * @param environment gateway to options and configured annotation types
  */
-private TypeBinding findDefaultNullness(MethodBinding methodBinding, LookupEnvironment environment) {
+private TypeBinding findDefaultNullness(Scope currentScope, LookupEnvironment environment) {
 	// find the applicable default inside->out:
 
-	// method
-	TypeBinding annotationBinding = environment.getNullAnnotationBindingFromDefault(methodBinding.tagBits, true/*resolve*/);
-	if (annotationBinding != null)
-		return annotationBinding;
-
-	// type
-	ReferenceBinding type = methodBinding.declaringClass;
-	ReferenceBinding currentType = type;
-	while (currentType instanceof SourceTypeBinding) {
-		annotationBinding = ((SourceTypeBinding) currentType).getNullnessDefaultAnnotation();
-		if (annotationBinding != null)
-			return annotationBinding;
-		currentType = currentType.enclosingType();
+	SourceTypeBinding currentType = null;
+	TypeBinding annotationBinding;
+	while (currentScope != null) {
+		switch (currentScope.kind) {
+			case Scope.METHOD_SCOPE:
+				AbstractMethodDeclaration referenceMethod = ((MethodScope)currentScope).referenceMethod();
+				if (referenceMethod != null && referenceMethod.binding != null) {
+					annotationBinding = environment.getNullAnnotationBindingFromDefault(referenceMethod.binding.tagBits, true/*resolve*/);
+					if (annotationBinding != null)
+						return annotationBinding;
+				}
+				break;
+			case Scope.CLASS_SCOPE:
+				currentType = ((ClassScope)currentScope).referenceContext.binding;
+				if (currentType != null) {
+					annotationBinding = currentType.getNullnessDefaultAnnotation();
+					if (annotationBinding != null)
+						return annotationBinding;
+				}
+				break;
+		}
+		currentScope = currentScope.parent;
 	}
 
 	// package
-	annotationBinding = type.getPackage().getNullnessDefaultAnnotation(this.scope);
-	if (annotationBinding != null)
-		return annotationBinding;
+	if (currentType != null) {
+		annotationBinding = currentType.getPackage().getNullnessDefaultAnnotation(this.scope);
+		if (annotationBinding != null)
+			return annotationBinding;
+	}
 
 	// global
 	long defaultNullness = environment.globalOptions.defaultNonNullness;

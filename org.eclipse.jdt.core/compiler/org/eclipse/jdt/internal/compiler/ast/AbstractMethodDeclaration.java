@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,7 +7,9 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann - Contribution for bug 186342 - [compiler][null] Using annotations for null checking
+ *     Stephan Herrmann - Contributions for
+ *								bug 186342 - [compiler][null] Using annotations for null checking
+ *								bug 367203 - [compiler][null] detect assigning null to nonnull argument
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -83,8 +85,7 @@ public abstract class AbstractMethodDeclaration
 	 * Materialize a null parameter annotation that has been added from the current default,
 	 * in order to ensure that this annotation will be generated into the .class file, too.
 	 */
-	public void addParameterNonNullAnnotation(int i, ReferenceBinding annotationBinding) {
-		Argument argument = this.arguments[i];
+	public void addParameterNonNullAnnotation(Argument argument, ReferenceBinding annotationBinding) {
 		if (argument.type != null) // null happens for constructors of anonymous classes
 			argument.annotations = addAnnotation(argument.type, argument.annotations, annotationBinding);
 	}
@@ -359,6 +360,13 @@ public abstract class AbstractMethodDeclaration
 				this.scope.problemReporter().noMoreAvailableSpaceForArgument(this.scope.locals[i], this.scope.locals[i].declaration);
 			}
 		}
+	}
+
+	public CompilationUnitDeclaration getCompilationUnitDeclaration() {
+		if (this.scope != null) {
+			return this.scope.compilationUnitScope().referenceContext;
+		}
+		return null;
 	}
 
 	public boolean hasErrors() {
