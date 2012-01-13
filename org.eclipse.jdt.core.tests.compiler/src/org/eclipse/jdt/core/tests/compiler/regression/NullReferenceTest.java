@@ -49,7 +49,7 @@ public NullReferenceTest(String name) {
 // Only the highest compliance level is run; add the VM argument
 // -Dcompliance=1.4 (for example) to lower it if needed
 static {
-//		TESTS_NAMES = new String[] { "testBug360328" };
+//		TESTS_NAMES = new String[] { "testBug247564i" };
 //		TESTS_NUMBERS = new int[] { 561 };
 //		TESTS_RANGE = new int[] { 1, 2049 };
 }
@@ -15988,6 +15988,388 @@ public void testBug247564h_2() {
 		"	                      ^^^^^^\n" + 
 		"Potential null pointer access: The field field3 may be null at this location\n" + 
 		"----------\n"
+	);
+}
+
+// null analysis -- simple case for static fields
+// to make sure that static field only of the current type is assigned potentially null when compared against null
+// Static fields belonging to any other class should be ignored
+// Qualified access to static fields should also work
+public void testBug247564i_1() {
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportNonStaticAccessToStatic, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		true,
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"  static Object field0;\n" +
+			"  static Object field1;\n" +
+			"  Y getY(){ return new Y();}\n" +
+			"  X getX() { return new X();}\n" +
+			"  void goo(Object var) {\n" +
+			"    	if (Y.yField1 == null && field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (Y.yField1 == null && this.field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (Y.xiny.field0 == null && Y.xiny.field0.toString() == \"\"){}\n" +  // warn, qualified access
+			"    	if (Y.yField1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (Y.xiny.field1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (X.field0 == null && X.field0.toString() == \"\"){}\n" +   // warn
+			"    	if (this.field0 == null && X.field0.toString() == \"\"){}\n" +   // warn
+			"    	if (X.field0 == null && this.field0.toString() == \"\"){}\n" +   // warn
+			"    	if (X.field0 == null && getX().field0.toString() == \"\"){}\n" +   // no warn
+			"  }\n" +
+			"}\n" +
+			"class Y{\n" +
+			"	Y getY(){ return new Y();}\n" +
+			"	X getX(){ return new X();}\n" +
+			"   static Object yField1;" +
+			"	static X xiny;\n" +
+			"}"},
+		null,
+		compilerOptions,
+		"----------\n" + 
+		"1. ERROR in X.java (at line 9)\n" + 
+		"	if (Y.xiny.field0 == null && Y.xiny.field0.toString() == \"\"){}\n" + 
+		"	                                    ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 12)\n" + 
+		"	if (X.field0 == null && X.field0.toString() == \"\"){}\n" + 
+		"	                          ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"3. ERROR in X.java (at line 13)\n" + 
+		"	if (this.field0 == null && X.field0.toString() == \"\"){}\n" + 
+		"	                             ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"4. ERROR in X.java (at line 14)\n" + 
+		"	if (X.field0 == null && this.field0.toString() == \"\"){}\n" + 
+		"	                             ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n",
+		JavacTestOptions.Excuse.EclipseWarningConfiguredAsError
+	);
+}
+
+// null analysis -- static fields accessed via MessageSend
+// to make sure that static field only of the current type is assigned potentially null when compared against null
+// Static fields belonging to any other class should be ignored
+// Qualified access to static fields should also work
+public void testBug247564i_2() {
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportNonStaticAccessToStatic, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		true,
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"  static Object field0;\n" +
+			"  static Object field1;\n" +
+			"  Y getY(){ return new Y();}\n" +
+			"  X getX() { return new X();}\n" +
+			"  void goo(Object var) {\n" +
+			"    	if (new Y().getY().yField1 == null && field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (getY().yField1 == null && field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (getY().yField1 == null && this.field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (new Y().getX().field0 == null && field0.toString() == \"\"){}\n" +   // warn
+			"    	if (getX().field0 == null && field0.toString() == \"\"){}\n" +   // warn
+			"    	if (getX().field0 == null && this.field0.toString() == \"\"){}\n" +   // warn
+			"    	if (getX().field0 == null && getX().field0.toString() == \"\"){}\n" +   // no warn, getX() wipes out null info
+			"    	if (getX().field0 == null && X.field0.toString() == \"\"){}\n" +   // warn, qualified access
+			// fields from other types, don't warn
+			"    	if (new Y().getY().yField1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (getY().yField1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (getX().field0 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"  }\n" +
+			"}\n" +
+			"class Y{\n" +
+			"	Y getY(){ return new Y();}\n" +
+			"	X getX(){ return new X();}\n" +
+			"   static Object yField1;\n" +
+			"}"},
+		null,
+		compilerOptions,
+		"----------\n" + 
+		"1. ERROR in X.java (at line 10)\n" + 
+		"	if (new Y().getX().field0 == null && field0.toString() == \"\"){}\n" + 
+		"	                                     ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 11)\n" + 
+		"	if (getX().field0 == null && field0.toString() == \"\"){}\n" + 
+		"	                             ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"3. ERROR in X.java (at line 12)\n" + 
+		"	if (getX().field0 == null && this.field0.toString() == \"\"){}\n" + 
+		"	                                  ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"4. ERROR in X.java (at line 14)\n" + 
+		"	if (getX().field0 == null && X.field0.toString() == \"\"){}\n" + 
+		"	                               ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n",
+		JavacTestOptions.Excuse.EclipseWarningConfiguredAsError
+	);
+}
+
+// null analysis -- static fields accessed from Member type
+// Qualified access to static fields should also work
+public void testBug247564i_3() {
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportNonStaticAccessToStatic, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		true,
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"  static Object field0;\n" +
+			"  static Object field1;\n" +
+			"  static Y getY(){ return new Y();}\n" +
+			"  static X getX() { return new X();}\n" +
+			"  static class XInner{\n" +
+			"   static Object xinnerfield;\n" +
+			"   XInner getXInner() { return new XInner();\n}" +
+			"   void goo(Object var) {\n" +
+			"    	if (new Y().getY().yField1 == null && field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (getY().yField1 == null && field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (new Y().getX().field0 == null && field0.toString() == \"\"){}\n" +   // warn
+			"    	if (getX().field0 == null && field0.toString() == \"\"){}\n" +   // warn
+			"    	if (getX().field0 == null && getX().field0.toString() == \"\"){}\n" +   // no warn, getX() wipes out null info
+			"    	if (getX().field0 == null && X.field0.toString() == \"\"){}\n" +   // warn, qualified access
+			"    	if (getXInner().xinnerfield == null && xinnerfield.toString() == \"\"){}\n" +   // warn
+			"    	if (getXInner().xinnerfield == null && this.xinnerfield.toString() == \"\"){}\n" +   // warn
+			"    	if (getX().field0 == null && this.xinnerfield.toString() == \"\"){}\n" +   // no warn
+			"    	if (getXInner().xinnerfield == null && field0.toString() == \"\"){}\n" +   // no warn
+			// fields from other types, don't warn
+			"    	if (new Y().getY().yField1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (getY().yField1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (getX().field0 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			// qualified accesses
+			"    	if (Y.yField1 == null && field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (Y.xiny.field0 == null && Y.xiny.field0.toString() == \"\"){}\n" +  // warn, qualified access
+			"    	if (Y.yField1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (Y.xiny.field1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (X.field0 == null && X.field0.toString() == \"\"){}\n" +   // warn
+			"    	if (X.field0 == null && getX().field0.toString() == \"\"){}\n" +   // no warn
+			"   }\n" +
+			"  }\n" +
+			"}\n" +
+			"class Y{\n" +
+			"	Y getY(){ return new Y();}\n" +
+			"	X getX(){ return new X();}\n" +
+			"   static Object yField1;\n" +
+			"   static X xiny;\n" +
+			"}"},
+		null,
+		compilerOptions,
+		"----------\n" + 
+		"1. ERROR in X.java (at line 12)\n" + 
+		"	if (new Y().getX().field0 == null && field0.toString() == \"\"){}\n" + 
+		"	                                     ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 13)\n" + 
+		"	if (getX().field0 == null && field0.toString() == \"\"){}\n" + 
+		"	                             ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"3. ERROR in X.java (at line 15)\n" + 
+		"	if (getX().field0 == null && X.field0.toString() == \"\"){}\n" + 
+		"	                               ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"4. ERROR in X.java (at line 16)\n" + 
+		"	if (getXInner().xinnerfield == null && xinnerfield.toString() == \"\"){}\n" + 
+		"	                                       ^^^^^^^^^^^\n" + 
+		"Potential null pointer access: The field xinnerfield may be null at this location\n" + 
+		"----------\n" + 
+		"5. ERROR in X.java (at line 17)\n" + 
+		"	if (getXInner().xinnerfield == null && this.xinnerfield.toString() == \"\"){}\n" + 
+		"	                                            ^^^^^^^^^^^\n" + 
+		"Potential null pointer access: The field xinnerfield may be null at this location\n" + 
+		"----------\n" +
+		"6. ERROR in X.java (at line 24)\n" + 
+		"	if (Y.xiny.field0 == null && Y.xiny.field0.toString() == \"\"){}\n" + 
+		"	                                    ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"7. ERROR in X.java (at line 27)\n" + 
+		"	if (X.field0 == null && X.field0.toString() == \"\"){}\n" + 
+		"	                          ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n",
+		JavacTestOptions.Excuse.EclipseWarningConfiguredAsError
+	);
+}
+
+// null analysis -- static fields accessed from a local type
+// Qualified access to static fields should also work
+public void testBug247564i_4() {
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportNonStaticAccessToStatic, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		true,
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"  static Object field0;\n" +
+			"  static Object field1;\n" +
+			"  Y getY(){ return new Y();}\n" +
+			"  X getX() { return new X();}\n" +
+			"  void goo(Object var) {\n" +
+			"	class Local{\n" +
+			"	  void localfoo(){\n " +
+			"    	if (new Y().getY().yField1 == null && field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (getY().yField1 == null && field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (new Y().getX().field0 == null && field0.toString() == \"\"){}\n" +   // warn
+			"    	if (getX().field0 == null && field0.toString() == \"\"){}\n" +   // warn
+			"    	if (getX().field0 == null && getX().field0.toString() == \"\"){}\n" +   // no warn, getX() wipes out null info
+			"    	if (getX().field0 == null && X.field0.toString() == \"\"){}\n" +   // warn, qualified access
+			// fields from other types, don't warn
+			"    	if (new Y().getY().yField1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (getY().yField1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (getX().field0 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			// qualified accesses
+			"    	if (Y.yField1 == null && field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (Y.xiny.field0 == null && Y.xiny.field0.toString() == \"\"){}\n" +  // warn, qualified access
+			"    	if (Y.yField1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (Y.xiny.field1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (X.field0 == null && X.field0.toString() == \"\"){}\n" +   // warn
+			"    	if (X.field0 == null && getX().field0.toString() == \"\"){}\n" +   // no warn	
+			"    }\n" +
+			"   }\n" +
+			"  }\n" +
+			"}\n" +
+			"class Y{\n" +
+			"	Y getY(){ return new Y();}\n" +
+			"	X getX(){ return new X();}\n" +
+			"   static Object yField1;\n" +
+			"   static X xiny;\n" +
+			"}"},
+		null,
+		compilerOptions,
+		"----------\n" + 
+		"1. WARNING in X.java (at line 7)\n" + 
+		"	class Local{\n" + 
+		"	      ^^^^^\n" + 
+		"The type Local is never used locally\n" + 
+		"----------\n" + 
+		"2. WARNING in X.java (at line 8)\n" + 
+		"	void localfoo(){\n" + 
+		"	     ^^^^^^^^^^\n" + 
+		"The method localfoo() from the type Local is never used locally\n" + 
+		"----------\n" + 
+		"3. ERROR in X.java (at line 11)\n" + 
+		"	if (new Y().getX().field0 == null && field0.toString() == \"\"){}\n" + 
+		"	                                     ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"4. ERROR in X.java (at line 12)\n" + 
+		"	if (getX().field0 == null && field0.toString() == \"\"){}\n" + 
+		"	                             ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"5. ERROR in X.java (at line 14)\n" + 
+		"	if (getX().field0 == null && X.field0.toString() == \"\"){}\n" + 
+		"	                               ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"6. ERROR in X.java (at line 19)\n" + 
+		"	if (Y.xiny.field0 == null && Y.xiny.field0.toString() == \"\"){}\n" + 
+		"	                                    ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"7. ERROR in X.java (at line 22)\n" + 
+		"	if (X.field0 == null && X.field0.toString() == \"\"){}\n" + 
+		"	                          ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n",
+		JavacTestOptions.Excuse.EclipseWarningConfiguredAsError
+	);
+}
+
+// null analysis -- static fields from an anonymous type
+// Qualified access to static fields should also work
+public void testBug247564i_5() {
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportNonStaticAccessToStatic, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		true,
+		new String[] {
+			"X.java",
+			"interface Anon{}\n" +
+			"public class X {\n" +
+			"  static Object field0;\n" +
+			"  static Object field1;\n" +
+			"  Y getY(){ return new Y();}\n" +
+			"  X getX() { return new X();}\n" +
+			"  void goo(Object var) {\n" +
+			"	new Anon(){\n" +
+			"	  void localfoo(){\n " +
+			"    	if (new Y().getY().yField1 == null && field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (getY().yField1 == null && field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (new Y().getX().field0 == null && field0.toString() == \"\"){}\n" +   // warn
+			"    	if (getX().field0 == null && field0.toString() == \"\"){}\n" +   // warn
+			"    	if (getX().field0 == null && getX().field0.toString() == \"\"){}\n" +   // no warn, getX() wipes out null info
+			"    	if (getX().field0 == null && X.field0.toString() == \"\"){}\n" +   // warn, qualified access
+			// fields from other types, don't warn
+			"    	if (new Y().getY().yField1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (getY().yField1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (getX().field0 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			// qualified accesses
+			"    	if (Y.yField1 == null && field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (Y.xiny.field0 == null && Y.xiny.field0.toString() == \"\"){}\n" +  // warn, qualified access
+			"    	if (Y.yField1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (Y.xiny.field1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (X.field0 == null && X.field0.toString() == \"\"){}\n" +   // warn
+			"    	if (X.field0 == null && getX().field0.toString() == \"\"){}\n" +   // no warn	
+			"    }\n" +
+			"   };\n" +
+			"  }\n" +
+			"}\n" +
+			"class Y{\n" +
+			"	Y getY(){ return new Y();}\n" +
+			"	X getX(){ return new X();}\n" +
+			"   static Object yField1;\n" +
+			"   static X xiny;\n" +
+			"}"},
+		null,
+		compilerOptions,
+		"----------\n" + 
+		"1. WARNING in X.java (at line 9)\n" + 
+		"	void localfoo(){\n" + 
+		"	     ^^^^^^^^^^\n" + 
+		"The method localfoo() from the type new Anon(){} is never used locally\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 12)\n" + 
+		"	if (new Y().getX().field0 == null && field0.toString() == \"\"){}\n" + 
+		"	                                     ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"3. ERROR in X.java (at line 13)\n" + 
+		"	if (getX().field0 == null && field0.toString() == \"\"){}\n" + 
+		"	                             ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"4. ERROR in X.java (at line 15)\n" + 
+		"	if (getX().field0 == null && X.field0.toString() == \"\"){}\n" + 
+		"	                               ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"5. ERROR in X.java (at line 20)\n" + 
+		"	if (Y.xiny.field0 == null && Y.xiny.field0.toString() == \"\"){}\n" + 
+		"	                                    ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"6. ERROR in X.java (at line 23)\n" + 
+		"	if (X.field0 == null && X.field0.toString() == \"\"){}\n" + 
+		"	                          ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n",
+		JavacTestOptions.Excuse.EclipseWarningConfiguredAsError
 	);
 }
 }

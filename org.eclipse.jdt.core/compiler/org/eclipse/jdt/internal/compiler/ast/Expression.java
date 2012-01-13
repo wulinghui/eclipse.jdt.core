@@ -1117,8 +1117,9 @@ public void traverse(ASTVisitor visitor, ClassScope scope) {
 /**
  * Returns the field or local variable referenced by this node. Can be a direct reference (SingleNameReference)
  * or thru a cast expression etc...
- * @param scope This is the current scope in which binding is requested. May be <code>null</code>
- */
+ * @param scope This is the current scope in which binding is requested and is needed to ascertain if a static field
+ * belongs to the current type for null analysis. A <code>null</code> value may be passed to this parameter
+*/
 public VariableBinding variableBinding(Scope scope) {
 	return null;
 }

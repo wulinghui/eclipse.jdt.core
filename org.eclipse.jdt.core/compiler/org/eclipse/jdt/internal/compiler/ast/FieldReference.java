@@ -673,7 +673,8 @@ public void traverse(ASTVisitor visitor, BlockScope scope) {
 
 public VariableBinding variableBinding(Scope scope) {
 	if (this.receiver.isThis()) return this.binding;
-	if (this.binding.isStatic() && scope != null) {
+	if (this.binding != null && scope != null && this.binding.isStatic()) {
+		// does the static field belong to the current type or one of the enclosing ones?
 		ClassScope enclosingClass = scope.enclosingClassScope();
 		while (enclosingClass != null) {
 			TypeDeclaration type = enclosingClass.referenceContext;

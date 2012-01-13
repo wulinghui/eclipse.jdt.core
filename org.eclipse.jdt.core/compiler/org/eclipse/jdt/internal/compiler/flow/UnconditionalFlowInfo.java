@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -1044,6 +1044,8 @@ public void markAsComparedEqualToNonNull(VariableBinding local) {
 		this.tagBits |= NULL_FLAG_MASK;
 		int position;
 		if (local instanceof FieldBinding) {
+			// non-final fields may be modified in separate threads and we cannot be sure about their
+			// definite nullness. Hence, marking as potential non null.
 			this.markNullStatus(local, FlowInfo.POTENTIALLY_NON_NULL);
 			return;
 		} else {
@@ -1149,6 +1151,8 @@ public void markAsComparedEqualToNull(VariableBinding local) {
 		long mask;
 		// position is zero-based
 		if (local instanceof FieldBinding) {
+			// non-final fields may be modified in separate threads and we cannot be sure about their
+			// definite nullness. Hence, marking as potential null.
 			this.markNullStatus(local, FlowInfo.POTENTIALLY_NULL);
 			return;
 		} else {
@@ -1293,6 +1297,8 @@ public void markAsDefinitelyNonNull(VariableBinding local) {
     	int position;
     	// position is zero-based
     	if (local instanceof FieldBinding) {
+    		// non-final fields may be modified in separate threads and we cannot be sure about their
+    		// definite nullness. Hence, marking as potential non null.
     		this.markNullStatus(local, FlowInfo.POTENTIALLY_NON_NULL);
     		return;
     	} else {
@@ -1353,6 +1359,8 @@ public void markAsDefinitelyNull(VariableBinding local) {
     	int position;
     	// position is zero-based
     	if (local instanceof FieldBinding) {
+    		// non-final fields may be modified in separate threads and we cannot be sure about their
+    		// definite nullness. Hence, marking as potential null.
     		this.markNullStatus(local, FlowInfo.POTENTIALLY_NULL);
     		return;
     	} else {

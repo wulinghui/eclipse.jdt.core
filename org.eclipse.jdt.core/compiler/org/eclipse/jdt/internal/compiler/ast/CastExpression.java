@@ -447,7 +447,7 @@ public LocalVariableBinding localVariableBinding() {
 }
 
 /**
- * @see org.eclipse.jdt.internal.compiler.ast.Expression#variableBinding()
+ * @see org.eclipse.jdt.internal.compiler.ast.Expression#variableBinding(Scope)
  */
 public VariableBinding variableBinding(Scope scope) {
 	return this.expression.variableBinding(scope);

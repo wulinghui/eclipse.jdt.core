@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -1068,5 +1068,29 @@ public void traverse(ASTVisitor visitor, ClassScope scope) {
 
 public String unboundReferenceErrorName() {
 	return new String(this.tokens[0]);
+}
+
+public VariableBinding variableBinding(Scope scope) {
+	// if this is a *static* field and its actualResolvedType is the type in which we currently are asking for the binding,
+	// we can safely return the field binding
+	if (scope != null && this.binding != null && (this.bits & RestrictiveFlagMASK) == Binding.FIELD) {
+		FieldBinding fieldBinding;
+		if (this.otherBindings == null) {
+			fieldBinding = (FieldBinding) this.binding;
+		} else {
+			fieldBinding = this.otherBindings[this.otherBindings.length - 1];
+		}
+		if (fieldBinding.isStatic()) {
+			// does the static field belong to the current type or one of the enclosing ones?
+			ClassScope enclosingClass = scope.enclosingClassScope();
+			while (enclosingClass != null) {
+				TypeDeclaration type = enclosingClass.referenceContext;
+				if (type != null && type.declarationOf(fieldBinding) != null)
+					return fieldBinding;
+				enclosingClass = enclosingClass.enclosingClassScope();
+			}
+		}
+	}
+	return super.variableBinding(scope);
 }
 }
