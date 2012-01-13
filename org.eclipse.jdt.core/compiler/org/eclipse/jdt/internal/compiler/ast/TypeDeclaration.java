@@ -1218,8 +1218,8 @@ private int findFieldCountFromSuperInterfaces(ReferenceBinding[] superinterfaces
 	if (superinterfaces == null)
 		return numOfFields ;
 	for (int i = 0; i < superinterfaces.length; i++) {
-		// FIXME(stephan): check indirect usage of fields() -> resolveTypeFor(FieldBinding)
-		numOfFields += superinterfaces[i].fieldCount();
+		FieldBinding[] unResolvedFields = superinterfaces[i].unResolvedFields();
+		numOfFields += unResolvedFields != null ? unResolvedFields.length : 0;
 		numOfFields += findFieldCountFromSuperInterfaces(superinterfaces[i].superInterfaces());		
 	}
 	return numOfFields;
