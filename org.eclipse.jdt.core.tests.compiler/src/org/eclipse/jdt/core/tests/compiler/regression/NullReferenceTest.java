@@ -72,6 +72,7 @@ protected Map getCompilerOptions() {
 	    defaultOptions.put(CompilerOptions.OPTION_ReportRedundantNullCheck, CompilerOptions.ERROR);
 		defaultOptions.put(CompilerOptions.OPTION_ReportRawTypeReference, CompilerOptions.IGNORE);
 		defaultOptions.put(CompilerOptions.OPTION_IncludeNullInfoFromAsserts, CompilerOptions.ENABLED);
+		defaultOptions.put(CompilerOptions.OPTION_IncludeFieldsInNullAnalysis, CompilerOptions.ENABLED);
     }
     return defaultOptions;
 }

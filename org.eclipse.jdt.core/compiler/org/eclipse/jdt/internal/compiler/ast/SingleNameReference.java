@@ -810,6 +810,11 @@ public VariableBinding variableBinding(Scope scope) {
 	switch (this.bits & ASTNode.RestrictiveFlagMASK) {
 		case Binding.FIELD : 
 			// reading a field
+			if (scope != null) {
+				CompilerOptions options = scope.compilerOptions();
+				if(!options.includeFieldsInNullAnalysis) return null;
+			}			
+			//$FALL-THROUGH$
 		case Binding.LOCAL : // reading a local variable
 			return (VariableBinding) this.binding;
 	}

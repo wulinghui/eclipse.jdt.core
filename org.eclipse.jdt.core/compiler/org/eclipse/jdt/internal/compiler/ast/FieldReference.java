@@ -18,6 +18,7 @@ import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
 import org.eclipse.jdt.internal.compiler.codegen.Opcodes;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
@@ -672,16 +673,20 @@ public void traverse(ASTVisitor visitor, BlockScope scope) {
 }
 
 public VariableBinding variableBinding(Scope scope) {
-	if (this.receiver.isThis()) return this.binding;
-	if (this.binding != null && scope != null && this.binding.isStatic()) {
-		// does the static field belong to the current type or one of the enclosing ones?
-		ClassScope enclosingClass = scope.enclosingClassScope();
-		while (enclosingClass != null) {
-			TypeDeclaration type = enclosingClass.referenceContext;
-			if (type != null) {
-				if (type.declarationOf(this.binding) != null) return this.binding;
+	if (scope != null) {
+		CompilerOptions options = scope.compilerOptions();
+		if(!options.includeFieldsInNullAnalysis) return null;
+		if (this.receiver.isThis()) return this.binding;
+		if (this.binding != null && this.binding.isStatic()) {
+			// does the static field belong to the current type or one of the enclosing ones?
+			ClassScope enclosingClass = scope.enclosingClassScope();
+			while (enclosingClass != null) {
+				TypeDeclaration type = enclosingClass.referenceContext;
+				if (type != null) {
+					if (type.declarationOf(this.binding) != null) return this.binding;
+				}
+				enclosingClass = enclosingClass.enclosingClassScope();
 			}
-			enclosingClass = enclosingClass.enclosingClassScope();
 		}
 	}
 	return super.variableBinding(scope);
