@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -42,7 +42,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	// record setting a variable: various scenarii are possible, setting an array reference,
 // a field reference, a blank final field reference, a field of an enclosing instance or
 // just a local variable.
-	VariableBinding var = this.lhs.variableBinding();
+	VariableBinding var = this.lhs.variableBinding(currentScope);
 	if ((this.expression.implicitConversion & TypeIds.UNBOXING) != 0) {
 		this.expression.checkNPE(currentScope, flowContext, flowInfo);
 	}
@@ -231,7 +231,7 @@ public void traverse(ASTVisitor visitor, BlockScope scope) {
 public LocalVariableBinding localVariableBinding() {
 	return this.lhs.localVariableBinding();
 }
-public VariableBinding variableBinding() {
-	return this.lhs.variableBinding();
+public VariableBinding variableBinding(Scope scope) {
+	return this.lhs.variableBinding(scope);
 }
 }

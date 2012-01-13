@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -21,6 +21,7 @@ import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
+import org.eclipse.jdt.internal.compiler.lookup.ClassScope;
 import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
@@ -670,16 +671,18 @@ public void traverse(ASTVisitor visitor, BlockScope scope) {
 	visitor.endVisit(this, scope);
 }
 
-public VariableBinding variableBinding() {
-	if (this.receiver.isThis() || this.binding.isStatic()) {
-		if (this.receiver instanceof MessageSend) {
-			if (((MessageSend) this.receiver).actualReceiverType == this.receiver.resolvedType) {
-				return this.binding;
+public VariableBinding variableBinding(Scope scope) {
+	if (this.receiver.isThis()) return this.binding;
+	if (this.binding.isStatic() && scope != null) {
+		ClassScope enclosingClass = scope.enclosingClassScope();
+		while (enclosingClass != null) {
+			TypeDeclaration type = enclosingClass.referenceContext;
+			if (type != null) {
+				if (type.declarationOf(this.binding) != null) return this.binding;
 			}
-		} else {
-			return this.binding;
+			enclosingClass = enclosingClass.enclosingClassScope();
 		}
 	}
-	return super.variableBinding();
+	return super.variableBinding(scope);
 }
 }

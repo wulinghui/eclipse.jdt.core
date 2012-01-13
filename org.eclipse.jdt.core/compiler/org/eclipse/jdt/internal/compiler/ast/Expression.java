@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -526,7 +526,7 @@ public final boolean checkCastTypesCompatibility(Scope scope, TypeBinding castTy
  * @param flowInfo the upstream flow info; caveat: may get modified
  */
 public void checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo) {
-	VariableBinding local = variableBinding();
+	VariableBinding local = variableBinding(scope);
 	if (local != null &&
 			(local.type.tagBits & TagBits.IsBaseType) == 0) {
 		if ((this.bits & ASTNode.IsNonNull) == 0) {
@@ -873,7 +873,7 @@ public int nullStatus(FlowInfo flowInfo) {
 		this.constant != null && this.constant != Constant.NotAConstant)
 	return FlowInfo.NON_NULL; // constant expression cannot be null
 
-	VariableBinding local = variableBinding();
+	VariableBinding local = variableBinding(null);
 	if (local != null)
 		return flowInfo.nullStatus(local);
 	return FlowInfo.NON_NULL;
@@ -1117,8 +1117,9 @@ public void traverse(ASTVisitor visitor, ClassScope scope) {
 /**
  * Returns the field or local variable referenced by this node. Can be a direct reference (SingleNameReference)
  * or thru a cast expression etc...
+ * @param scope This is the current scope in which binding is requested. May be <code>null</code>
  */
-public VariableBinding variableBinding() {
+public VariableBinding variableBinding(Scope scope) {
 	return null;
 }
 }
