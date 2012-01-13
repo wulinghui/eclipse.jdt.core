@@ -49,7 +49,7 @@ public NullReferenceTest(String name) {
 // Only the highest compliance level is run; add the VM argument
 // -Dcompliance=1.4 (for example) to lower it if needed
 static {
-//		TESTS_NAMES = new String[] { "testBug247564i" };
+//		TESTS_NAMES = new String[] { "testBug247564j" };
 //		TESTS_NUMBERS = new int[] { 561 };
 //		TESTS_RANGE = new int[] { 1, 2049 };
 }
@@ -16371,6 +16371,44 @@ public void testBug247564i_5() {
 		"Potential null pointer access: The field field0 may be null at this location\n" + 
 		"----------\n",
 		JavacTestOptions.Excuse.EclipseWarningConfiguredAsError
+	);
+}
+// null analysis -- simple case for field for inner class
+// regression?
+public void testBug247564j() {
+	this.runNegativeTest(
+		new String[] {
+			"Z.java",
+			"public class Z {\n" +
+			"    final int field1 = 0;\n" +
+			"    {\n" +
+			"        class ZInner {\n" +
+			"            final int fieldz1;\n" +
+			"            final int fieldz2 = 0;\n" +
+			"        }\n" +
+			"    }\n" +
+			"}\n"},
+			"----------\n" +
+			"1. WARNING in Z.java (at line 4)\n" +
+			"	class ZInner {\n" +
+			"	      ^^^^^^\n" +
+			"The type ZInner is never used locally\n" +
+			"----------\n" +
+			"2. ERROR in Z.java (at line 4)\n" +
+			"	class ZInner {\n" +
+			"	      ^^^^^^\n" +
+			"The blank final field fieldz1 may not have been initialized\n" +
+			"----------\n" +
+			"3. WARNING in Z.java (at line 5)\n" +
+			"	final int fieldz1;\n" +
+			"	          ^^^^^^^\n" +
+			"The value of the field ZInner.fieldz1 is not used\n" +
+			"----------\n" +
+			"4. WARNING in Z.java (at line 6)\n" +
+			"	final int fieldz2 = 0;\n" +
+			"	          ^^^^^^^\n" +
+			"The value of the field ZInner.fieldz2 is not used\n" +
+			"----------\n"
 	);
 }
 }

@@ -1064,12 +1064,10 @@ public void resolve() {
 		int superFieldsCount = 0;
 		ReferenceBinding superClassBinding = sourceType.superclass;
 		while (superClassBinding != null) {
-// TODO(stephan): this part is pending a discussion how deep we want to go into super types.
-// 1.: consistently avoid calling fields() (also from findFieldCountFromSuperInterfaces())
-// 2.: consistently check field.kind()  (also in findFieldCountFromSuperInterfaces())?
 			FieldBinding[] unResolvedFields = superClassBinding.unResolvedFields();
 			if (unResolvedFields != null) {
 				for (int i=unResolvedFields.length-1; i>=0; i--) {
+// TODO(stephan): why do we call kind()? (we don't do so in findFieldCountFromSuperInterfaces())
 					switch (unResolvedFields[i].kind()) {
 						case AbstractVariableDeclaration.FIELD:
 						case AbstractVariableDeclaration.ENUM_CONSTANT:
@@ -1077,14 +1075,19 @@ public void resolve() {
 					}
 				}
 			}
-//			superFieldsCount += superClassBinding.fieldCount();
 			superFieldsCount += findFieldCountFromSuperInterfaces(superClassBinding.superInterfaces());
 			superClassBinding = superClassBinding.superclass();
 		}
 		ReferenceBinding[] superInterfacesBinding = this.binding.superInterfaces;
 		superFieldsCount += findFieldCountFromSuperInterfaces(superInterfacesBinding);
 		this.binding.cumulativeFieldCount += superFieldsCount;
+		this.maxFieldCount = sourceType.cumulativeFieldCount;
 
+		if (this.memberTypes != null) {
+			for (int i = 0, count = this.memberTypes.length; i < count; i++) {
+				this.memberTypes[i].resolve(this.scope);
+			}
+		}
 		if (this.fields != null) {
 			for (int i = 0, count = this.fields.length; i < count; i++) {
 				FieldDeclaration field = this.fields[i];
@@ -1119,12 +1122,6 @@ public void resolve() {
 						break;
 				}
 				field.resolve(field.isStatic() ? this.staticInitializerScope : this.initializerScope);
-			}
-		}		
-		this.maxFieldCount = sourceType.cumulativeFieldCount;
-		if (this.memberTypes != null) {
-			for (int i = 0, count = this.memberTypes.length; i < count; i++) {
-				this.memberTypes[i].resolve(this.scope);
 			}
 		}
 		if (needSerialVersion) {
