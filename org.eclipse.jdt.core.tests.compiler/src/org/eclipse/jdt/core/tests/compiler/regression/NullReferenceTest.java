@@ -49,7 +49,7 @@ public NullReferenceTest(String name) {
 // Only the highest compliance level is run; add the VM argument
 // -Dcompliance=1.4 (for example) to lower it if needed
 static {
-//		TESTS_NAMES = new String[] { "testBug247564j" };
+//		TESTS_NAMES = new String[] { "testBug247564a_4" };
 //		TESTS_NUMBERS = new int[] { 561 };
 //		TESTS_RANGE = new int[] { 1, 2049 };
 }
@@ -15537,23 +15537,24 @@ public void testBug247564a_3() {
 }
 
 //null analysis -- simple case for field
-public void _testBug247564a_4() {
+public void testBug247564a_4() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
 			"public class X {\n" +
 			"  Object o;\n" +
-			"  void foo() {\n" +
-			"    if (o != null && o.toString() == \"\"){}\n" +
-			"    else {}\n" +
-			"    o.toString();\n" + // toString() call above defuses null info, so no warning here
+			"  int foo() {\n" +
+			"    if (o != null && o.toString() == \"\") {\n" +
+			"    } else {\n" +
+			"    }\n" +
+			"    return o.hashCode();\n" + // the above check has shed doubts so give a warning here
 			"  }\n" +
 			"}\n"},
 		"----------\n" + 
-		"1. ERROR in X.java (at line 4)\n" + 
-		"	if (o == null && o.toString() == \"\"){}\n" + 
-		"	                 ^\n" + 
-		"Potential null pointer access: The field o may be null at this location\n" + 
+		"1. ERROR in X.java (at line 7)\n" +
+		"	return o.hashCode();\n" +
+		"	       ^\n" +
+		"Potential null pointer access: The field o may be null at this location\n" +
 		"----------\n"
 	);
 }
@@ -16451,26 +16452,21 @@ public void testBug247564i_6() {
 	);
 }
 //null analysis -- simple case for field of parent type
-public void _testBug247564j() {
-	this.runNegativeTest(
+public void testBug247564j() {
+	this.runConformTest(
 		new String[] {
 			"X.java",
 			"public class X extends Y {\n" +
 			"  private Object fieldx;\n" +
 			"	 void goo(Object var) {\n" +
-			"    	if (fieldx == null && fieldy.toString() == \"\"){}\n" +
+			"    	if (fieldx == null && fieldy.toString() == \"\"){}\n" + // don't flag fieldy, nothing known
 			"  }\n" +
 			"}\n" +
 			"class Y{\n" +
 			"	protected Object fieldy = null;\n" +
 			"}\n" +
 			""},
-		"----------\n" + 
-		"1. ERROR in X.java (at line 13)\n" + 
-		"	if (field3 == null && field3.toString() == \"\"){}\n" + 
-		"	                      ^^^^^^\n" + 
-		"Potential null pointer access: The field field3 may be null at this location\n" + 
-		"----------\n"
+		""
 	);
 }
 }

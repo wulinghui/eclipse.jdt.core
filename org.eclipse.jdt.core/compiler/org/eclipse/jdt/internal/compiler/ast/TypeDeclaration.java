@@ -1114,6 +1114,7 @@ public void resolve() {
 								&& TypeBinding.LONG == fieldBinding.type) {
 							needSerialVersion = false;
 						}
+						field.binding.id += superFieldsCount;
 						lastVisibleFieldID = field.binding.id;
 						break;
 
