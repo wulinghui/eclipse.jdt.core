@@ -751,6 +751,14 @@ final public boolean isDefinitelyAssigned(LocalVariableBinding local) {
 	return isDefinitelyAssigned(local.id + this.maxFieldCount);
 }
 
+final public boolean isDefinitelyAssigned(VariableBinding var) {
+	if (var instanceof FieldBinding) {
+		return this.isDefinitelyAssigned((FieldBinding)var);
+	} else {
+		return this.isDefinitelyAssigned((LocalVariableBinding)var);
+	}
+}
+
 final public boolean isDefinitelyNonNull(VariableBinding local) {
 	if (local instanceof FieldBinding && (this.tagBits & NULL_FLAG_MASK) == 0) {
 		// no local yet in scope. Came here because of a field being queried for non null
@@ -888,6 +896,14 @@ final public boolean isPotentiallyAssigned(LocalVariableBinding local) {
 		return true;
 	}
 	return isPotentiallyAssigned(local.id + this.maxFieldCount);
+}
+
+final public boolean isPotentiallyAssigned(VariableBinding var) {
+	if (var instanceof FieldBinding) {
+	return this.isPotentiallyAssigned((FieldBinding)var);
+	} else {
+		return this.isPotentiallyAssigned((LocalVariableBinding)var);
+	}
 }
 
 // TODO (Ayush) Check why this method does not return true for protected non null (1111)
@@ -1279,14 +1295,9 @@ final private void markAsDefinitelyAssigned(int position) {
 	}
 }
 
-public void markAsDefinitelyAssigned(FieldBinding field) {
+public void markAsDefinitelyAssigned(VariableBinding var) {
 	if (this != DEAD_END)
-		markAsDefinitelyAssigned(field.getAnalysisId(this.maxFieldCount));
-}
-
-public void markAsDefinitelyAssigned(LocalVariableBinding local) {
-	if (this != DEAD_END)
-		markAsDefinitelyAssigned(local.id + this.maxFieldCount);
+		markAsDefinitelyAssigned(var.getAnalysisId(this.maxFieldCount));
 }
 
 public void markAsDefinitelyNonNull(VariableBinding local) {

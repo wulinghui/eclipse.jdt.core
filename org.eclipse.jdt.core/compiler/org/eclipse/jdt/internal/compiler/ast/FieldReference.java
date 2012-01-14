@@ -682,13 +682,11 @@ public VariableBinding variableBinding(Scope scope) {
 			ClassScope enclosingClass = scope.enclosingClassScope();
 			while (enclosingClass != null) {
 				TypeDeclaration type = enclosingClass.referenceContext;
-				if (type != null) {
-					if (type.declarationOf(this.binding) != null) return this.binding;
-				}
+				if (type != null && (this.binding.declaringClass.original() == type.binding)) return this.binding;
 				enclosingClass = enclosingClass.enclosingClassScope();
 			}
 		}
 	}
-	return super.variableBinding(scope);
+	return null;
 }
 }

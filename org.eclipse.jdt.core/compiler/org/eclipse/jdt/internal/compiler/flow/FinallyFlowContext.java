@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -56,13 +56,13 @@ public void complainOnDeferredChecks(FlowInfo flowInfo, BlockScope scope) {
 		boolean complained = false; // remember if have complained on this final assignment
 		if (variable instanceof FieldBinding) {
 			// final field
-			if (flowInfo.isPotentiallyAssigned((FieldBinding)variable)) {
+			if (flowInfo.isPotentiallyAssigned(variable)) {
 				complained = true;
 				scope.problemReporter().duplicateInitializationOfBlankFinalField((FieldBinding)variable, this.finalAssignments[i]);
 			}
 		} else {
 			// final local variable
-			if (flowInfo.isPotentiallyAssigned((LocalVariableBinding) variable)) {
+			if (flowInfo.isPotentiallyAssigned(variable)) {
 				complained = true;
 				scope.problemReporter().duplicateInitializationOfFinalLocal(
 					(LocalVariableBinding) variable,

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,7 +11,6 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.flow;
 
-import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.VariableBinding;
 
@@ -74,16 +73,10 @@ public FlowInfo initsWhenTrue() {
 	return this.initsWhenTrue;
 }
 
-public boolean isDefinitelyAssigned(FieldBinding field) {
+public boolean isDefinitelyAssigned(VariableBinding var) {
 
-	return this.initsWhenTrue.isDefinitelyAssigned(field)
-			&& this.initsWhenFalse.isDefinitelyAssigned(field);
-}
-
-public boolean isDefinitelyAssigned(LocalVariableBinding local) {
-
-	return this.initsWhenTrue.isDefinitelyAssigned(local)
-			&& this.initsWhenFalse.isDefinitelyAssigned(local);
+	return this.initsWhenTrue.isDefinitelyAssigned(var)
+			&& this.initsWhenFalse.isDefinitelyAssigned(var);
 }
 
 public boolean isDefinitelyNonNull(VariableBinding local) {
@@ -101,14 +94,9 @@ public boolean isDefinitelyUnknown(VariableBinding local) {
 			&& this.initsWhenFalse.isDefinitelyUnknown(local);
 }
 
-public boolean isPotentiallyAssigned(FieldBinding field) {
-	return this.initsWhenTrue.isPotentiallyAssigned(field)
-			|| this.initsWhenFalse.isPotentiallyAssigned(field);
-}
-
-public boolean isPotentiallyAssigned(LocalVariableBinding local) {
-	return this.initsWhenTrue.isPotentiallyAssigned(local)
-			|| this.initsWhenFalse.isPotentiallyAssigned(local);
+public boolean isPotentiallyAssigned(VariableBinding var) {
+	return this.initsWhenTrue.isPotentiallyAssigned(var)
+			|| this.initsWhenFalse.isPotentiallyAssigned(var);
 }
 
 public boolean isPotentiallyNonNull(VariableBinding local) {
@@ -146,14 +134,9 @@ public void markAsComparedEqualToNull(VariableBinding local) {
     this.initsWhenFalse.markAsComparedEqualToNull(local);
 }
 
-public void markAsDefinitelyAssigned(FieldBinding field) {
-	this.initsWhenTrue.markAsDefinitelyAssigned(field);
-	this.initsWhenFalse.markAsDefinitelyAssigned(field);
-}
-
-public void markAsDefinitelyAssigned(LocalVariableBinding local) {
-	this.initsWhenTrue.markAsDefinitelyAssigned(local);
-	this.initsWhenFalse.markAsDefinitelyAssigned(local);
+public void markAsDefinitelyAssigned(VariableBinding var) {
+	this.initsWhenTrue.markAsDefinitelyAssigned(var);
+	this.initsWhenFalse.markAsDefinitelyAssigned(var);
 }
 
 public void markAsDefinitelyNonNull(VariableBinding local) {

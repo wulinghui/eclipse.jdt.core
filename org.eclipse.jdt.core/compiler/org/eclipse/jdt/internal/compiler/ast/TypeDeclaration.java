@@ -1067,7 +1067,7 @@ public void resolve() {
 			FieldBinding[] unResolvedFields = superClassBinding.unResolvedFields();
 			if (unResolvedFields != null) {
 				for (int i=unResolvedFields.length-1; i>=0; i--) {
-// TODO(stephan): why do we call kind()? (we don't do so in findFieldCountFromSuperInterfaces())
+ 					// if the field is an initializer we do not want to update the count 
 					switch (unResolvedFields[i].kind()) {
 						case AbstractVariableDeclaration.FIELD:
 						case AbstractVariableDeclaration.ENUM_CONSTANT:
@@ -1216,6 +1216,7 @@ private int findFieldCountFromSuperInterfaces(ReferenceBinding[] superinterfaces
 		return numOfFields ;
 	for (int i = 0; i < superinterfaces.length; i++) {
 		FieldBinding[] unResolvedFields = superinterfaces[i].unResolvedFields();
+		// no need to check field kinds as initializer cannot occur inside interfaces
 		numOfFields += unResolvedFields != null ? unResolvedFields.length : 0;
 		numOfFields += findFieldCountFromSuperInterfaces(superinterfaces[i].superInterfaces());		
 	}

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,7 +15,6 @@ package org.eclipse.jdt.internal.compiler.flow;
 
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
 import org.eclipse.jdt.internal.compiler.ast.IfStatement;
-import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.VariableBinding;
 
@@ -168,14 +167,9 @@ abstract public FlowInfo initsWhenFalse();
 	abstract public FlowInfo initsWhenTrue();
 
 	/**
-	 * Check status of definite assignment for a field.
+	 * Check status of definite assignment for a local or field.
 	 */
-	 abstract public boolean isDefinitelyAssigned(FieldBinding field);
-
-	/**
-	 * Check status of definite assignment for a local.
-	 */
-	public abstract boolean isDefinitelyAssigned(LocalVariableBinding local);
+	 abstract public boolean isDefinitelyAssigned(VariableBinding var);
 
 /**
  * Check status of definite non-null value for a given field or local variable. Note that for fields, this method only
@@ -203,15 +197,10 @@ public abstract boolean isDefinitelyNull(VariableBinding binding);
 public abstract boolean isDefinitelyUnknown(VariableBinding binding);
 
 	/**
-	 * Check status of potential assignment for a field.
-	 */
-	 abstract public boolean isPotentiallyAssigned(FieldBinding field);
-
-	/**
-	 * Check status of potential assignment for a local variable.
+	 * Check status of potential assignment for a local variable or a field.
 	 */
 
-	 abstract public boolean isPotentiallyAssigned(LocalVariableBinding field);
+	 abstract public boolean isPotentiallyAssigned(VariableBinding var);
 
 /**
  * Check status of potential null assignment for a field or local. Return true if there
@@ -269,11 +258,6 @@ abstract public void markAsComparedEqualToNonNull(VariableBinding binding);
 abstract public void markAsComparedEqualToNull(VariableBinding binding);
 
 	/**
-	 * Record a field got definitely assigned.
-	 */
-	abstract public void markAsDefinitelyAssigned(FieldBinding field);
-
-	/**
 	 * Record a field or local got definitely assigned to a non-null value.
 	 */
 	abstract public void markAsDefinitelyNonNull(VariableBinding binding);
@@ -308,9 +292,9 @@ abstract public void markAsComparedEqualToNull(VariableBinding binding);
 	abstract public void markPotentiallyNonNullBit(VariableBinding binding);
 
 	/**
-	 * Record a local got definitely assigned.
+	 * Record a local or field got definitely assigned.
 	 */
-	abstract public void markAsDefinitelyAssigned(LocalVariableBinding local);
+	abstract public void markAsDefinitelyAssigned(VariableBinding var);
 
 /**
  * Record a field or local got definitely assigned to an unknown value.

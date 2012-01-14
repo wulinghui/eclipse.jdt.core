@@ -49,7 +49,7 @@ public NullReferenceTest(String name) {
 // Only the highest compliance level is run; add the VM argument
 // -Dcompliance=1.4 (for example) to lower it if needed
 static {
-//		TESTS_NAMES = new String[] { "testBug247564j" };
+//		TESTS_NAMES = new String[] { "testBug247564i" };
 //		TESTS_NUMBERS = new int[] { 561 };
 //		TESTS_RANGE = new int[] { 1, 2049 };
 }
@@ -16373,42 +16373,59 @@ public void testBug247564i_5() {
 		JavacTestOptions.Excuse.EclipseWarningConfiguredAsError
 	);
 }
-// null analysis -- simple case for field for inner class
-// regression?
-public void testBug247564j() {
+// null analysis -- static fields
+// to check static field access from fieldReference and QualifiedReference when the type is parameterized
+public void testBug247564i_6() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5) return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportNonStaticAccessToStatic, CompilerOptions.IGNORE);
 	this.runNegativeTest(
+		true,
 		new String[] {
-			"Z.java",
-			"public class Z {\n" +
-			"    final int field1 = 0;\n" +
-			"    {\n" +
-			"        class ZInner {\n" +
-			"            final int fieldz1;\n" +
-			"            final int fieldz2 = 0;\n" +
-			"        }\n" +
-			"    }\n" +
-			"}\n"},
-			"----------\n" +
-			"1. WARNING in Z.java (at line 4)\n" +
-			"	class ZInner {\n" +
-			"	      ^^^^^^\n" +
-			"The type ZInner is never used locally\n" +
-			"----------\n" +
-			"2. ERROR in Z.java (at line 4)\n" +
-			"	class ZInner {\n" +
-			"	      ^^^^^^\n" +
-			"The blank final field fieldz1 may not have been initialized\n" +
-			"----------\n" +
-			"3. WARNING in Z.java (at line 5)\n" +
-			"	final int fieldz1;\n" +
-			"	          ^^^^^^^\n" +
-			"The value of the field ZInner.fieldz1 is not used\n" +
-			"----------\n" +
-			"4. WARNING in Z.java (at line 6)\n" +
-			"	final int fieldz2 = 0;\n" +
-			"	          ^^^^^^^\n" +
-			"The value of the field ZInner.fieldz2 is not used\n" +
-			"----------\n"
+			"X.java",
+			"public class X<T> {\n" +
+			"  static Object field0;\n" +
+			"  static Object field1;\n" +
+			"  Y getY(){ return new Y();}\n" +
+			"  X getX() { return new X();}\n" +
+			"  void goo(Object var) {\n" +
+			"    	if (new Y().getY().yField1 == null && X.field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (getY().yField1 == null && X.field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (getY().yField1 == null && this.field0.toString() == \"\"){}\n" +  // no warn
+			"    	if (new Y().getX().field0 == null && X.field0.toString() == \"\"){}\n" +   // warn
+			"    	if (getX().field0 == null && X.field0.toString() == \"\"){}\n" +   // warn
+			"    	if (getX().field0 == null && this.field0.toString() == \"\"){}\n" +   // warn
+			"    	if (getX().field0 == null && getX().field0.toString() == \"\"){}\n" +   // no warn, getX() wipes out null info
+			// fields from other types, don't warn
+			"    	if (new Y().getY().yField1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (getY().yField1 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"    	if (getX().field0 == null && Y.yField1.toString() == \"\"){}\n" +  // no warn
+			"  }\n" +
+			"}\n" +
+			"class Y<K>{\n" +
+			"	Y getY(){ return new Y();}\n" +
+			"	X getX(){ return new X();}\n" +
+			"   static Object yField1;\n" +
+			"}"},
+		null,
+		compilerOptions,
+		"----------\n" + 
+		"1. ERROR in X.java (at line 10)\n" + 
+		"	if (new Y().getX().field0 == null && X.field0.toString() == \"\"){}\n" + 
+		"	                                       ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 11)\n" + 
+		"	if (getX().field0 == null && X.field0.toString() == \"\"){}\n" + 
+		"	                               ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n" + 
+		"3. ERROR in X.java (at line 12)\n" + 
+		"	if (getX().field0 == null && this.field0.toString() == \"\"){}\n" + 
+		"	                                  ^^^^^^\n" + 
+		"Potential null pointer access: The field field0 may be null at this location\n" + 
+		"----------\n",
+		JavacTestOptions.Excuse.EclipseWarningConfiguredAsError
 	);
 }
 }

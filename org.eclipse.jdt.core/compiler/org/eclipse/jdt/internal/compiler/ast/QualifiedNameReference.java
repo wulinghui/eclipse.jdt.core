@@ -1088,7 +1088,7 @@ public VariableBinding variableBinding(Scope scope) {
 				ClassScope enclosingClass = scope.enclosingClassScope();
 				while (enclosingClass != null) {
 					TypeDeclaration type = enclosingClass.referenceContext;
-					if (type != null && type.declarationOf(fieldBinding) != null)
+					if (type != null && fieldBinding.declaringClass.original() == type.binding)
 						return fieldBinding;
 					enclosingClass = enclosingClass.enclosingClassScope();
 				}
