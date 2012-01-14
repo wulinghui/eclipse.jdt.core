@@ -49,7 +49,7 @@ public NullReferenceTest(String name) {
 // Only the highest compliance level is run; add the VM argument
 // -Dcompliance=1.4 (for example) to lower it if needed
 static {
-//		TESTS_NAMES = new String[] { "testBug247564i" };
+//		TESTS_NAMES = new String[] { "testBug247564j" };
 //		TESTS_NUMBERS = new int[] { 561 };
 //		TESTS_RANGE = new int[] { 1, 2049 };
 }
@@ -15536,6 +15536,28 @@ public void testBug247564a_3() {
 	);
 }
 
+//null analysis -- simple case for field
+public void _testBug247564a_4() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"  Object o;\n" +
+			"  void foo() {\n" +
+			"    if (o != null && o.toString() == \"\"){}\n" +
+			"    else {}\n" +
+			"    o.toString();\n" + // toString() call above defuses null info, so no warning here
+			"  }\n" +
+			"}\n"},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 4)\n" + 
+		"	if (o == null && o.toString() == \"\"){}\n" + 
+		"	                 ^\n" + 
+		"Potential null pointer access: The field o may be null at this location\n" + 
+		"----------\n"
+	);
+}
+
 // null analysis -- simple case for static final field
 public void testBug247564b() {
 	this.runNegativeTest(
@@ -16426,6 +16448,29 @@ public void testBug247564i_6() {
 		"Potential null pointer access: The field field0 may be null at this location\n" + 
 		"----------\n",
 		JavacTestOptions.Excuse.EclipseWarningConfiguredAsError
+	);
+}
+//null analysis -- simple case for field of parent type
+public void _testBug247564j() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X extends Y {\n" +
+			"  private Object fieldx;\n" +
+			"	 void goo(Object var) {\n" +
+			"    	if (fieldx == null && fieldy.toString() == \"\"){}\n" +
+			"  }\n" +
+			"}\n" +
+			"class Y{\n" +
+			"	protected Object fieldy = null;\n" +
+			"}\n" +
+			""},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 13)\n" + 
+		"	if (field3 == null && field3.toString() == \"\"){}\n" + 
+		"	                      ^^^^^^\n" + 
+		"Potential null pointer access: The field field3 may be null at this location\n" + 
+		"----------\n"
 	);
 }
 }
