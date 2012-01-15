@@ -49,7 +49,7 @@ public NullReferenceTest(String name) {
 // Only the highest compliance level is run; add the VM argument
 // -Dcompliance=1.4 (for example) to lower it if needed
 static {
-//		TESTS_NAMES = new String[] { "testBug247564a_4" };
+//		TESTS_NAMES = new String[] { "testBug247564b" };
 //		TESTS_NUMBERS = new int[] { 561 };
 //		TESTS_RANGE = new int[] { 1, 2049 };
 }
@@ -15673,6 +15673,36 @@ public void testBug247564b_1() {
 	);
 }
 
+// null analysis -- case for static final field initialized inside static block with different values
+public void testBug247564b_3() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"  static final Object o;\n" +
+			"  static final Object o1 = new Object();\n" +
+			"  static {\n" +
+			"		if (o1.hashCode() == 2){\n" +
+			"			o = new Object();\n" +
+			"		} else {\n" +
+			"			o = null;\n" +
+			"		}\n" +
+			"  }\n" +
+			"  void foo() {\n" +
+			"    if (o.toString() == \"\") {}\n" +
+			"    if (o == null) {}\n" +
+			"	 if (o != null) {}\n" +
+			"  }\n" +
+			"}\n"},
+			"----------\n" + 
+			"1. ERROR in X.java (at line 12)\n" + 
+			"	if (o.toString() == \"\") {}\n" + 
+			"	    ^\n" + 
+			"Potential null pointer access: The field o may be null at this location\n" + 
+			"----------\n"
+	);
+}
+
 // null analysis -- fields in synchronized methods
 // check that null analysis for fields in synchronized methods
 // behave as it does in ordinary methods.
@@ -16466,6 +16496,56 @@ public void testBug247564j() {
 			"	protected Object fieldy = null;\n" +
 			"}\n" +
 			""},
+		""
+	);
+}
+
+// null analysis -- simple case for field in try-finally
+public void testBug247564k() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"  private Object f;\n" +
+			"	 void goo(Object var) {\n" +
+			"		try {\n" +
+			"			int i = 10;\n" +
+			"			while (i<20){\n" +
+			"				if (i == 15) {\n" +
+			"					f = null;\n" +
+			"					break;\n" +
+			"				}\n" +
+			"				i++;\n" +
+			"			}\n" +
+			"			return;\n" +
+			"		} finally {\n" +
+			"			if (f != null && f.hashCode() == 0){}\n" +
+			"		}\n" +
+			"  }\n" +
+			"}\n"},
+		""
+	);
+}
+
+// null analysis -- simple case for field in try-finally
+// presence or absence of throw should not affect the behaviour
+public void testBug247564k_1() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"  private Object f;\n" +
+			"	 void goo(Object var) throws Exception{\n" +
+			"		try {\n" +
+			"			int i = 10;\n" +
+			"		} catch(Exception e) {\n" +
+			"			f = null;\n" +
+			"			throw e;\n" +
+			"		} finally {\n" +
+			"			if (f != null && f.hashCode() == 0){}\n" +
+			"		}\n" +
+			"  }\n" +
+			"}\n"},
 		""
 	);
 }

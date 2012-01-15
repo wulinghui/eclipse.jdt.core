@@ -845,6 +845,12 @@ final public boolean isDefinitelyUnknown(VariableBinding local) {
 			(this.tagBits & NULL_FLAG_MASK) == 0) {
 		return false;
 	}
+	if (local instanceof FieldBinding) {
+		if (local.isFinal() && ((FieldBinding)local).isStatic()) {
+			// static final field's null status may not be in the flow info
+			return (((FieldBinding) local).getNullStatusForStaticFinalField() == FlowInfo.UNKNOWN);
+		}
+	}
 	int position = local.getAnalysisId(this.maxFieldCount);
 	if (position < BitCacheSize) { // use bits
 		return ((this.nullBit1 & this.nullBit4
@@ -912,6 +918,12 @@ final public boolean isPotentiallyNonNull(VariableBinding local) {
 			(local.type.tagBits & TagBits.IsBaseType) != 0) {
 		return false;
 	}
+	if (local instanceof FieldBinding) {
+		if (local.isFinal() && ((FieldBinding)local).isStatic()) {
+			// static final field's null status may not be in the flow info
+			return ((((FieldBinding) local).getNullStatusForStaticFinalField() & FlowInfo.POTENTIALLY_NON_NULL) != 0);
+		}
+	}
 	int position = local.getAnalysisId(this.maxFieldCount);
 	if (position < BitCacheSize) { // use bits
 		// use bits
@@ -941,7 +953,7 @@ final public boolean isPotentiallyNull(VariableBinding local) {
 	if (local instanceof FieldBinding) {
 		if (local.isFinal() && ((FieldBinding)local).isStatic()) {
 			// static final field's null status may not be in the flow info
-			return (((FieldBinding) local).getNullStatusForStaticFinalField() == FlowInfo.POTENTIALLY_NULL);
+			return ((((FieldBinding) local).getNullStatusForStaticFinalField() & FlowInfo.POTENTIALLY_NULL) != 0);
 		}
 	}
 	int position = local.getAnalysisId(this.maxFieldCount);
@@ -1062,7 +1074,9 @@ public void markAsComparedEqualToNonNull(VariableBinding local) {
 		if (local instanceof FieldBinding) {
 			// non-final fields may be modified in separate threads and we cannot be sure about their
 			// definite nullness. Hence, marking as potential non null.
+			// Also marking it as definitely unknown to avoid deferring null check for these fields
 			this.markNullStatus(local, FlowInfo.POTENTIALLY_NON_NULL);
+			this.markAsDefinitelyUnknown(local);
 			return;
 		} else {
 			position = local.id + this.maxFieldCount;
@@ -1310,7 +1324,9 @@ public void markAsDefinitelyNonNull(VariableBinding local) {
     	if (local instanceof FieldBinding) {
     		// non-final fields may be modified in separate threads and we cannot be sure about their
     		// definite nullness. Hence, marking as potential non null.
+    		// Also marking it as definitely unknown to avoid deferring null check for these fields
     		this.markNullStatus(local, FlowInfo.POTENTIALLY_NON_NULL);
+    		this.markAsDefinitelyUnknown(local);
     		return;
     	} else {
     		position = local.id + this.maxFieldCount;

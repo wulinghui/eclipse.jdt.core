@@ -403,6 +403,16 @@ public int getNullStatusForStaticFinalField() {
 }
 
 public void setNullStatusForStaticFinalField(int nullStatusToMark) {
-	this.nullStatus = nullStatusToMark;
+	if (this.nullStatus == FlowInfo.UNKNOWN) {
+		this.nullStatus = nullStatusToMark;
+	} else if (this.nullStatus == nullStatusToMark) {
+		this.nullStatus |= nullStatusToMark;
+	} else if (nullStatusToMark == FlowInfo.NULL) {
+		this.nullStatus |= FlowInfo.POTENTIALLY_NULL;
+	} else if (nullStatusToMark == FlowInfo.NON_NULL) {
+		this.nullStatus |= FlowInfo.POTENTIALLY_NON_NULL;
+	} else {
+		this.nullStatus |= nullStatusToMark;
+	}
 }
 }
