@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -43,6 +43,7 @@ public class SourceTypeBinding extends ReferenceBinding {
 	public TypeVariableBinding[] typeVariables;
 
 	public ClassScope scope;
+	public int fieldAnalysisOffset;		// an offset for ids of fields of this class (id to be used for flow analysis) 
 	public int cumulativeFieldCount;   // cumulative field count from all enclosing types, used to build unique field id's for member types.
 
 	// Synthetics are separated into 4 categories: methods, super methods, fields, class literals and bridge methods

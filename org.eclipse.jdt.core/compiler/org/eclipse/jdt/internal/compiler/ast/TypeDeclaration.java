@@ -1056,12 +1056,12 @@ public void resolve() {
 		// to make field-ids unique among all fields in scope.
 		// 1.: enclosing:
 		TypeBinding original = sourceType.original();
+		int fieldAnalysisOffset = 0;
 		if (original instanceof NestedTypeBinding) {
 			// note: local types have no enclosingType in the AST but only in the binding:
-			sourceType.cumulativeFieldCount += ((NestedTypeBinding)original).enclosingType.cumulativeFieldCount;
+			fieldAnalysisOffset = ((NestedTypeBinding)original).enclosingType.cumulativeFieldCount;
 		}
 		// 2.: supers:
-		int superFieldsCount = 0;
 		ReferenceBinding superClassBinding = sourceType.superclass;
 		while (superClassBinding != null) {
 			FieldBinding[] unResolvedFields = superClassBinding.unResolvedFields();
@@ -1071,16 +1071,17 @@ public void resolve() {
 					switch (unResolvedFields[i].kind()) {
 						case AbstractVariableDeclaration.FIELD:
 						case AbstractVariableDeclaration.ENUM_CONSTANT:
-							superFieldsCount++;
+							fieldAnalysisOffset++;
 					}
 				}
 			}
-			superFieldsCount += findFieldCountFromSuperInterfaces(superClassBinding.superInterfaces());
+			fieldAnalysisOffset += findFieldCountFromSuperInterfaces(superClassBinding.superInterfaces());
 			superClassBinding = superClassBinding.superclass();
 		}
-		ReferenceBinding[] superInterfacesBinding = this.binding.superInterfaces;
-		superFieldsCount += findFieldCountFromSuperInterfaces(superInterfacesBinding);
-		this.binding.cumulativeFieldCount += superFieldsCount;
+		ReferenceBinding[] superInterfacesBinding = sourceType.superInterfaces;
+		fieldAnalysisOffset += findFieldCountFromSuperInterfaces(superInterfacesBinding);
+		sourceType.cumulativeFieldCount += fieldAnalysisOffset;
+		sourceType.fieldAnalysisOffset = fieldAnalysisOffset;
 		this.maxFieldCount = sourceType.cumulativeFieldCount;
 
 		if (this.memberTypes != null) {
@@ -1114,7 +1115,6 @@ public void resolve() {
 								&& TypeBinding.LONG == fieldBinding.type) {
 							needSerialVersion = false;
 						}
-						field.binding.id += superFieldsCount;
 						lastVisibleFieldID = field.binding.id;
 						break;
 
