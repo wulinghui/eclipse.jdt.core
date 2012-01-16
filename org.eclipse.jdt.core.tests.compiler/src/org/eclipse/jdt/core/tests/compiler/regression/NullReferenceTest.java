@@ -15704,6 +15704,50 @@ public void testBug247564b_3() {
 	);
 }
 
+// null analysis -- case for static final field initialized inside static block with different values
+// checked before use
+public void testBug247564b_4() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"  static final Object o;\n" +
+			"  static final Object o1 = new Object();\n" +
+			"  static {\n" +
+			"		if (o1.hashCode() == 2){\n" +
+			"			o = new Object();\n" +
+			"		} else {\n" +
+			"			o = null;\n" +
+			"		}\n" +
+			"  }\n" +
+			"  void foo1() {\n" +
+			"    if (o == null) {\n" +
+			"        o.toString(); // danger" +
+			"        return;\n" +
+			"    }\n" +
+			"	 o.toString(); // safe\n" +
+			"  }\n" +
+			"  void foo2() {\n" +
+			"    if (o != null) {\n" +
+			"         o.toString(); // safe (2)\n" +
+			"    }\n" +
+			"	 o.toString(); // uncertain\n" +
+			"  }\n" +
+			"}\n"},
+			"----------\n" + 
+			"1. ERROR in X.java (at line 13)\n" + 
+			"	o.toString(); // danger        return;\n" + 
+			"	^\n" + 
+			"Null pointer access: The field o can only be null at this location\n" + 
+			"----------\n" + 
+			"2. ERROR in X.java (at line 21)\n" + 
+			"	o.toString(); // uncertain\n" + 
+			"	^\n" + 
+			"Potential null pointer access: The field o may be null at this location\n" + 
+			"----------\n"
+	);
+}
+
 // null analysis -- fields in synchronized methods
 // check that null analysis for fields in synchronized methods
 // behave as it does in ordinary methods.
@@ -16548,6 +16592,32 @@ public void testBug247564k_1() {
 			"  }\n" +
 			"}\n"},
 		""
+	);
+}
+// null analysis -- potentially redundant checks against the same field
+public void testBug247564l_1() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"    private Object f;\n" +
+			"	 int foo() throws Exception{\n" +
+			"		 if (f == null && f != null)\n" +
+			"            return 13;\n" +
+			"        return -13;\n" +
+			"    }\n" +
+			"	 int goo() throws Exception{\n" +
+			"		 if (f == null && f == null)\n" +
+			"            return 14;\n" +
+			"        return -14;\n" +
+			"    }\n" +
+			"	 boolean hoo() throws Exception{\n" +
+			"		 if (f == null)\n" +
+			"            return f != null;\n" +
+			"        return f == null;\n" +
+			"    }\n" +
+			"}\n"},
+		"" // TODO: determine expected outcome!
 	);
 }
 }
