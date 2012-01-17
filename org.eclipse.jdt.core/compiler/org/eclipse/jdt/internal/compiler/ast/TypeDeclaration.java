@@ -650,6 +650,9 @@ private void internalAnalyseCode(FlowContext flowContext, FlowInfo flowInfo) {
 				staticInitializerContext.handledExceptions = Binding.ANY_EXCEPTION; // tolerate them all, and record them
 				/*}*/
 				staticFieldInfo = field.analyseCode(this.staticInitializerScope, staticInitializerContext, staticFieldInfo);
+				if (field.binding != null && ((field.binding.modifiers & ClassFileConstants.AccFinal) != 0))
+					// we won't reset null Info for constant fields
+					staticFieldInfo.updateConstantFieldsMask(field.binding);
 				// in case the initializer is not reachable, use a reinitialized flowInfo and enter a fake reachable
 				// branch, since the previous initializer already got the blame.
 				if (staticFieldInfo == FlowInfo.DEAD_END) {
@@ -686,9 +689,12 @@ private void internalAnalyseCode(FlowContext flowContext, FlowInfo flowInfo) {
 	}
 	if (this.methods != null) {
 		UnconditionalFlowInfo outerInfo = flowInfo.unconditionalFieldLessCopy();
-		//int fieldOffset = isLocal ? this.scope.cumulativeFieldCount : this.maxFieldCount;
-		//int fieldStart = isLocal ? this.scope.localTypeFieldIdStart : 0;
-		FlowInfo constructorInfo = nonStaticFieldInfo.unconditionalInits().discardNonFieldInitializations().addInitializationsFrom(outerInfo);
+		flowInfo.addInitializationsFrom(staticFieldInfo.unconditionalInits().discardNonFieldInitializations());
+		flowInfo.constantFieldsMask |= staticFieldInfo.constantFieldsMask;	// prevent resetting null info for constant fields inside methods
+		flowInfo.resetNullInfoForFields();	// only preserve null info for constant fields
+
+		FlowInfo constructorInfo = nonStaticFieldInfo.unconditionalInits().discardNonFieldInitializations().addInitializationsFrom(flowInfo);
+		constructorInfo.constantFieldsMask |= staticFieldInfo.constantFieldsMask; // prevent resetting null info for constant fields inside c'tor too
 		for (int i = 0, count = this.methods.length; i < count; i++) {
 			AbstractMethodDeclaration method = this.methods[i];
 			if (method.ignoreFurtherInvestigation)

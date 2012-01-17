@@ -15,6 +15,7 @@ package org.eclipse.jdt.internal.compiler.flow;
 
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
 import org.eclipse.jdt.internal.compiler.ast.IfStatement;
+import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.VariableBinding;
 
@@ -52,6 +53,8 @@ public abstract class FlowInfo {
 		DEAD_END = new UnconditionalFlowInfo();
 		DEAD_END.tagBits = UNREACHABLE;
 	}
+	
+	public long constantFieldsMask; // record positions of constant fields so that they don't get reset in resetNullInfoForFields()
 
 /**
  * Add other inits to this flow info, then return this. The operation semantics
@@ -141,6 +144,7 @@ public boolean canOnlyBeNull(VariableBinding binding) {
 	public static UnconditionalFlowInfo initial(int maxFieldCount) {
 		UnconditionalFlowInfo info = new UnconditionalFlowInfo();
 		info.maxFieldCount = maxFieldCount;
+		info.constantFieldsMask = 0L;
 		return info;
 	}
 
@@ -276,6 +280,12 @@ abstract public void markAsComparedEqualToNull(VariableBinding binding);
 	 *  variant of {@link #resetNullInfo(VariableBinding)} for resetting null info for all fields
 	 */
 	abstract public void resetNullInfoForFields();
+	
+	/**
+	 * exclude a new field from being reset by {@link #resetNullInfoForFields()}
+	 */
+	abstract public void updateConstantFieldsMask(FieldBinding field);
+	
 	/**
 	 * Record a field or local may have got assigned to unknown (set the bit on existing info).
 	 */

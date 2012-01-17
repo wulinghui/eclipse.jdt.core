@@ -11,6 +11,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.flow;
 
+import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.VariableBinding;
 
@@ -157,6 +158,11 @@ public void resetNullInfo(VariableBinding local) {
 public void resetNullInfoForFields() {
 	this.initsWhenTrue.resetNullInfoForFields();
 	this.initsWhenFalse.resetNullInfoForFields();
+}
+
+public void updateConstantFieldsMask(FieldBinding field) {
+	this.initsWhenTrue.updateConstantFieldsMask(field);
+	this.initsWhenFalse.updateConstantFieldsMask(field);
 }
 
 public void markPotentiallyNullBit(VariableBinding local) {
