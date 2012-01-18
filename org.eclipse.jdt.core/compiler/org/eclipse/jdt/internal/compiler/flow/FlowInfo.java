@@ -55,6 +55,8 @@ public abstract class FlowInfo {
 	}
 	
 	public long constantFieldsMask; // record positions of constant fields so that they don't get reset in resetNullInfoForFields()
+	
+	public long extraConstantFieldMask[];	// extra mask for larger number of fields
 
 /**
  * Add other inits to this flow info, then return this. The operation semantics
@@ -285,6 +287,11 @@ abstract public void markAsComparedEqualToNull(VariableBinding binding);
 	 * exclude a new field from being reset by {@link #resetNullInfoForFields()}
 	 */
 	abstract public void updateConstantFieldsMask(FieldBinding field);
+	
+	/**
+	 * add the constant fields info from the other flow info
+	 */
+	abstract public void addConstantFieldsMask(FlowInfo other);
 	
 	/**
 	 * Record a field or local may have got assigned to unknown (set the bit on existing info).

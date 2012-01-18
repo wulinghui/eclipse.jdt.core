@@ -165,6 +165,11 @@ public void updateConstantFieldsMask(FieldBinding field) {
 	this.initsWhenFalse.updateConstantFieldsMask(field);
 }
 
+public void addConstantFieldsMask(FlowInfo other) {
+	this.initsWhenTrue.addConstantFieldsMask(other);
+	this.initsWhenFalse.addConstantFieldsMask(other);
+}
+
 public void markPotentiallyNullBit(VariableBinding local) {
 	this.initsWhenTrue.markPotentiallyNullBit(local);
 	this.initsWhenFalse.markPotentiallyNullBit(local);

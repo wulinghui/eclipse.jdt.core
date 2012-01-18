@@ -49,7 +49,7 @@ public NullReferenceTest(String name) {
 // Only the highest compliance level is run; add the VM argument
 // -Dcompliance=1.4 (for example) to lower it if needed
 static {
-//		TESTS_NAMES = new String[] { "testBug247564b_5" };
+//		TESTS_NAMES = new String[] { "testBug247564g" };
 //		TESTS_NUMBERS = new int[] { 561 };
 //		TESTS_RANGE = new int[] { 1, 2049 };
 }
@@ -16121,6 +16121,76 @@ public void testBug247564b_8() {
 		JavacTestOptions.Excuse.EclipseWarningConfiguredAsError);
 }
 
+// null analysis -- case for static final field initialized inside static block where some locals are also present
+// check if the resetting works properly
+public void testBug247564b_9() {
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportNonStaticAccessToStatic, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		false,
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"	static final Object o1;\n" +
+			"	static final Object o2 = new Object();\n" +
+			"	static {\n" +
+			"		int i = 10;\n" +
+			"		o1 = null;\n" +
+			"	}\n" +
+			"  void foo1() {\n" +
+			"	 final Object local = null;\n" +
+			"	 if (local == null) {\n" +
+			"		local.toString();\n" +
+			"	 }\n" +
+			"	 local.toString();\n" +
+			"	 if (o1 == null) {\n" +	// report redundant null check
+			"		o1.toString();\n" + // report NPE
+			"	 }\n" +
+			"	 o1.toString();\n" +	// already reported NPE above. So silent. Same behaviour as 'local'
+			"	 if (o2 == null) {\n" + // report always false null check
+			"		o2.toString();\n" + // dead code
+			"	 }\n" +
+			"	 o2.toString();" +
+			"  }\n" +
+			"}\n"},
+		null,
+		compilerOptions,
+		"----------\n" + 
+		"1. ERROR in X.java (at line 10)\n" + 
+		"	if (local == null) {\n" + 
+		"	    ^^^^^\n" + 
+		"Redundant null check: The variable local can only be null at this location\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 11)\n" + 
+		"	local.toString();\n" + 
+		"	^^^^^\n" + 
+		"Null pointer access: The variable local can only be null at this location\n" + 
+		"----------\n" + 
+		"3. ERROR in X.java (at line 14)\n" + 
+		"	if (o1 == null) {\n" + 
+		"	    ^^\n" + 
+		"Redundant null check: The field o1 can only be null at this location\n" + 
+		"----------\n" + 
+		"4. ERROR in X.java (at line 15)\n" + 
+		"	o1.toString();\n" + 
+		"	^^\n" + 
+		"Null pointer access: The field o1 can only be null at this location\n" + 
+		"----------\n" + 
+		"5. ERROR in X.java (at line 18)\n" + 
+		"	if (o2 == null) {\n" + 
+		"	    ^^\n" + 
+		"Null comparison always yields false: The field o2 cannot be null at this location\n" + 
+		"----------\n" + 
+		"6. WARNING in X.java (at line 18)\n" + 
+		"	if (o2 == null) {\n" + 
+		"		o2.toString();\n" + 
+		"	 }\n" + 
+		"	                ^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Dead code\n" + 
+		"----------\n",
+		JavacTestOptions.Excuse.EclipseWarningConfiguredAsError);
+}
+
 // null analysis -- fields in synchronized methods
 // check that null analysis for fields in synchronized methods
 // behave as it does in ordinary methods.
@@ -16972,6 +17042,31 @@ public void testBug247564k_1() {
 		""
 	);
 }
+
+// null analysis -- simple case for field in try-finally
+// presence or absence of method call in finally should not affect the behaviour
+public void testBug247564k_2() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"  private Object f;\n" +
+			"	 void gooCalls(){}\n" +
+			"	 void goo(Object var) throws Exception{\n" +
+			"		try {\n" +
+			"			if (f != null) {}\n" +
+			"		} finally {\n" +
+			"			if (f != null ) {\n" +
+			"				gooCalls();\n" +
+			"				f.toString();\n" +
+			"			}\n" +	// silent
+			"		}\n" +
+			"  }\n" +
+			"}\n"},
+		""
+	);
+}
+
 // null analysis -- potentially redundant checks against the same field
 public void testBug247564l_1() {
 	this.runConformTest(
@@ -17018,6 +17113,40 @@ public void testBug247564l_2() {
 			"    }\n" +
 			"}\n"},
 		""
+	);
+}
+
+// null analysis -- checked and unchecked exceptions
+public void testBug247564m() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"class MyException extends Exception{}" +
+			"public class X {\n" +
+			"  private Object f;\n" +
+			"	 void gooCalls() throws MyException{}\n" +
+			"	 void goo(){\n" +
+			"		try {\n" +
+			"			if (f == null)  return;\n" +
+			"			gooCalls();\n" +
+			"		} catch(MyException e) {\n" +	// checked Exception	
+			"			f.toString();\n" +			// silent - at gooCalls() in 'try', f is not going to be null
+			"		} catch(NumberFormatException e) {\n" +	// unchecked Exception	
+			"			f.toString();\n" +			// could have come from anywhere, f can be null as doubted in 'try'
+			"		}\n" +
+			"  }\n" +
+			"}\n"},
+		"----------\n" + 
+		"1. WARNING in X.java (at line 1)\n" + 
+		"	class MyException extends Exception{}public class X {\n" + 
+		"	      ^^^^^^^^^^^\n" + 
+		"The serializable class MyException does not declare a static final serialVersionUID field of type long\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 11)\n" + 
+		"	f.toString();\n" + 
+		"	^\n" + 
+		"Potential null pointer access: The field f may be null at this location\n" + 
+		"----------\n"
 	);
 }
 }

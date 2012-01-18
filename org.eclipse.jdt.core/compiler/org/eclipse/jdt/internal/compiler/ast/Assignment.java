@@ -83,13 +83,6 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		flowInfo.markNullStatus(var, nullStatus);
 		if (flowContext.initsOnFinally != null)
 			flowContext.initsOnFinally.markNullStatus(var, nullStatus);
-		if (var instanceof FieldBinding && var.isFinal() && ((FieldBinding) var).isStatic()) {
-			// static final field being assigned. Record its null status for future reference
-			// since the flowInfo from a constructor or static block wont be available in a method
-			FieldBinding fieldBinding = (FieldBinding) var;
-			flowInfo.markNullStatus(fieldBinding, nullStatus);
-			//fieldBinding.setNullStatusForStaticFinalField(nullStatus);
-		}
 	}
 	return flowInfo;
 }

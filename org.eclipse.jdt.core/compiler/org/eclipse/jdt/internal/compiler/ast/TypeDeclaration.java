@@ -689,12 +689,13 @@ private void internalAnalyseCode(FlowContext flowContext, FlowInfo flowInfo) {
 	}
 	if (this.methods != null) {
 		UnconditionalFlowInfo outerInfo = flowInfo.unconditionalFieldLessCopy();
-		flowInfo.addInitializationsFrom(staticFieldInfo.unconditionalInits().discardNonFieldInitializations());
-		flowInfo.constantFieldsMask |= staticFieldInfo.constantFieldsMask;	// prevent resetting null info for constant fields inside methods
+		UnconditionalFlowInfo staticFieldUnconditionalInfo = staticFieldInfo.unconditionalInits();
+		flowInfo.addNullInfoFrom(staticFieldUnconditionalInfo.discardNonFieldInitializations());
+		flowInfo.addConstantFieldsMask(staticFieldInfo);	// prevent resetting null info for constant fields inside methods
 		flowInfo.resetNullInfoForFields();	// only preserve null info for constant fields
 
 		FlowInfo constructorInfo = nonStaticFieldInfo.unconditionalInits().discardNonFieldInitializations().addInitializationsFrom(flowInfo);
-		constructorInfo.constantFieldsMask |= staticFieldInfo.constantFieldsMask; // prevent resetting null info for constant fields inside c'tor too
+		constructorInfo.addConstantFieldsMask(staticFieldUnconditionalInfo); // prevent resetting null info for constant fields inside c'tor too
 		for (int i = 0, count = this.methods.length; i < count; i++) {
 			AbstractMethodDeclaration method = this.methods[i];
 			if (method.ignoreFurtherInvestigation)
@@ -705,7 +706,7 @@ private void internalAnalyseCode(FlowContext flowContext, FlowInfo flowInfo) {
 					((Clinit)method).analyseCode(
 						this.scope,
 						staticInitializerContext,
-						staticFieldInfo.unconditionalInits().discardNonFieldInitializations().addInitializationsFrom(outerInfo));
+						staticFieldUnconditionalInfo.addInitializationsFrom(outerInfo));
 				} else { // constructor
 					((ConstructorDeclaration)method).analyseCode(this.scope, initializerContext, constructorInfo.copy(), flowInfo.reachMode());
 				}
