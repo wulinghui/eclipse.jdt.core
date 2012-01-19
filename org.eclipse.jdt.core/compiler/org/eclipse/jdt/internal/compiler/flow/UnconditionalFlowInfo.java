@@ -93,6 +93,8 @@ public class UnconditionalFlowInfo extends FlowInfo {
 	// Constants
 	public static final int BitCacheSize = 64; // 64 bits in a long.
 	public int[] nullStatusChangedInAssert; // https://bugs.eclipse.org/bugs/show_bug.cgi?id=303448
+	public long constantFieldsMask; // record positions of constant fields so that they don't get reset in resetNullInfoForFields()
+	public long extraConstantFieldMask[]; // extra mask for larger number of fields
 	protected static final int AccConstant = ClassFileConstants.AccStatic|ClassFileConstants.AccFinal;
 
 public FlowInfo addInitializationsFrom(FlowInfo inits) {
@@ -1603,7 +1605,7 @@ public void updateConstantFieldsMask(FieldBinding field) {
  * All the infos originate in TypeDeclaration.analyseCode(). So making sure that this method is called for every info that is sent into
  * methods/constructors should be sufficient
  */
-public void addConstantFieldsMask(FlowInfo other) {
+public void addConstantFieldsMask(UnconditionalFlowInfo other) {
 	this.constantFieldsMask |= other.constantFieldsMask;
     if (other.extraConstantFieldMask != null) {
     	int oldLength = 0;

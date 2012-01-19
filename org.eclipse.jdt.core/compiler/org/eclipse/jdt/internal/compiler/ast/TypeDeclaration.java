@@ -695,7 +695,7 @@ private void internalAnalyseCode(FlowContext flowContext, FlowInfo flowInfo) {
 		FlowInfo constructorInfo;
 		if (this.scope.compilerOptions().includeFieldsInNullAnalysis) {
 			flowInfo.addNullInfoFrom(staticFieldUnconditionalInfo.discardNonFieldInitializations());
-			flowInfo.addConstantFieldsMask(staticFieldInfo);	// prevent resetting null info for constant fields inside methods
+			flowInfo.addConstantFieldsMask(staticFieldUnconditionalInfo);	// prevent resetting null info for constant fields inside methods
 			flowInfo.resetNullInfoForFields();	// only preserve null info for constant fields
 			constructorInfo = nonStaticFieldInfo.unconditionalInits().discardNonFieldInitializations().addInitializationsFrom(flowInfo);
 			constructorInfo.addConstantFieldsMask(staticFieldUnconditionalInfo); // prevent resetting null info for constant fields inside c'tor too

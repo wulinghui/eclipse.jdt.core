@@ -165,7 +165,7 @@ public void updateConstantFieldsMask(FieldBinding field) {
 	this.initsWhenFalse.updateConstantFieldsMask(field);
 }
 
-public void addConstantFieldsMask(FlowInfo other) {
+public void addConstantFieldsMask(UnconditionalFlowInfo other) {
 	this.initsWhenTrue.addConstantFieldsMask(other);
 	this.initsWhenFalse.addConstantFieldsMask(other);
 }

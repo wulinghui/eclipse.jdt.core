@@ -54,10 +54,6 @@ public abstract class FlowInfo {
 		DEAD_END.tagBits = UNREACHABLE;
 	}
 	
-	public long constantFieldsMask; // record positions of constant fields so that they don't get reset in resetNullInfoForFields()
-	
-	public long extraConstantFieldMask[];	// extra mask for larger number of fields
-
 /**
  * Add other inits to this flow info, then return this. The operation semantics
  * are to match as closely as possible the application to this flow info of all
@@ -293,7 +289,7 @@ abstract public void markAsComparedEqualToNull(VariableBinding binding);
 	/**
 	 * add the constant fields info from the other flow info
 	 */
-	abstract public void addConstantFieldsMask(FlowInfo other);
+	abstract public void addConstantFieldsMask(UnconditionalFlowInfo other);
 	
 	/**
 	 * Record a field or local may have got assigned to unknown (set the bit on existing info).
