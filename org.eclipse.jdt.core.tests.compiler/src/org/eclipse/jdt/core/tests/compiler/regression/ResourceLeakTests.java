@@ -26,7 +26,7 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 public class ResourceLeakTests extends AbstractRegressionTest {
 
 static {
-//	TESTS_NAMES = new String[] { "test061l"};
+//	TESTS_NAMES = new String[] { "testBug368709"};
 //	TESTS_NUMBERS = new int[] { 50 };
 //	TESTS_RANGE = new int[] { 11, -1 };
 }
@@ -2444,7 +2444,6 @@ public void test061l2() throws IOException {
 			"\n" +
 			"import java.io.FileInputStream;\n" +
 			"import java.io.IOException;\n" +
-			"import java.util.Objects;\n" +
 			"\n" +
 			"public class Leaks {\n" +
 			"    private FileInputStream fInput;\n" +
@@ -2473,10 +2472,13 @@ public void test061l2() throws IOException {
 			"    public void dispose() throws IOException {\n" +
 			"        fInput.close();\n" +
 			"    }\n" +
-			"}"
+			"}\n" +
+			"class Objects {\n" + // mock java.util.Objects (@since 1.7).
+			"    static int hashCode(Object o) { return 13; }\n" +
+			"}\n"
 		},
 		"----------\n" +
-		"1. ERROR in xy\\Leaks.java (at line 19)\n" +
+		"1. ERROR in xy\\Leaks.java (at line 18)\n" +
 		"	this(new FileInputStream(\"default\")); // potential problem\n" +
 		"	     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
 		"Potential resource leak: \'<unassigned Closeable value>\' may not be closed\n" +
@@ -2498,7 +2500,6 @@ public void test061l3() throws IOException {
 			"\n" +
 			"import java.io.FileInputStream;\n" +
 			"import java.io.IOException;\n" +
-			"import java.util.Objects;\n" +
 			"\n" +
 			"public class Leaks {\n" +
 			"\n" +
@@ -2512,15 +2513,18 @@ public void test061l3() throws IOException {
 			"        FileInputStream fileInputStream= new FileInputStream(name);\n" +
 			"        Objects.hashCode(fileInputStream);\n" +
 			"    }\n" +
-			"}"
+			"}\n" +
+			"class Objects {\n" + // mock java.util.Objects (@since 1.7).
+			"    static int hashCode(Object o) { return 13; }\n" +
+			"}\n"
 		},
 		"----------\n" +
-		"1. ERROR in xy\\Leaks.java (at line 10)\n" +
+		"1. ERROR in xy\\Leaks.java (at line 9)\n" +
 		"	FileInputStream fileInputStream= new FileInputStream(name);\n" +
 		"	                ^^^^^^^^^^^^^^^\n" +
 		"Potential resource leak: \'fileInputStream\' may not be closed\n" +
 		"----------\n" +
-		"2. ERROR in xy\\Leaks.java (at line 16)\n" +
+		"2. ERROR in xy\\Leaks.java (at line 15)\n" +
 		"	FileInputStream fileInputStream= new FileInputStream(name);\n" +
 		"	                ^^^^^^^^^^^^^^^\n" +
 		"Potential resource leak: \'fileInputStream\' may not be closed\n" +
@@ -3085,5 +3089,104 @@ public void test063e() {
 		options,
 		null);
 }
-
+// Bug 368709 - Endless loop in FakedTrackingVariable.markPassedToOutside
+// original test case from jgit
+public void testBug368709a() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5) return;
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"import java.io.*;\n" +
+			"import java.util.zip.*;\n" +
+			"public class X {\n" +
+			"  Object db, pack;\n" + // mock
+			"  int objectOffset, headerLength, type, size;\n" +
+			"  public ObjectStream openStream() throws MissingObjectException, IOException {\n" +
+			"    WindowCursor wc = new WindowCursor(db);\n" +
+			"    InputStream in;\n" +
+			"    try\n" +
+			"      {\n" +
+			"        in = new PackInputStream(pack, (objectOffset + headerLength), wc);\n" +
+			"      }\n" +
+			"    catch (IOException packGone)\n" +
+			"      {\n" +
+			"        return wc.open(getObjectId(), type).openStream();\n" +
+			"      }\n" +
+			"    in = new BufferedInputStream(new InflaterInputStream(in, wc.inflater(), 8192), 8192);\n" +
+			"    return new ObjectStream.Filter(type, size, in);\n" +
+			"  }\n" +
+			"  String getObjectId() { return \"\"; }\n" + // mock
+			"}\n" +
+			// mock:
+			"class WindowCursor {\n" +
+			"    WindowCursor(Object db) {}\n" +
+			"    ObjectStream open(String id, int type) { return null; }\n" +
+			"    Inflater inflater() { return null; }\n" +
+			"}\n" +
+			"class MissingObjectException extends Exception {\n" +
+			"    public static final long serialVersionUID = 13L;\n" +
+			"    MissingObjectException() { super();}\n" +
+			"}\n" +
+			"class PackInputStream extends InputStream {\n" +
+			"    PackInputStream(Object pack, int offset, WindowCursor wc) throws IOException {}\n" +
+			"    public int read() { return 0; }\n" +
+			"}\n" +
+			"class ObjectStream extends InputStream {\n" +
+			"    static class Filter extends ObjectStream {\n" +
+			"        Filter(int type, int size, InputStream in) { }\n" +
+			"    }\n" +
+			"    ObjectStream openStream() { return this; }\n" +
+			"    public int read() { return 0; }\n" +
+			"}\n"
+		},
+		"----------\n" +
+		"1. ERROR in X.java (at line 15)\n" +
+		"	return wc.open(getObjectId(), type).openStream();\n" +
+		"	^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+		"Resource leak: \'in\' is not closed at this location\n" +
+		"----------\n" +
+		"2. ERROR in X.java (at line 18)\n" +
+		"	return new ObjectStream.Filter(type, size, in);\n" +
+		"	^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+		"Potential resource leak: \'in\' may not be closed at this location\n" +
+		"----------\n",
+		null,
+		true,
+		options);
+}
+// Bug 368709 - Endless loop in FakedTrackingVariable.markPassedToOutside
+// minimal test case: constructing an indirect self-wrapper
+public void testBug368709b() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5) return;
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"import java.io.*;\n" +
+			"import java.util.zip.*;\n" +
+			"public class X {\n" +
+			"  void doit() throws IOException {\n" +
+			"    InputStream in = new FileInputStream(\"somefile\");\n" +
+			"    in = new BufferedInputStream(new InflaterInputStream(in, inflater(), 8192), 8192);\n" +
+			"    process(in);\n" +
+			"  }\n" +
+			"  Inflater inflater() { return null; }\n" +
+			"  void process(InputStream is) { }\n" +
+			"}\n"
+		},
+		"----------\n" +
+		"1. ERROR in X.java (at line 5)\n" +
+		"	InputStream in = new FileInputStream(\"somefile\");\n" +
+		"	            ^^\n" +
+		"Potential resource leak: \'in\' may not be closed\n" +
+		"----------\n",
+		null,
+		true,
+		options);
+}
 }
