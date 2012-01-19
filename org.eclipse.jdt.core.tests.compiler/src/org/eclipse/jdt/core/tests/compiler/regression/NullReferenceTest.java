@@ -49,7 +49,7 @@ public NullReferenceTest(String name) {
 // Only the highest compliance level is run; add the VM argument
 // -Dcompliance=1.4 (for example) to lower it if needed
 static {
-//		TESTS_NAMES = new String[] { "testBug247564g" };
+//		TESTS_NAMES = new String[] { "testBug247564k_3" };
 //		TESTS_NUMBERS = new int[] { 561 };
 //		TESTS_RANGE = new int[] { 1, 2049 };
 }
@@ -15590,7 +15590,7 @@ public void testBug247564a_5() {
 }
 
 // null analysis -- simple case for static final field
-// once deferenced, treat as non null. Consistent with local variables.
+// once dereferenced, treat as non null. Consistent with local variables.
 public void testBug247564b() {
 	this.runNegativeTest(
 		new String[] {
@@ -16334,7 +16334,7 @@ public void testBug247564b_7() {
 			"  static final Object o1 = null;\n" +
 			"  static final Object o2 = new Object();\n" +
 			"  static {\n" +
-			"		if (o1.hashCode() == 2){\n" + // report NPE. But deferenced here, so later it should be treated as non null
+			"		if (o1.hashCode() == 2){\n" + // report NPE. But dereferenced here, so later it should be treated as non null
 			"			o = new Object();\n" +
 			"		} else {\n" +
 			"			o = null;\n" +
@@ -17586,6 +17586,40 @@ public void testBug247564k_2() {
 			"  }\n" +
 			"}\n"},
 		""
+	);
+}
+
+// null analysis -- simple case for constant field in try-catch-finally
+// presence or absence of method call in finally should not affect the behaviour
+public void testBug247564k_3() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"  private static final Object f = null;\n" +
+			"	 void gooCalls() throws NumberFormatException{}\n" +
+			"	 void goo(Object var) throws Exception{\n" +
+			"		try {\n" +
+			"			gooCalls();\n" +
+			"		} catch(NumberFormatException e) {\n" +
+			"			if (f.hashCode() == 0){}\n" +
+			"		} finally {\n" +
+			"			gooCalls();\n" +
+			"			if (f.hashCode() == 0){}\n" +
+			"		}\n" +
+			"  }\n" +
+			"}\n"},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 8)\n" + 
+		"	if (f.hashCode() == 0){}\n" + 
+		"	    ^\n" + 
+		"Null pointer access: The field f can only be null at this location\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 11)\n" + 
+		"	if (f.hashCode() == 0){}\n" + 
+		"	    ^\n" + 
+		"Null pointer access: The field f can only be null at this location\n" + 
+		"----------\n"
 	);
 }
 

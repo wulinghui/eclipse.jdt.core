@@ -650,9 +650,11 @@ private void internalAnalyseCode(FlowContext flowContext, FlowInfo flowInfo) {
 				staticInitializerContext.handledExceptions = Binding.ANY_EXCEPTION; // tolerate them all, and record them
 				/*}*/
 				staticFieldInfo = field.analyseCode(this.staticInitializerScope, staticInitializerContext, staticFieldInfo);
-				if (field.binding != null && ((field.binding.modifiers & ClassFileConstants.AccFinal) != 0))
+				if (field.binding != null && this.scope.compilerOptions().includeFieldsInNullAnalysis
+						&& ((field.binding.modifiers & ClassFileConstants.AccFinal) != 0)) {
 					// we won't reset null Info for constant fields
 					staticFieldInfo.updateConstantFieldsMask(field.binding);
+				}
 				// in case the initializer is not reachable, use a reinitialized flowInfo and enter a fake reachable
 				// branch, since the previous initializer already got the blame.
 				if (staticFieldInfo == FlowInfo.DEAD_END) {
@@ -690,12 +692,17 @@ private void internalAnalyseCode(FlowContext flowContext, FlowInfo flowInfo) {
 	if (this.methods != null) {
 		UnconditionalFlowInfo outerInfo = flowInfo.unconditionalFieldLessCopy();
 		UnconditionalFlowInfo staticFieldUnconditionalInfo = staticFieldInfo.unconditionalInits();
-		flowInfo.addNullInfoFrom(staticFieldUnconditionalInfo.discardNonFieldInitializations());
-		flowInfo.addConstantFieldsMask(staticFieldInfo);	// prevent resetting null info for constant fields inside methods
-		flowInfo.resetNullInfoForFields();	// only preserve null info for constant fields
-
-		FlowInfo constructorInfo = nonStaticFieldInfo.unconditionalInits().discardNonFieldInitializations().addInitializationsFrom(flowInfo);
-		constructorInfo.addConstantFieldsMask(staticFieldUnconditionalInfo); // prevent resetting null info for constant fields inside c'tor too
+		FlowInfo constructorInfo;
+		if (this.scope.compilerOptions().includeFieldsInNullAnalysis) {
+			flowInfo.addNullInfoFrom(staticFieldUnconditionalInfo.discardNonFieldInitializations());
+			flowInfo.addConstantFieldsMask(staticFieldInfo);	// prevent resetting null info for constant fields inside methods
+			flowInfo.resetNullInfoForFields();	// only preserve null info for constant fields
+			constructorInfo = nonStaticFieldInfo.unconditionalInits().discardNonFieldInitializations().addInitializationsFrom(flowInfo);
+			constructorInfo.addConstantFieldsMask(staticFieldUnconditionalInfo); // prevent resetting null info for constant fields inside c'tor too
+		} else {
+			constructorInfo = nonStaticFieldInfo.unconditionalInits().discardNonFieldInitializations().addInitializationsFrom(outerInfo);
+		}
+		
 		for (int i = 0, count = this.methods.length; i < count; i++) {
 			AbstractMethodDeclaration method = this.methods[i];
 			if (method.ignoreFurtherInvestigation)

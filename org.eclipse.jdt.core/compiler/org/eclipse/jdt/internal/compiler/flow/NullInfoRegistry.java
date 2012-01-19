@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2011 IBM Corporation and others.
+ * Copyright (c) 2006, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.flow;
 
+import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.VariableBinding;
 
 /**
@@ -40,6 +41,8 @@ public class NullInfoRegistry extends UnconditionalFlowInfo {
  */
 public NullInfoRegistry(UnconditionalFlowInfo upstream) {
 	this.maxFieldCount = upstream.maxFieldCount;
+	this.constantFieldsMask = upstream.constantFieldsMask;
+	this.extraConstantFieldMask = upstream.extraConstantFieldMask;
 	if ((upstream.tagBits & NULL_FLAG_MASK) != 0) {
 		long u1, u2, u3, u4, nu2, nu3, nu4;
 		this.nullBit2 = (u1 = upstream.nullBit1)
@@ -87,6 +90,8 @@ public NullInfoRegistry add(NullInfoRegistry other) {
 	this.nullBit2 |= other.nullBit2;
 	this.nullBit3 |= other.nullBit3;
 	this.nullBit4 |= other.nullBit4;
+	this.maxFieldCount = other.maxFieldCount;
+	this.addConstantFieldsMask(other);
 	if (other.extra != null) {
 		if (this.extra == null) {
 			this.extra = new long[extraLength][];
@@ -120,7 +125,15 @@ public void markAsComparedEqualToNonNull(VariableBinding local) {
 	// protected from non-object locals in calling methods
 	if (this != DEAD_END) {
     	this.tagBits |= NULL_FLAG_MASK;
-    	int position = local.getAnalysisId(this.maxFieldCount);
+    	int position;
+    	if (local instanceof FieldBinding && ((local.modifiers & AccConstant) == AccConstant)) {
+	    	// non-final fields may be modified in separate threads and we cannot be sure about their
+	    	// definite nullness. Hence, marking as definitely unknown to avoid deferring null check for these fields.
+	    	this.markAsDefinitelyUnknown(local);
+	    	return;
+    	} else {
+    		position = local.getAnalysisId(this.maxFieldCount);
+    	}
     	// position is zero-based
     	if (position < BitCacheSize) { // use bits
     		// set protected non null
@@ -165,7 +178,15 @@ public void markAsDefinitelyNonNull(VariableBinding local) {
 	// protected from non-object locals in calling methods
 	if (this != DEAD_END) {
     	this.tagBits |= NULL_FLAG_MASK;
-    	int position = local.getAnalysisId(this.maxFieldCount);
+    	int position;
+    	if (local instanceof FieldBinding && ((local.modifiers & AccConstant) == AccConstant)) {
+	    	// non-final fields may be modified in separate threads and we cannot be sure about their
+	    	// definite nullness. Hence, marking as definitely unknown to avoid deferring null check for these fields.
+	    	this.markAsDefinitelyUnknown(local);
+	    	return;
+    	} else {
+    		position = local.getAnalysisId(this.maxFieldCount);
+    	}
     	if (position < BitCacheSize) { // use bits
     		// set assigned non null
     		this.nullBit3 |= (1L << position);
@@ -210,7 +231,15 @@ public void markAsDefinitelyNull(VariableBinding local) {
 	// protected from non-object locals in calling methods
 	if (this != DEAD_END) {
     	this.tagBits |= NULL_FLAG_MASK;
-    	int position = local.getAnalysisId(this.maxFieldCount);
+    	int position;
+    	if (local instanceof FieldBinding && ((local.modifiers & AccConstant) == AccConstant)) {
+    		// non-final fields may be modified in separate threads and we cannot be sure about their
+    		// definite nullness. Hence, marking as potential null.
+    		this.markNullStatus(local, FlowInfo.POTENTIALLY_NULL);
+	    	return;
+    	} else {
+    		position = local.getAnalysisId(this.maxFieldCount);
+    	}
     	// position is zero-based
     	if (position < BitCacheSize) { // use bits
     		// set assigned null

@@ -93,9 +93,7 @@ public class UnconditionalFlowInfo extends FlowInfo {
 	// Constants
 	public static final int BitCacheSize = 64; // 64 bits in a long.
 	public int[] nullStatusChangedInAssert; // https://bugs.eclipse.org/bugs/show_bug.cgi?id=303448
-	private static final int AccConstant = ClassFileConstants.AccStatic|ClassFileConstants.AccFinal;
-	
-	public static final int indexOfConstantFieldBitStream = 6; // the index just after nullBit4 i.e. extraLength
+	protected static final int AccConstant = ClassFileConstants.AccStatic|ClassFileConstants.AccFinal;
 
 public FlowInfo addInitializationsFrom(FlowInfo inits) {
 	return addInfoFrom(inits, true);
