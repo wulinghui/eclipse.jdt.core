@@ -39,9 +39,9 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	return flowInfo;
 }
 
-protected boolean checkNullableDereference(Scope scope, FieldBinding field, long sourcePosition) {
+protected boolean checkNullableDereference(Scope scope, FieldBinding field) {
 	if ((field.tagBits & TagBits.AnnotationNullable) != 0) {
-		scope.problemReporter().nullableFieldDereference(field, sourcePosition);
+		scope.problemReporter().variablePotentialNullReference(field, this);
 		return true;
 	}
 	return false;

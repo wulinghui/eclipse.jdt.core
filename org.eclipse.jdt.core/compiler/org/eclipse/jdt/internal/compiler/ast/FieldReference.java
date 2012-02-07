@@ -159,7 +159,7 @@ public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flow
 	if (super.checkNPE(scope, flowContext, flowInfo)) return true;
 	if (!this.receiver.isThis()) {
 		// on a non-this field ref @Nullable is all we could possibly report
-		return checkNullableDereference(scope, this.binding, this.nameSourcePosition);
+		return checkNullableDereference(scope, this.binding);
 	}
 	return false; // not checked
 }

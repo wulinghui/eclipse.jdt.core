@@ -3496,6 +3496,7 @@ public void test_options_03() {
 		"----------\n");
 }
 // access to a non-null field
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nonnull_field_1() {
 	runConformTestWithLibs(
 		new String[] {
@@ -3513,6 +3514,7 @@ public void test_nonnull_field_1() {
 }
 
 // a non-null field is not properly initialized
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nonnull_field_2() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -3535,6 +3537,7 @@ public void test_nonnull_field_2() {
 }
 
 // a non-null field is not properly initialized - explicit constructor
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nonnull_field_2a() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -3564,6 +3567,7 @@ public void test_nonnull_field_2a() {
 }
 
 // a non-null field is initialized to null
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nonnull_field_3() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -3585,6 +3589,7 @@ public void test_nonnull_field_3() {
 		"----------\n");
 }
 // a non-null field is assigned to null
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nonnull_field_4() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -3614,6 +3619,7 @@ public void test_nonnull_field_4() {
 		"----------\n");
 }
 // a non-null field is checked for null
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nonnull_field_5() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -3644,6 +3650,7 @@ public void test_nonnull_field_5() {
 }
 
 // a non-null field is checked for null twice - method call inbetween
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nonnull_field_6() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -3674,6 +3681,7 @@ public void test_nonnull_field_6() {
 }
 
 // a non-null field is accessed via a qualified name reference - static field
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nonnull_field_7() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -3715,6 +3723,7 @@ public void test_nonnull_field_7() {
 }
 
 // a non-null field is accessed via a qualified name reference - instance field
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nonnull_field_8() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -3750,6 +3759,7 @@ public void test_nonnull_field_8() {
 }
 
 // a non-null field is accessed via an indirect field reference - instance field
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nonnull_field_9() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -3787,7 +3797,7 @@ public void test_nonnull_field_9() {
 		"Redundant null check: The field o is declared as @NonNull\n" + 
 		"----------\n");
 }
-
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nonnull_field_10() {
 	Map options = getCompilerOptions();
 	options.put(JavaCore.COMPILER_PB_INCLUDE_FIELDS_IN_NULL_ANALYSIS, JavaCore.ENABLED);
@@ -3810,6 +3820,7 @@ public void test_nonnull_field_10() {
 }
 
 // access to a nullable field - field reference
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nullable_field_1() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -3831,6 +3842,7 @@ public void test_nullable_field_1() {
 		"----------\n");
 }
 // access to a nullable field - single name reference
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nullable_field_2() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -3852,6 +3864,7 @@ public void test_nullable_field_2() {
 		"----------\n");
 }
 // access to a nullable field - qualified name reference
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nullable_field_3() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -3879,6 +3892,7 @@ public void test_nullable_field_3() {
 		"----------\n");
 }
 // access to a nullable field - dereference after check
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nullable_field_4() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -3915,7 +3929,8 @@ public void test_nullable_field_4() {
 		"----------\n");
 }
 
-//access to a nullable field - intermediate component in a QNR
+// access to a nullable field - intermediate component in a QNR
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nullable_field_5() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -3947,7 +3962,8 @@ public void test_nullable_field_5() {
 		"----------\n");
 }
 
-//access to a nullable field - intermediate component in a QNR - inverse of test_nullable_field_5
+// access to a nullable field - intermediate component in a QNR - inverse of test_nullable_field_5
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nullable_field_6() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -3986,6 +4002,7 @@ public void test_nullable_field_6() {
 }
 
 // access to a nullable field - intermediate component in a double field reference
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nullable_field_7() {
 	runNegativeTestWithLibs(
 		new String[] {
@@ -4017,8 +4034,29 @@ public void test_nullable_field_7() {
 		"----------\n");
 }
 
-// illegal use of @Nullable for a field of primitive type
+// static access to a nullable field - qualified name reference
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nullable_field_8() {
+	runConformTestWithLibs(
+		new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"public class X {\n" +
+			"    @Nullable static final Object o = null;\n" +
+			"    public void foo() {\n" +
+			"         if (X.o == null){\n" +
+			"				System.out.println(X.o);\n" +
+			"		  }\n" +
+			"    }\n" +
+			"}\n"
+		},
+		null /*customOptions*/,
+		"");
+}
+
+// illegal use of @Nullable for a field of primitive type
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
+public void test_nullable_field_9() {
 	runNegativeTestWithLibs(
 			new String[] {
 				"X.java",

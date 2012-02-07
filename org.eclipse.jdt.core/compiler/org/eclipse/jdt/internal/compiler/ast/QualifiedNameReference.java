@@ -251,15 +251,16 @@ private void checkInternalNPE(BlockScope scope, FlowContext flowContext, FlowInf
 				}
 			}
 		}
-	} else if ((this.bits & ASTNode.RestrictiveFlagMASK) == Binding.FIELD) {
-		// look for annotated fields, they do not depend on flow context -> check immediately:
-		checkNullableDereference(scope, (FieldBinding) this.binding, this.sourcePositions[0]);
 	}
 	if (this.otherBindings != null) {
+		if ((this.bits & ASTNode.RestrictiveFlagMASK) == Binding.FIELD) {
+			// is the first field dereferenced annotated Nullable? If so, report immediately
+			checkNullableDereference(scope, (FieldBinding) this.binding);
+		}
 		// look for annotated fields, they do not depend on flow context -> check immediately:
 		int length = this.otherBindings.length - 1; // don't check the last binding
 		for (int i = 0; i < length; i++) {
-			checkNullableDereference(scope, this.otherBindings[i], this.sourcePositions[i+1]);
+			checkNullableDereference(scope, this.otherBindings[i]);
 		}
 	}
 }
@@ -280,7 +281,7 @@ public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flow
 		position = this.sourcePositions[this.sourcePositions.length - 1];
 	}
 	if (fieldBinding != null) {
-		return checkNullableDereference(scope, fieldBinding, position);
+		return checkNullableDereference(scope, fieldBinding);
 	}
 	return false;
 }
