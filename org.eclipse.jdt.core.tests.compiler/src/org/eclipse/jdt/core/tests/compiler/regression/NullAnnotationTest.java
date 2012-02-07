@@ -53,7 +53,7 @@ public NullAnnotationTest(String name) {
 // Static initializer to specify tests subset using TESTS_* static variables
 // All specified tests which do not belong to the class are skipped...
 static {
-//		TESTS_NAMES = new String[] { "test_default_nullness_017" };
+//		TESTS_NAMES = new String[] { "test_nullable_field_3" };
 //		TESTS_NUMBERS = new int[] { 561 };
 //		TESTS_RANGE = new int[] { 1, 2049 };
 }
@@ -3888,6 +3888,39 @@ public void test_nullable_field_3() {
 		"2. ERROR in X.java (at line 6)\n" +
 		"	return other.o.toString();\n" +
 		"	             ^\n" +
+		"Potential null pointer access: The field o is declared as @Nullable\n" +
+		"----------\n");
+}
+// access to a nullable field - qualified name reference - multiple segments
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
+public void test_nullable_field_3m() {
+	runNegativeTestWithLibs(
+		new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"public class X {\n" +
+			"    @Nullable Object o = new Object();\n" +
+			"    @Nullable X other;\n" +
+			"    public String oString() {\n" +
+			"         return other.other.o.toString();\n" +
+			"    }\n" +
+			"}\n"
+		},
+		null /*customOptions*/,
+		"----------\n" +
+		"1. ERROR in X.java (at line 6)\n" +
+		"	return other.other.o.toString();\n" +
+		"	       ^^^^^\n" +
+		"Potential null pointer access: The field other is declared as @Nullable\n" +
+		"----------\n" +
+		"2. ERROR in X.java (at line 6)\n" +
+		"	return other.other.o.toString();\n" +
+		"	             ^^^^^\n" +
+		"Potential null pointer access: The field other is declared as @Nullable\n" +
+		"----------\n" +
+		"3. ERROR in X.java (at line 6)\n" +
+		"	return other.other.o.toString();\n" +
+		"	                   ^\n" +
 		"Potential null pointer access: The field o is declared as @Nullable\n" +
 		"----------\n");
 }

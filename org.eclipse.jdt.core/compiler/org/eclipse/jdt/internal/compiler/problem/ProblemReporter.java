@@ -5292,6 +5292,18 @@ public void variablePotentialNullReference(VariableBinding variable, ASTNode loc
 		nodeSourceEnd(variable, location));
 }
 
+public void nullableFieldDereference(VariableBinding variable, long position) {
+	String[] arguments = new String[] {new String(variable.name)};
+	char[][] nullableName = this.options.nullableAnnotationName;
+		arguments = new String[] {new String(variable.name), new String(nullableName[nullableName.length-1])};
+	this.handle(
+		IProblem.NullableFieldReference,
+		arguments,
+		arguments,
+		(int)(position >>> 32),
+		(int)(position));
+}
+
 public void variableRedundantCheckOnNonNull(VariableBinding variable, ASTNode location) {
 	int problem;
 	if (variable instanceof FieldBinding) {
