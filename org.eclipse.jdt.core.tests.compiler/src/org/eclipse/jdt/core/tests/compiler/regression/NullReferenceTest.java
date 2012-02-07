@@ -49,7 +49,7 @@ public NullReferenceTest(String name) {
 // Only the highest compliance level is run; add the VM argument
 // -Dcompliance=1.4 (for example) to lower it if needed
 static {
-//		TESTS_NAMES = new String[] { "testBug247564n_3" };
+//		TESTS_NAMES = new String[] { "testExpressions04" };
 //		TESTS_NUMBERS = new int[] { 561 };
 //		TESTS_RANGE = new int[] { 1, 2049 };
 }
@@ -18282,6 +18282,29 @@ public void testExpressions03() {
 		"	System.out.println(\"I\'m null\");\n" + 
 		"	^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
 		"Dead code\n" + 
+		"----------\n"
+	);
+}
+
+// a non-null ternary expression
+public void testExpressions04() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"    void foo(boolean b) {\n" + 
+			"		Object o1 = new Object();\n" + 
+			"		Object o2 = new Object();\n" + 
+			"		if ((b ? o1 : o2) != null)\n" + 
+			"			System.out.println(\"null\");\n" + 
+			"    }\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 5)\n" + 
+		"	if ((b ? o1 : o2) != null)\n" + 
+		"	    ^^^^^^^^^^^^^\n" + 
+		"Redundant null check: this expression cannot be null\n" + 
 		"----------\n"
 	);
 }

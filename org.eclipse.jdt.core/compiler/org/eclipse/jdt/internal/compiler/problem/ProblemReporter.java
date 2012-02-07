@@ -5192,8 +5192,9 @@ public boolean expressionNonNullComparison(Expression expr, boolean checkForNull
 			|| expr instanceof ArrayInitializer
 			|| expr instanceof ClassLiteralAccess
 			|| expr instanceof ThisReference) {
-		// fall through
-	} else if (expr instanceof Literal) {
+		// fall through to bottom
+	} else if (expr instanceof Literal
+				|| expr instanceof ConditionalExpression) {
 		if (expr instanceof NullLiteral) {
 			needImplementation(location); // reported as nonnull??
 			return false;
@@ -5202,16 +5203,13 @@ public boolean expressionNonNullComparison(Expression expr, boolean checkForNull
 			// false alarm, auto(un)boxing is involved
 			return false;
 		}
-		// fall through
+		// fall through to bottom
 	} else if (expr instanceof BinaryExpression) {
 		if ((expr.bits & ASTNode.ReturnTypeIDMASK) != TypeIds.T_JavaLangString) {
 			// false alarm, primitive types involved, must be auto(un)boxing?
 			return false;
 		}
-		// fall through
-	} else if (expr instanceof ConditionalExpression) {
-		needImplementation(location); // TODO
-		return false;
+		// fall through to bottom
 	} else {
 		needImplementation(expr);
 		return false;
