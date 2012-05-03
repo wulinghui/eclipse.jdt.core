@@ -576,6 +576,7 @@ public final class ImportRewriteAnalyzer {
 		}
 		String groupId= null;
 		int longestPrefix= -1;
+		PackageEntry matchingCommentEntry = null;
 		// find the matching group
 		for (int i= 0; i < this.packageEntries.size(); i++) {
 			PackageEntry curr= (PackageEntry) this.packageEntries.get(i);
@@ -583,8 +584,11 @@ public final class ImportRewriteAnalyzer {
 				String currGroup= curr.getGroupID();
 				if (currGroup != null && newName.startsWith(currGroup)) {
 					int prefixLen= currGroup.length();
-					if (prefixLen == newName.length()) {
+					if (prefixLen == newName.length() && !curr.isComment()) {
 						return curr; // perfect fit, use entry
+					} else if (curr.isComment()) {
+						matchingCommentEntry = curr; // may be the only fit if no actual import of this group is already present
+						continue;
 					}
 					if ((newName.charAt(prefixLen) == '.' || prefixLen == 0) && prefixLen > longestPrefix) {
 						longestPrefix= prefixLen;
@@ -592,6 +596,9 @@ public final class ImportRewriteAnalyzer {
 					}
 				}
 			}
+		}
+		if (matchingCommentEntry != null) {
+			return matchingCommentEntry;
 		}
 		PackageEntry bestMatch= null;
 		PackageMatcher matcher= new PackageMatcher();
@@ -642,7 +649,7 @@ public final class ImportRewriteAnalyzer {
 	 */
 	private ImportDeclEntry addImportDeclEntry(String containerName, String fullTypeName, boolean isStatic, CompilationUnit root) {
 		List/*ImportDeclaration*/ decls= root.imports();
-		if (decls.isEmpty() || this.preserveExistingCommentsRanges == null) {
+		if (decls.isEmpty() || this.preserveExistingCommentsRanges == null || this.preserveExistingCommentsRanges.length == 0) {
 			return new ImportDeclEntry(containerName.length(), fullTypeName, isStatic, null);
 		}
 		IRegion precedingCommentRange = null;
@@ -706,7 +713,42 @@ public final class ImportRewriteAnalyzer {
 		for (int i= 0; i < nPackages; i++) {
 			PackageEntry entry= (PackageEntry) this.packageEntries.get(i);
 			if (entry.compareTo(containerName, isStatic) == 0) {
-				if (entry.remove(qualifiedName, isStatic)) {
+				ImportDeclEntry decl;
+				if ((decl = entry.remove(qualifiedName, isStatic)) != null) {
+					if (decl.precedingCommentRange != null) {
+						if (this.preserveExistingCommentsRanges == null) {
+							this.preserveExistingCommentsRanges = new IRegion[2];
+							this.preserveExistingCommentsRanges[0] = decl.precedingCommentRange;
+						} else {
+							int  j = 0;
+							int length = this.preserveExistingCommentsRanges.length;
+							for (j = 0; j < length; j++) {
+								if (this.preserveExistingCommentsRanges[j] == null) break;
+							}
+							if (j == length) {
+								// grow array
+								System.arraycopy(this.preserveExistingCommentsRanges, 0, this.preserveExistingCommentsRanges = new IRegion[length + 2], 0, length);
+							}
+							this.preserveExistingCommentsRanges[j] = decl.precedingCommentRange;
+						}
+					}
+					if (decl.trailingCommentRange != null) {
+						if (this.preserveExistingCommentsRanges == null) {
+							this.preserveExistingCommentsRanges = new IRegion[2];
+							this.preserveExistingCommentsRanges[0] = decl.trailingCommentRange;
+						} else {
+							int  j = 0;
+							int length = this.preserveExistingCommentsRanges.length;
+							for (j = 0; j < length; j++) {
+								if (this.preserveExistingCommentsRanges[j] == null) break;
+							}
+							if (j == length) {
+								// grow array
+								System.arraycopy(this.preserveExistingCommentsRanges, 0, this.preserveExistingCommentsRanges = new IRegion[length + 2], 0, length);
+							}
+							this.preserveExistingCommentsRanges[j] = decl.trailingCommentRange;
+						}
+					}
 					return true;
 				}
 			}
@@ -868,8 +910,6 @@ public final class ImportRewriteAnalyzer {
 							String trailingComment = null;
 							if (rangeAfter != null) {
 								trailingComment = buffer.getText(rangeAfter.getOffset(), rangeAfter.getLength());
-								if (!trailingComment.endsWith(lineDelim))
-									trailingComment += lineDelim;
 							}
 							String str= getNewImportString(currDecl.getElementName(), isStatic, trailingComment, lineDelim);
 							stringsToInsert.add(str);
@@ -885,8 +925,6 @@ public final class ImportRewriteAnalyzer {
 								String trailingComment = null;
 								if (rangeAfter != null) {
 									trailingComment = buffer.getText(rangeAfter.getOffset(), rangeAfter.getLength());
-									if (!trailingComment.endsWith(lineDelim))
-										trailingComment += lineDelim;
 								}
 								String str= getNewImportString(currDecl.getElementName(), isStatic, trailingComment, lineDelim);
 								if (stringsToInsert.indexOf(str) == -1) {
@@ -941,7 +979,7 @@ public final class ImportRewriteAnalyzer {
 
 			// insert back all existing imports comments since existing imports were not preserved
 			if (this.preserveExistingCommentsRanges != null) {
-				for (int i = 0, max = this.preserveExistingCommentsRanges.length; i < max; i++) {
+				for (int i = 0, max = this.preserveExistingCommentsRanges.length; (i < max && this.preserveExistingCommentsRanges[i] != null); i++) {
 					IRegion region = this.preserveExistingCommentsRanges[i];
 					String text = buffer.getText(region.getOffset(), region.getLength());
 					// remove preceding whitespaces
@@ -1091,10 +1129,6 @@ public final class ImportRewriteAnalyzer {
 		new SearchEngine().searchAllTypeNames(allPackages, allTypes, scope, requestor, IJavaSearchConstants.WAIT_UNTIL_READY_TO_SEARCH, monitor);
 		return onDemandConflicts;
 	}
-
-	private String getNewImportString(String importName, boolean isStatic, String lineDelim) {
-		return getNewImportString(importName, isStatic, null, lineDelim);
-	}
 	
 	private String getNewImportString(String importName, boolean isStatic, String trailingComment, String lineDelim) {
 		StringBuffer buf= new StringBuffer();
@@ -1123,6 +1157,7 @@ public final class ImportRewriteAnalyzer {
 		List allImports = new ArrayList();
 		int nImports = packageEntry.getNumberOfImports();
 		StringBuffer allComments = null;
+		StringBuffer allCommentsLead = null;
 		for (int i= 0; i < nImports; i++) {
 			ImportDeclEntry curr= packageEntry.getImportAt(i);
 			String simpleName = curr.getTypeQualifiedName();
@@ -1149,11 +1184,6 @@ public final class ImportRewriteAnalyzer {
 				String trailComments = null;
 				if (rangeAfter != null) {
 					trailComments = buffer.getText(rangeAfter.getOffset(), rangeAfter.getLength());
-					if (trailComments != null) {
-						if (!trailComments.endsWith(lineDelim)) {
-							trailComments += lineDelim;
-						}
-					}
 				}
 				allImports.add(getNewImportString(starImportString, isStatic, trailComments, lineDelim));
 				isStarImportAdded = true;
@@ -1161,22 +1191,25 @@ public final class ImportRewriteAnalyzer {
 				// collect all comments
 				IRegion rangeBefore = curr.getPrecedingCommentRange();
 				if (rangeBefore != null) {
-					if (allComments == null) {
-						allComments = new StringBuffer();
+					if (allCommentsLead == null) {
+						allCommentsLead = new StringBuffer();
 					}
-					allComments.append(buffer.getText(rangeBefore.getOffset(), rangeBefore.getLength())).append(lineDelim);
+					allCommentsLead.append(buffer.getText(rangeBefore.getOffset(), rangeBefore.getLength()));
 				}
 				IRegion rangeAfter = curr.getTrailingCommentRange();
 				if (rangeAfter != null) {
 					if (allComments == null) {
 						allComments = new StringBuffer();
 					}
-					allComments.append(buffer.getText(rangeAfter.getOffset(), rangeAfter.getLength())).append(lineDelim);
+					allComments.append(buffer.getText(rangeAfter.getOffset(), rangeAfter.getLength()));
 				}
 			}
 		}
+		if (allCommentsLead != null) {
+			allImports.add(0, String.valueOf(allCommentsLead));
+		}
 		if (allComments != null) {
-			allImports.add(0, String.valueOf(allComments));
+			allImports.add(String.valueOf(allComments.append(lineDelim)));
 		}
 		return (String[]) allImports.toArray(new String[allImports.size()]);
 	}
@@ -1236,8 +1269,8 @@ public final class ImportRewriteAnalyzer {
 		private IRegion sourceRange;
 		private final boolean isStatic;
 		private int containerNameLength;
-		private IRegion precedingCommentRange;
-		private IRegion trailingCommentRange;
+		IRegion precedingCommentRange;
+		IRegion trailingCommentRange;
 
 		public ImportDeclEntry(
 				int containerNameLength,
@@ -1399,16 +1432,15 @@ public final class ImportRewriteAnalyzer {
 			return null;
 		}
 
-		public boolean remove(String fullName, boolean isStaticImport) {
+		public ImportDeclEntry remove(String fullName, boolean isStaticImport) {
 			int nInports= this.importEntries.size();
 			for (int i= 0; i < nInports; i++) {
 				ImportDeclEntry curr= getImportAt(i);
 				if (!curr.isComment() && curr.compareTo(fullName, isStaticImport) == 0) {
-					this.importEntries.remove(i);
-					return true;
+					return (ImportDeclEntry) this.importEntries.remove(i);
 				}
 			}
-			return false;
+			return null;
 		}
 
 		public void filterImplicitImports(boolean useContextToFilterImplicitImports) {
