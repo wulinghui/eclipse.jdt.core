@@ -888,11 +888,13 @@ public final class ImportRewriteAnalyzer {
 				int threshold= isStatic ? this.staticImportOnDemandThreshold : this.importOnDemandThreshold;
 
 				boolean doStarImport= pack.hasStarImport(threshold, onDemandConflicts);
+				boolean allImportsAddedToStar = false;
 				if (doStarImport && (pack.find("*") == null)) { //$NON-NLS-1$
 					String[] imports = getNewImportStrings(buffer, pack, isStatic, lineDelim);
 					for (int j = 0, max = imports.length; j < max; j++) {
 						stringsToInsert.add(imports[j]);
 					}
+					allImportsAddedToStar = true;
 				}
 
 				for (int k= 0; k < nImports; k++) {
@@ -913,24 +915,12 @@ public final class ImportRewriteAnalyzer {
 							}
 							String str= getNewImportString(currDecl.getElementName(), isStatic, trailingComment, lineDelim);
 							stringsToInsert.add(str);
-						} else if (doStarImport && !currDecl.isOnDemand()) {
+						} else if (doStarImport && !currDecl.isOnDemand() && !allImportsAddedToStar) {
 							String simpleName = currDecl.getTypeQualifiedName();
 							if (simpleName.indexOf('.') != -1) {
-								IRegion rangeBefore = currDecl.getPrecedingCommentRange();
-								IRegion rangeAfter = currDecl.getTrailingCommentRange();
-								if (rangeBefore != null) {
-									stringsToInsert.add(buffer.getText(rangeBefore.getOffset(), rangeBefore.getLength()));
-								}
-								
-								String trailingComment = null;
-								if (rangeAfter != null) {
-									trailingComment = buffer.getText(rangeAfter.getOffset(), rangeAfter.getLength());
-								}
-								String str= getNewImportString(currDecl.getElementName(), isStatic, trailingComment, lineDelim);
+								String str= getNewImportString(currDecl.getElementName(), isStatic, lineDelim);
 								if (stringsToInsert.indexOf(str) == -1) {
 									stringsToInsert.add(str);
-								} else if (trailingComment != null) {
-									stringsToInsert.add(trailingComment);
 								}
 							}
 						}
@@ -1128,6 +1118,10 @@ public final class ImportRewriteAnalyzer {
 		};
 		new SearchEngine().searchAllTypeNames(allPackages, allTypes, scope, requestor, IJavaSearchConstants.WAIT_UNTIL_READY_TO_SEARCH, monitor);
 		return onDemandConflicts;
+	}
+
+	private String getNewImportString(String importName, boolean isStatic, String lineDelim) {
+		return getNewImportString(importName, isStatic, null, lineDelim);
 	}
 	
 	private String getNewImportString(String importName, boolean isStatic, String trailingComment, String lineDelim) {
