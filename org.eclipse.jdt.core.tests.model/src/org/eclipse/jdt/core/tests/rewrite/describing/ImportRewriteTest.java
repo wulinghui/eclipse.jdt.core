@@ -584,7 +584,6 @@ public class ImportRewriteTest extends AbstractJavaModelTests {
 		buf.append("package pack1;\n");
 		buf.append("\n");
 		buf.append("import java.util.Set;\n");
-		buf.append("// comment\n");
 		buf.append("\n");
 		buf.append("public class C {\n");
 		buf.append("}\n");
@@ -1538,6 +1537,7 @@ public class ImportRewriteTest extends AbstractJavaModelTests {
                 "\n" + 
                 "import java.util.*; // test\n" + 
                 "import java.util.Map.Entry;\n" + 
+                "\n" +
                 "//comment 2\n" +
                 "import java.util.Map.SomethingElse;\n" +
                 "// commen 3\n" +
@@ -3220,7 +3220,6 @@ public class ImportRewriteTest extends AbstractJavaModelTests {
                 "//lead 3\n" +
                 "import java.util.HashMap;// test3\n" +
                 "// commen 3\n" + 
-                "// test1\n" +
                 "\n" + 
                 "public class C implements Serializable{\n" + 
                 "    public static void main(String[] args) {\n" + 
@@ -3291,6 +3290,7 @@ public class ImportRewriteTest extends AbstractJavaModelTests {
                 " *\n" +
                 " */\n" +
                 "// lead 1\n" +
+                "/* i am with List */\n" +
                 "\n" +
                 "/*\n" +
                 " * don't move me 2\n" +
@@ -3309,9 +3309,7 @@ public class ImportRewriteTest extends AbstractJavaModelTests {
                 "//lead 3\n" +
                 "import java.util.HashMap;// test3\n" +
                 "// commen 3\n" + 
-                "import java.util.List;\n" +
-                "// test1\n" +
-                "/* i am with List */\n" +
+                "import java.util.List;\n" +                
                 "\n" + 
                 "public class C implements Serializable{\n" + 
                 "    public static void main(String[] args) {\n" + 
