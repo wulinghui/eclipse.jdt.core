@@ -7,7 +7,9 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann <stephan@cs.tu-berlin.de> - Contribution for bug 185682 - Increment/decrement operators mark local variables as read
+ *     Stephan Herrmann <stephan@cs.tu-berlin.de> - Contributions for
+ *								bug 185682 - Increment/decrement operators mark local variables as read
+ *								bug 331649 - [compiler][null] consider null annotations for fields
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -35,6 +37,7 @@ import org.eclipse.jdt.internal.compiler.lookup.SourceTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TagBits;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
+import org.eclipse.jdt.internal.compiler.lookup.VariableBinding;
 
 public class FieldReference extends Reference implements InvocationSite {
 
@@ -147,6 +150,10 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		manageSyntheticAccessIfNecessary(currentScope, flowInfo, true /*read-access*/);
 	}
 	return flowInfo;
+}
+
+public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo) {
+	return checkNullableFieldDereference(scope, this.binding, this.nameSourcePosition);
 }
 
 /**
@@ -435,6 +442,10 @@ public boolean isTypeAccess() {
 	return this.receiver != null && this.receiver.isTypeReference();
 }
 
+public FieldBinding lastFieldBinding() {
+	return this.binding;
+}
+
 /*
  * No need to emulate access to protected fields since not implicitly accessed
  */
@@ -478,10 +489,6 @@ public void manageSyntheticAccessIfNecessary(BlockScope currentScope, FlowInfo f
 			return;
 		}
 	}
-}
-
-public int nullStatus(FlowInfo flowInfo) {
-	return FlowInfo.UNKNOWN;
 }
 
 public Constant optimizedBooleanConstant() {
@@ -667,5 +674,13 @@ public void traverse(ASTVisitor visitor, BlockScope scope) {
 		this.receiver.traverse(visitor, scope);
 	}
 	visitor.endVisit(this, scope);
+}
+
+public VariableBinding nullAnnotatedVariableBinding() {
+	if (this.binding != null
+			&& ((this.binding.tagBits & (TagBits.AnnotationNonNull|TagBits.AnnotationNullable)) != 0)) {
+		return this.binding;
+	}
+	return null;
 }
 }

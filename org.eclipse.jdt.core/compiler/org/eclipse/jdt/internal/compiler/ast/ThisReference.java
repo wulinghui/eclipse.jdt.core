@@ -7,6 +7,8 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contribution for
+ *								bug 331649 - [compiler][null] consider null annotations for fields
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -96,10 +98,6 @@ public class ThisReference extends Reference {
 	public boolean isThis() {
 
 		return true ;
-	}
-
-	public int nullStatus(FlowInfo flowInfo) {
-		return FlowInfo.NON_NULL;
 	}
 
 	public StringBuffer printExpression(int indent, StringBuffer output){

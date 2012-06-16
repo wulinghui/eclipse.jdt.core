@@ -14,6 +14,7 @@
  *								bug 365387 - [compiler][null] bug 186342: Issues to follow up post review and verification.
  *								bug 358903 - Filter practically unimportant resource leak warnings
  *								bug 365531 - [compiler][null] investigate alternative strategy for internally encoding nullness defaults
+ *								bug 331649 - [compiler][null] consider null annotations for fields
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -441,6 +442,12 @@ private void createFields(IBinaryField[] iFields, long sourceLevel, char[][][] m
 				for (int i = firstAnnotatedFieldIndex; i <size; i++) {
 					IBinaryField binaryField = iFields[i];
 					this.fields[i].setAnnotations(createAnnotations(binaryField.getAnnotations(), this.environment, missingTypeNames));
+				}
+			}
+			if (this.environment.globalOptions.isAnnotationBasedNullAnalysisEnabled) {
+				for (int i = 0; i <size; i++) {
+					IBinaryField binaryField = iFields[i];
+					scanFieldForNullAnnotation(binaryField, this.fields[i]);
 				}
 			}
 		}
@@ -1153,6 +1160,36 @@ SimpleLookupTable storedAnnotations(boolean forceInitialize) {
 	}
 	return this.storedAnnotations;
 }
+
+void scanFieldForNullAnnotation(IBinaryField field, FieldBinding fieldBinding) {
+	// global option is checked by caller
+	char[][] nullableAnnotationName = this.environment.getNullableAnnotationName();
+	char[][] nonNullAnnotationName = this.environment.getNonNullAnnotationName();
+	if (nullableAnnotationName == null || nonNullAnnotationName == null)
+		return; // not well-configured to use null annotations
+
+	if (fieldBinding.type == null || fieldBinding.type.isBaseType())
+		return; // null annotations are only applied to reference types
+
+	IBinaryAnnotation[] annotations = field.getAnnotations();
+	if (annotations != null) {
+		for (int i = 0; i < annotations.length; i++) {
+			char[] annotationTypeName = annotations[i].getTypeName();
+			if (annotationTypeName[0] != Util.C_RESOLVED)
+				continue;
+			char[][] typeName = CharOperation.splitOn('/', annotationTypeName, 1, annotationTypeName.length-1); // cut of leading 'L' and trailing ';'
+			if (CharOperation.equals(typeName, nonNullAnnotationName)) {
+				fieldBinding.tagBits |= TagBits.AnnotationNonNull;
+				break;
+			}
+			if (CharOperation.equals(typeName, nullableAnnotationName)) {
+				fieldBinding.tagBits |= TagBits.AnnotationNullable;
+				break;
+			}
+		}
+	}
+}
+
 void scanMethodForNullAnnotation(IBinaryMethod method, MethodBinding methodBinding) {
 	if (!this.environment.globalOptions.isAnnotationBasedNullAnalysisEnabled)
 		return;

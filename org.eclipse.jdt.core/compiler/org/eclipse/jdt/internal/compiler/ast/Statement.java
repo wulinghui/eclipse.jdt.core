@@ -15,6 +15,7 @@
  *								bug 368546 - [compiler][resource] Avoid remaining false positives found when compiling the Eclipse SDK
  *								bug 370930 - NonNull annotation not considered for enhanced for loops
  *								bug 365859 - [compiler][null] distinguish warnings based on flow analysis vs. null annotations
+ *								bug 331649 - [compiler][null] consider null annotations for fields
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -99,19 +100,17 @@ protected void analyseArguments(BlockScope currentScope, FlowContext flowContext
 	}
 }
 
-/** Check null-ness of 'local' against a possible null annotation */
+/** Check null-ness of 'var' against a possible null annotation */
 protected int checkAssignmentAgainstNullAnnotation(BlockScope currentScope, FlowContext flowContext,
-												   LocalVariableBinding local, int nullStatus, Expression expression, TypeBinding providedType)
+												   VariableBinding var, int nullStatus, Expression expression, TypeBinding providedType)
 {
-	if (local != null) {
-		if ((local.tagBits & TagBits.AnnotationNonNull) != 0
-				&& nullStatus != FlowInfo.NON_NULL) {
-			flowContext.recordNullityMismatch(currentScope, expression, providedType, local.type, nullStatus);
-			return FlowInfo.NON_NULL;
-		} else if ((local.tagBits & TagBits.AnnotationNullable) != 0
-				&& nullStatus == FlowInfo.UNKNOWN) {	// provided a legacy type?
-			return FlowInfo.POTENTIALLY_NULL;			// -> use more specific info from the annotation
-		}
+	if ((var.tagBits & TagBits.AnnotationNonNull) != 0
+			&& nullStatus != FlowInfo.NON_NULL) {
+		flowContext.recordNullityMismatch(currentScope, expression, providedType, var.type, nullStatus);
+		return FlowInfo.NON_NULL;
+	} else if ((var.tagBits & TagBits.AnnotationNullable) != 0
+			&& nullStatus == FlowInfo.UNKNOWN) {	// provided a legacy type?
+		return FlowInfo.POTENTIALLY_NULL;			// -> use more specific info from the annotation
 	}
 	return nullStatus;
 }

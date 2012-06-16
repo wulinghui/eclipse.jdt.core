@@ -14,6 +14,7 @@
  *								bug 186342 - [compiler][null] Using annotations for null checking
  *								bug 358903 - Filter practically unimportant resource leak warnings
  *								bug 370639 - [compiler][resource] restore the default for resource leak warnings
+ *								bug 331649 - [compiler][null] consider null annotations for fields
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -156,10 +157,11 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	manageSyntheticAccessIfNecessary(currentScope, flowInfo);
 	return flowInfo;
 }
-public void checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo) {
-	super.checkNPE(scope, flowContext, flowInfo);
+public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo) {
+	// message send as a receiver
 	if ((nullStatus(flowInfo) & FlowInfo.POTENTIALLY_NULL) != 0)
 		scope.problemReporter().messageSendPotentialNullReference(this.binding, this);
+	return true; // done all possible checking
 }
 /**
  * @see org.eclipse.jdt.internal.compiler.ast.Expression#computeConversion(org.eclipse.jdt.internal.compiler.lookup.Scope, org.eclipse.jdt.internal.compiler.lookup.TypeBinding, org.eclipse.jdt.internal.compiler.lookup.TypeBinding)

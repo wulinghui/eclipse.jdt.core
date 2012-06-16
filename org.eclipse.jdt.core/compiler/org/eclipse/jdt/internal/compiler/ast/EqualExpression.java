@@ -7,7 +7,9 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann - Contribution for bug 186342 - [compiler][null] Using annotations for null checking
+ *     Stephan Herrmann - Contributions for
+ *								bug 186342 - [compiler][null] Using annotations for null checking
+ *								bug 331649 - [compiler][null] consider null annotations for fields
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -26,26 +28,40 @@ public class EqualExpression extends BinaryExpression {
 	private void checkNullComparison(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo, FlowInfo initsWhenTrue, FlowInfo initsWhenFalse) {
 		int rightStatus = this.right.nullStatus(flowInfo);
 		int leftStatus = this.left.nullStatus(flowInfo);
-		// check if either is a method annotated @NonNull and compared to null:
+
+		boolean leftNonNullChecked = false;
+		boolean rightNonNullChecked = false;
+
+		// check if either is a non-local expression known to be nonnull and compared to null, candidates are
+		// - method/field annotated @NonNull
+		// - allocation expression, some literals, this reference (see inside expressionNonNullComparison(..))
+		boolean checkForNull = ((this.bits & OperatorMASK) >> OperatorSHIFT) == EQUAL_EQUAL;
 		if (leftStatus == FlowInfo.NON_NULL && rightStatus == FlowInfo.NULL) {
-			if (this.left instanceof MessageSend) { 
-				scope.problemReporter().messageSendRedundantCheckOnNonNull(((MessageSend) this.left).binding, this.left);
-			}
-			// TODO: handle all kinds of expressions (cf. also https://bugs.eclipse.org/364326)
+			leftNonNullChecked = scope.problemReporter().expressionNonNullComparison(this.left, checkForNull);
 		} else if (leftStatus == FlowInfo.NULL && rightStatus == FlowInfo.NON_NULL) {
-			if (this.right instanceof MessageSend) {
-				scope.problemReporter().messageSendRedundantCheckOnNonNull(((MessageSend) this.right).binding, this.right);
+			rightNonNullChecked = scope.problemReporter().expressionNonNullComparison(this.right, checkForNull);
+		}
+		
+		if (!leftNonNullChecked) {
+			LocalVariableBinding local = this.left.localVariableBinding();
+			if (local != null && (local.type.tagBits & TagBits.IsBaseType) == 0) {
+				checkVariableComparison(scope, flowContext, flowInfo, initsWhenTrue, initsWhenFalse, local, rightStatus, this.left);
 			}
-			// TODO: handle all kinds of expressions (cf. also https://bugs.eclipse.org/364326)
+		}
+		if (!rightNonNullChecked) {
+			LocalVariableBinding local = this.right.localVariableBinding();
+			if (local != null && (local.type.tagBits & TagBits.IsBaseType) == 0) {
+				checkVariableComparison(scope, flowContext, flowInfo, initsWhenTrue, initsWhenFalse, local, leftStatus, this.right);
+			}
 		}
 
-		LocalVariableBinding local = this.left.localVariableBinding();
-		if (local != null && (local.type.tagBits & TagBits.IsBaseType) == 0) {
-			checkVariableComparison(scope, flowContext, flowInfo, initsWhenTrue, initsWhenFalse, local, rightStatus, this.left);
-		}
-		local = this.right.localVariableBinding();
-		if (local != null && (local.type.tagBits & TagBits.IsBaseType) == 0) {
-			checkVariableComparison(scope, flowContext, flowInfo, initsWhenTrue, initsWhenFalse, local, leftStatus, this.right);
+		if (leftNonNullChecked || rightNonNullChecked) {
+			// above checks have not propagated unreachable into the corresponding branch, do it now:
+			if (checkForNull) {
+				initsWhenTrue.setReachMode(FlowInfo.UNREACHABLE_BY_NULLANALYSIS);
+			} else {
+				initsWhenFalse.setReachMode(FlowInfo.UNREACHABLE_BY_NULLANALYSIS);
+			}
 		}
 	}
 	private void checkVariableComparison(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo, FlowInfo initsWhenTrue, FlowInfo initsWhenFalse, LocalVariableBinding local, int nullStatus, Expression reference) {
