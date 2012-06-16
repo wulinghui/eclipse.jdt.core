@@ -18,6 +18,7 @@
  *								bug 366063 - Compiler should not add synthetic @NonNull annotations
  *								bug 384663 - Package Based Annotation Compilation Error in JDT 3.8/4.2 (works in 3.7.2)
  *								bug 386356 - Type mismatch error with annotations and generics
+ *								bug 331649 - [compiler][null] consider null annotations for fields
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -1114,6 +1115,18 @@ void initializeForStaticImports() {
 	this.scope.buildMethods();
 }
 
+private void initializeNullDefault() {
+	// ensure nullness defaults are initialized at all enclosing levels:
+	switch (this.nullnessDefaultInitialized) {
+	case 0:
+		getAnnotationTagBits(); // initialize
+		//$FALL-THROUGH$
+	case 1:
+		getPackage().isViewedAsDeprecated(); // initialize annotations
+		this.nullnessDefaultInitialized = 2;
+	}
+}
+
 /**
  * Returns true if a type is identical to another one,
  * or for generic types, true if compared to its raw type.
@@ -1410,43 +1423,54 @@ public FieldBinding resolveTypeFor(FieldBinding field) {
 		if (fieldDecls[f].binding != field)
 			continue;
 
-			MethodScope initializationScope = field.isStatic()
-				? this.scope.referenceContext.staticInitializerScope
-				: this.scope.referenceContext.initializerScope;
-			FieldBinding previousField = initializationScope.initializedField;
-			try {
-				initializationScope.initializedField = field;
-				FieldDeclaration fieldDecl = fieldDecls[f];
-				TypeBinding fieldType =
-					fieldDecl.getKind() == AbstractVariableDeclaration.ENUM_CONSTANT
-						? initializationScope.environment().convertToRawType(this, false /*do not force conversion of enclosing types*/) // enum constant is implicitly of declaring enum type
-						: fieldDecl.type.resolveType(initializationScope, true /* check bounds*/);
-				field.type = fieldType;
-				field.modifiers &= ~ExtraCompilerModifiers.AccUnresolved;
-				if (fieldType == null) {
-					fieldDecl.binding = null;
-					return null;
-				}
-				if (fieldType == TypeBinding.VOID) {
-					this.scope.problemReporter().variableTypeCannotBeVoid(fieldDecl);
-					fieldDecl.binding = null;
-					return null;
-				}
-				if (fieldType.isArrayType() && ((ArrayBinding) fieldType).leafComponentType == TypeBinding.VOID) {
-					this.scope.problemReporter().variableTypeCannotBeVoidArray(fieldDecl);
-					fieldDecl.binding = null;
-					return null;
-				}
-				if ((fieldType.tagBits & TagBits.HasMissingType) != 0) {
-					field.tagBits |= TagBits.HasMissingType;
-				}
-				TypeBinding leafType = fieldType.leafComponentType();
-				if (leafType instanceof ReferenceBinding && (((ReferenceBinding)leafType).modifiers & ExtraCompilerModifiers.AccGenericSignature) != 0) {
-					field.modifiers |= ExtraCompilerModifiers.AccGenericSignature;
-				}
-			} finally {
-			    initializationScope.initializedField = previousField;
+		MethodScope initializationScope = field.isStatic()
+			? this.scope.referenceContext.staticInitializerScope
+			: this.scope.referenceContext.initializerScope;
+		FieldBinding previousField = initializationScope.initializedField;
+		try {
+			initializationScope.initializedField = field;
+			FieldDeclaration fieldDecl = fieldDecls[f];
+			TypeBinding fieldType =
+				fieldDecl.getKind() == AbstractVariableDeclaration.ENUM_CONSTANT
+					? initializationScope.environment().convertToRawType(this, false /*do not force conversion of enclosing types*/) // enum constant is implicitly of declaring enum type
+					: fieldDecl.type.resolveType(initializationScope, true /* check bounds*/);
+			field.type = fieldType;
+			field.modifiers &= ~ExtraCompilerModifiers.AccUnresolved;
+			if (fieldType == null) {
+				fieldDecl.binding = null;
+				return null;
 			}
+			if (fieldType == TypeBinding.VOID) {
+				this.scope.problemReporter().variableTypeCannotBeVoid(fieldDecl);
+				fieldDecl.binding = null;
+				return null;
+			}
+			if (fieldType.isArrayType() && ((ArrayBinding) fieldType).leafComponentType == TypeBinding.VOID) {
+				this.scope.problemReporter().variableTypeCannotBeVoidArray(fieldDecl);
+				fieldDecl.binding = null;
+				return null;
+			}
+			if ((fieldType.tagBits & TagBits.HasMissingType) != 0) {
+				field.tagBits |= TagBits.HasMissingType;
+			}
+			TypeBinding leafType = fieldType.leafComponentType();
+			if (leafType instanceof ReferenceBinding && (((ReferenceBinding)leafType).modifiers & ExtraCompilerModifiers.AccGenericSignature) != 0) {
+				field.modifiers |= ExtraCompilerModifiers.AccGenericSignature;
+			}
+
+			// apply null default:
+			LookupEnvironment environment = this.scope.environment();
+			if (environment.globalOptions.isAnnotationBasedNullAnalysisEnabled) {
+				initializeNullDefault();
+				if (findNonNullDefault(this.scope, environment) == NONNULL_BY_DEFAULT) {
+					field.fillInDefaultNonNullness(fieldDecl, initializationScope);
+				}
+				// validate null annotation:
+				this.scope.validateNullAnnotation(field.tagBits, fieldDecl.type, fieldDecl.annotations);
+			}
+		} finally {
+		    initializationScope.initializedField = previousField;
+		}
 		return field;
 	}
 	return null; // should never reach this point
@@ -1625,15 +1649,7 @@ public MethodBinding resolveTypesFor(MethodBinding method) {
 	return method;
 }
 private void createArgumentBindings(MethodBinding method) {
-	// ensure nullness defaults are initialized at all enclosing levels:
-	switch (this.nullnessDefaultInitialized) {
-	case 0:
-		getAnnotationTagBits(); // initialize
-		//$FALL-THROUGH$
-	case 1:
-		getPackage().isViewedAsDeprecated(); // initialize annotations
-		this.nullnessDefaultInitialized = 2;
-	}
+	initializeNullDefault();
 	AbstractMethodDeclaration methodDecl = method.sourceMethod();
 	if (methodDecl != null) {
 		if (method.parameters != Binding.NO_PARAMETERS)

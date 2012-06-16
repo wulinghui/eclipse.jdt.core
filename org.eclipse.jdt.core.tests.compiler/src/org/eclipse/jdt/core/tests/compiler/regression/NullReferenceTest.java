@@ -22,6 +22,7 @@
  * 							bug 349326 - [1.7] new warning for missing try-with-resources
  * 							bug 360328 - [compiler][null] detect null problems in nested code (local class inside a loop)
  * 							bug 367879 - Incorrect "Potential null pointer access" warning on statement after try-with-resources within try-finally
+ *							bug 331649 - [compiler][null] consider null annotations for fields
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -9628,9 +9629,9 @@ public void test1023() {
 			"X.java",
 			"public class X {\n" +
 			"\n" +
-			"  void foo() {\n" +
+			"  void foo(Object that) {\n" +
 			"    Object o = new Object();\n" +
-			"    while (this != null) {\n" +
+			"    while (that != null) {\n" +
 			"      try {\n" +
 			"        o = null;\n" +
 			"        break;\n" +
@@ -9647,7 +9648,7 @@ public void test1023() {
 		"	    ^\n" +
 		"Null comparison always yields false: The variable o cannot be null at this location\n" +
 		"----------\n" +
-		"2. WARNING in X.java (at line 13)\n" + 
+		"2. WARNING in X.java (at line 13)\n" +
 		"	if (o == null) return;\n" + 
 		"	               ^^^^^^^\n" + 
 		"Dead code\n" + 

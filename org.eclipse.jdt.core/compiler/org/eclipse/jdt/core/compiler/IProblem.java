@@ -149,6 +149,12 @@
  *									UninitializedLocalVariableHintMissingDefault
  *									UninitializedBlankFinalFieldHintMissingDefault
  *									ShouldReturnValueHintMissingDefault
+ *									NullableFieldReference
+ *									UninitializedNonNullField
+ *									UninitializedNonNullFieldHintMissingDefault
+ *									NonNullMessageSendComparisonYieldsFalse
+ *									RedundantNullCheckOnNonNullSpecdField
+ *									NonNullSpecdFieldComparisonYieldsFalse
  *******************************************************************************/
 package org.eclipse.jdt.core.compiler;
 
@@ -1485,6 +1491,8 @@ void setSourceStart(int sourceStart);
 	int RedundantNullAnnotation = MethodRelated + 922;
 	/** @since 3.8 */
 	int IllegalAnnotationForBaseType = TypeRelated + 923;
+	/** @since 3.9 */
+	int NullableFieldReference = FieldRelated + 924;
 	/** @since 3.8 */
 	int RedundantNullDefaultAnnotation = Internal + 925; // shouldn't actually occur any more after bug 366063
 	/** @since 3.8 */
@@ -1503,6 +1511,16 @@ void setSourceStart(int sourceStart);
 	int SpecdNonNullLocalVariableComparisonYieldsFalse = Internal + 932;
 	/** @since 3.8 */
 	int RequiredNonNullButProvidedSpecdNullable = Internal + 933;
+	/** @since 3.9 */
+	int UninitializedNonNullField = FieldRelated + 934;
+	/** @since 3.9 */
+	int UninitializedNonNullFieldHintMissingDefault = FieldRelated + 935;
+	/** @since 3.9 */
+	int NonNullMessageSendComparisonYieldsFalse = Internal + 936;
+	/** @since 3.9 */
+	int RedundantNullCheckOnNonNullSpecdField = Internal + 937;
+	/** @since 3.9 */
+	int NonNullSpecdFieldComparisonYieldsFalse = Internal + 938;
 
 	/**
 	 * External problems -- These are problems defined by other plugins
