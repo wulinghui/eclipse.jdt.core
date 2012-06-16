@@ -155,6 +155,8 @@
  *									NonNullMessageSendComparisonYieldsFalse
  *									RedundantNullCheckOnNonNullSpecdField
  *									NonNullSpecdFieldComparisonYieldsFalse
+ *									NonNullExpressionComparisonYieldsFalse
+ *									RedundantNullCheckOnNonNullExpression
  *******************************************************************************/
 package org.eclipse.jdt.core.compiler;
 
@@ -1299,6 +1301,14 @@ void setSourceStart(int sourceStart);
 	 */
     /** @since 3.4 */
     int UnusedTypeArgumentsForConstructorInvocation = MethodRelated + 660;
+
+	/**
+	 * Null analysis for other kinds of expressions, syntactically nonnull
+	 */
+	/** @since 3.9 */
+	int NonNullExpressionComparisonYieldsFalse = Internal + 670;
+	/** @since 3.9 */
+	int RedundantNullCheckOnNonNullExpression = Internal + 671;
 
 	/**
 	 * Corrupted binaries

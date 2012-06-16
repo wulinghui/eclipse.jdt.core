@@ -19,6 +19,7 @@
  *								bug 365859 - [compiler][null] distinguish warnings based on flow analysis vs. null annotations
  *								bug 374605 - Unreasonable warning for enum-based switch statements
  *								bug 331649 - [compiler][null] consider null annotations for fields
+ *								bug 382789 - [compiler][null] warn when syntactically-nonnull expression is compared against null
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.problem;
 
@@ -43,6 +44,7 @@ import org.eclipse.jdt.internal.compiler.ast.Annotation;
 import org.eclipse.jdt.internal.compiler.ast.AnnotationMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.Argument;
 import org.eclipse.jdt.internal.compiler.ast.ArrayAllocationExpression;
+import org.eclipse.jdt.internal.compiler.ast.ArrayInitializer;
 import org.eclipse.jdt.internal.compiler.ast.ArrayQualifiedTypeReference;
 import org.eclipse.jdt.internal.compiler.ast.ArrayReference;
 import org.eclipse.jdt.internal.compiler.ast.ArrayTypeReference;
@@ -52,6 +54,7 @@ import org.eclipse.jdt.internal.compiler.ast.Block;
 import org.eclipse.jdt.internal.compiler.ast.BranchStatement;
 import org.eclipse.jdt.internal.compiler.ast.CaseStatement;
 import org.eclipse.jdt.internal.compiler.ast.CastExpression;
+import org.eclipse.jdt.internal.compiler.ast.ClassLiteralAccess;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.CompoundAssignment;
 import org.eclipse.jdt.internal.compiler.ast.ConditionalExpression;
@@ -72,6 +75,7 @@ import org.eclipse.jdt.internal.compiler.ast.MemberValuePair;
 import org.eclipse.jdt.internal.compiler.ast.MessageSend;
 import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.NameReference;
+import org.eclipse.jdt.internal.compiler.ast.NullLiteral;
 import org.eclipse.jdt.internal.compiler.ast.ParameterizedQualifiedTypeReference;
 import org.eclipse.jdt.internal.compiler.ast.ParameterizedSingleTypeReference;
 import org.eclipse.jdt.internal.compiler.ast.QualifiedAllocationExpression;
@@ -308,6 +312,8 @@ public static int getIrritant(int problemID) {
 		case IProblem.NonNullLocalVariableComparisonYieldsFalse:
 		case IProblem.NullLocalVariableComparisonYieldsFalse:
 		case IProblem.NullLocalVariableInstanceofYieldsFalse:
+		case IProblem.RedundantNullCheckOnNonNullExpression:
+		case IProblem.NonNullExpressionComparisonYieldsFalse:
 		case IProblem.RedundantNullCheckOnNonNullMessageSend:
 		case IProblem.RedundantNullCheckOnSpecdNonNullLocalVariable:
 		case IProblem.SpecdNonNullLocalVariableComparisonYieldsFalse:
@@ -5173,7 +5179,7 @@ public boolean expressionNonNullComparison(Expression expr, boolean checkForNull
 		arguments = new String[] { new String(method.shortReadableName()) };
 		start = location.sourceStart;
 		end = location.sourceEnd;
-	} else if (expr instanceof Reference) {
+	} else if (expr instanceof Reference && !(expr instanceof ThisReference) && !(expr instanceof ArrayReference)) {
 		FieldBinding field = ((Reference)expr).lastFieldBinding();
 		if (field == null) {
 			return false;
@@ -5189,6 +5195,23 @@ public boolean expressionNonNullComparison(Expression expr, boolean checkForNull
 		binding = field;
 		start = nodeSourceStart(binding, location);
 		end = nodeSourceEnd(binding, location);
+	} else if (expr instanceof AllocationExpression 
+			|| expr instanceof ArrayAllocationExpression 
+			|| expr instanceof ArrayInitializer
+			|| expr instanceof ClassLiteralAccess
+			|| expr instanceof ThisReference) {
+		// fall through to bottom
+	} else if (expr instanceof Literal
+				|| expr instanceof ConditionalExpression) {
+		if (expr instanceof NullLiteral) {
+			needImplementation(location); // reported as nonnull??
+			return false;
+		}
+		if (expr.resolvedType != null && expr.resolvedType.isBaseType()) {
+			// false alarm, auto(un)boxing is involved
+			return false;
+		}
+		// fall through to bottom
 	} else if (expr instanceof BinaryExpression) {
 		if ((expr.bits & ASTNode.ReturnTypeIDMASK) != TypeIds.T_JavaLangString) {
 			// false alarm, primitive types involved, must be auto(un)boxing?
@@ -5196,11 +5219,17 @@ public boolean expressionNonNullComparison(Expression expr, boolean checkForNull
 		}
 		// fall through to bottom
 	} else {
+		needImplementation(expr); // want to see if we get here
 		return false;
 	}
 	if (problemId == 0) {
-		// not handled
-		return false;
+		// standard case, fill in details now
+		problemId = checkForNull 
+				? IProblem.NonNullExpressionComparisonYieldsFalse
+				: IProblem.RedundantNullCheckOnNonNullExpression;
+		start = location.sourceStart;
+		end = location.sourceEnd;
+		arguments = NoArgument;
 	}
 	this.handle(problemId, arguments, arguments, start, end);
 	return true;
