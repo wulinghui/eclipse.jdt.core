@@ -110,6 +110,14 @@ public FlowInfo analyseAssignment(BlockScope currentScope, FlowContext flowConte
 			// assigning a final field outside an initializer or constructor or wrong reference
 			currentScope.problemReporter().cannotAssignToFinalField(this.binding, this);
 		}
+	} else if (this.binding.isNonNull()) {
+		// in a context where it can be assigned?
+		if (   !isCompound
+			&& this.receiver.isThis()
+			&& !(this.receiver instanceof QualifiedThisReference)
+			&& ((this.receiver.bits & ASTNode.ParenthesizedMASK) == 0)) { // (this).x is forbidden
+			flowInfo.markAsDefinitelyAssigned(this.binding);
+		}		
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=318682
 	if (!this.binding.isStatic()) {
