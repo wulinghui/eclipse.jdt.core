@@ -3748,6 +3748,24 @@ public void test_nonnull_field_2d() {
 		"");
 }
 
+// a non-null field is properly initialized - using this.f reference
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
+public void test_nonnull_field_2e() {
+	runConformTestWithLibs(
+		new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"public class X {\n" +
+			"    @NonNull Object f;\n" +
+			"    {\n" +
+			"         this.f = new Object();\n" +
+			"    }\n" +
+			"}\n"
+		},
+		null /*customOptions*/,
+		"");
+}
+
 // a non-null field is initialized to null
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nonnull_field_3() {
