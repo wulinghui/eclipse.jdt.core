@@ -131,8 +131,8 @@ public void addNullCheckedFieldReferences(Reference reference, int timeToLive) {
 }
 
 public void expireNullCheckedFieldInfo() {
-	if (--this.timeToLiveForNullCheckInfo == 0) {
-		if (this.nullCheckedFieldReferences != null) {
+	if (this.nullCheckedFieldReferences != null) {
+		if (--this.timeToLiveForNullCheckInfo == 0) {
 			this.nullCheckedFieldReferences[0] = null; // lazily wipe
 		}
 	}
