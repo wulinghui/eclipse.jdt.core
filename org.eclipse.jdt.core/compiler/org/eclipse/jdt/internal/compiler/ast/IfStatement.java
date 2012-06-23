@@ -101,6 +101,8 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		}
 		thenFlowInfo = this.thenStatement.analyseCode(currentScope, flowContext, thenFlowInfo);
 	}
+	// any null check from the condition is now expired
+	flowContext.expireNullCheckedFieldInfo();
 	// code gen: optimizing the jump around the ELSE part
 	if ((thenFlowInfo.tagBits & FlowInfo.UNREACHABLE_OR_DEAD) != 0) {
 		this.bits |= ASTNode.ThenExit;

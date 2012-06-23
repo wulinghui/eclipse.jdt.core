@@ -871,7 +871,7 @@ public void markAsNonNull() {
 	this.bits |= ASTNode.IsNonNull;
 }
 
-public int nullStatus(FlowInfo flowInfo) {
+public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
 
 	if (/* (this.bits & IsNonNull) != 0 || */
 		this.constant != null && this.constant != Constant.NotAConstant)

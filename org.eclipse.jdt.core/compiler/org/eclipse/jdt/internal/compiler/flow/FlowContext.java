@@ -61,6 +61,9 @@ public class FlowContext implements TypeConstants {
 	// array to store the provided and expected types from the potential error location (for display in error messages):
 	public TypeBinding[][] providedExpectedTypes = null;
 
+	private Reference[] nullCheckedFieldReferences = null;
+	private int timeToLiveForNullCheckInfo = -1;
+
 	public static final int DEFER_NULL_DIAGNOSTIC = 0x1;
 	public static final int PREEMPT_NULL_DIAGNOSTIC = 0x2;
 	/**
@@ -99,6 +102,39 @@ public FlowContext(FlowContext parent, ASTNode associatedNode) {
 			this.tagBits |= FlowContext.DEFER_NULL_DIAGNOSTIC;
 		}
 		this.initsOnFinally = parent.initsOnFinally;
+		this.nullCheckedFieldReferences = parent.nullCheckedFieldReferences; // re-use list if there is one
+	}
+}
+
+public void addNullCheckedFieldReferences(Reference reference, int timeToLive) {
+	this.timeToLiveForNullCheckInfo = timeToLive;
+	if (this.nullCheckedFieldReferences == null) {
+		// first entry:
+		this.nullCheckedFieldReferences = new Reference[2];
+		this.nullCheckedFieldReferences[0] = reference;
+	} else {
+		int len = this.nullCheckedFieldReferences.length;
+		// insert into first empty slot:
+		for (int i=0; i<len; i++) {
+			if (this.nullCheckedFieldReferences[i] == null) {
+				this.nullCheckedFieldReferences[i] = reference;
+				if (i+1 < len) {
+					this.nullCheckedFieldReferences[i+1] = null; // lazily mark next as empty
+				}
+				return;
+			}
+		}
+		// grow array:
+		System.arraycopy(this.nullCheckedFieldReferences, 0, this.nullCheckedFieldReferences=new Reference[len+2], 0, len);
+		this.nullCheckedFieldReferences[len] = reference;
+	}
+}
+
+public void expireNullCheckedFieldInfo() {
+	if (--this.timeToLiveForNullCheckInfo == 0) {
+		if (this.nullCheckedFieldReferences != null) {
+			this.nullCheckedFieldReferences[0] = null; // lazily wipe
+		}
 	}
 }
 
@@ -539,6 +575,26 @@ public boolean isContinuable() {
 }
 
 public boolean isNonReturningContext() {
+	return false;
+}
+
+/** 
+ * Is the given field reference equivalent to a reference that is freshly known to be non-null?
+ * Can only return true if CompilerOptions.enableSyntacticNullAnalysisForFields
+ * (implicitly by guards before calls to {@link #addNullCheckedFieldReferences(Reference, int)}). 
+ */
+public boolean isNullcheckedFieldAccess(Reference reference) {
+	if (this.nullCheckedFieldReferences == null) return false;
+	int len = this.nullCheckedFieldReferences.length;
+	for (int i=0; i<len; i++) {
+		Reference checked = this.nullCheckedFieldReferences[i];
+		if (checked == null) {
+			return false;
+		}
+		if (checked.isEquivalent(reference)) {
+			return true;
+		}
+	}
 	return false;
 }
 

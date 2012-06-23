@@ -1677,6 +1677,20 @@ public final class JavaCore extends Plugin {
 	 */
 	public static final String COMPILER_PB_REDUNDANT_NULL_ANNOTATION = PLUGIN_ID + ".compiler.problem.redundantNullAnnotation"; //$NON-NLS-1$
 	/**
+	 * Compiler option ID: Perform syntactic null analysis for fields.
+	 * <p>When enabled, the compiler will detect certain syntactic constellations where a null
+	 *	  related warning against a field reference would normally be raised but can be suppressed
+	 *    at low risk given that the same field reference was known to be non-null immediately before.</p>
+	 * <dl>
+	 * <dt>Option id:</dt><dd><code>"org.eclipse.jdt.core.compiler.problem.syntacticNullAnalysisForFields"</code></dd>
+	 * <dt>Possible values:</dt><dd><code>{ "disabled", "enabled" }</code></dd>
+	 * <dt>Default:</dt><dd><code>"disabled"</code></dd>
+	 * </dl>
+	 * @since 3.9
+	 * @category CompilerOptionID
+	 */
+	public static final String COMPILER_PB_SYNTACTIC_NULL_ANALYSIS_FOR_FIELDS = JavaCore.PLUGIN_ID+".compiler.problem.syntacticNullAnalysisForFields"; //$NON-NLS-1$
+	/**
 	 * Compiler option ID: Setting Source Compatibility Mode.
 	 * <p>Specify whether which source level compatibility is used. From 1.4 on, <code>'assert'</code> is a keyword
 	 *    reserved for assertion support. Also note, than when toggling to 1.4 mode, the target VM

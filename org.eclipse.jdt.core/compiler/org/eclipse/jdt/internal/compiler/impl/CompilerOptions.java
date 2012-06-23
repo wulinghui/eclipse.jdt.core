@@ -161,6 +161,7 @@ public class CompilerOptions {
 	static final char[][] DEFAULT_NONNULL_ANNOTATION_NAME = CharOperation.splitOn('.', "org.eclipse.jdt.annotation.NonNull".toCharArray()); //$NON-NLS-1$
 	static final char[][] DEFAULT_NONNULLBYDEFAULT_ANNOTATION_NAME = CharOperation.splitOn('.', "org.eclipse.jdt.annotation.NonNullByDefault".toCharArray()); //$NON-NLS-1$
 	public static final String OPTION_ReportMissingNonNullByDefaultAnnotation = "org.eclipse.jdt.core.compiler.annotation.missingNonNullByDefaultAnnotation";  //$NON-NLS-1$
+	public static final String OPTION_SyntacticNullAnalysisForFields = "org.eclipse.jdt.core.compiler.problem.syntacticNullAnalysisForFields"; //$NON-NLS-1$
 	/**
 	 * Possible values for configurable options
 	 */
@@ -423,6 +424,9 @@ public class CompilerOptions {
 		String tolerateIllegalAmbiguousVarargs = System.getProperty("tolerateIllegalAmbiguousVarargsInvocation"); //$NON-NLS-1$
 		tolerateIllegalAmbiguousVarargsInvocation = tolerateIllegalAmbiguousVarargs != null && tolerateIllegalAmbiguousVarargs.equalsIgnoreCase("true"); //$NON-NLS-1$
 	}
+
+	/** Experimental switch: should immediate null-check for @Nullable fields be considered during null analysis (syntactical match)? */
+	public boolean enableSyntacticNullAnalysisForFields;
 
 	// keep in sync with warningTokenToIrritant and warningTokenFromIrritant
 	public final static String[] warningTokens = {
@@ -809,7 +813,8 @@ public class CompilerOptions {
 			OPTION_ReportNullSpecViolation,
 			OPTION_ReportNullAnnotationInferenceConflict,
 			OPTION_ReportNullUncheckedConversion,
-			OPTION_ReportRedundantNullAnnotation
+			OPTION_ReportRedundantNullAnnotation,
+			OPTION_SyntacticNullAnalysisForFields
 		};
 		return result;
 	}
@@ -1105,6 +1110,7 @@ public class CompilerOptions {
 		optionsMap.put(OPTION_NonNullAnnotationName, String.valueOf(CharOperation.concatWith(this.nonNullAnnotationName, '.')));
 		optionsMap.put(OPTION_NonNullByDefaultAnnotationName, String.valueOf(CharOperation.concatWith(this.nonNullByDefaultAnnotationName, '.')));
 		optionsMap.put(OPTION_ReportMissingNonNullByDefaultAnnotation, getSeverityString(MissingNonNullByDefaultAnnotation));
+		optionsMap.put(OPTION_SyntacticNullAnalysisForFields, this.enableSyntacticNullAnalysisForFields ? ENABLED : DISABLED);
 		return optionsMap;
 	}
 
@@ -1263,6 +1269,7 @@ public class CompilerOptions {
 		this.nonNullAnnotationName = DEFAULT_NONNULL_ANNOTATION_NAME;
 		this.nonNullByDefaultAnnotationName = DEFAULT_NONNULLBYDEFAULT_ANNOTATION_NAME;
 		this.intendedDefaultNonNullness = 0;
+		this.enableSyntacticNullAnalysisForFields = false;
 		
 		this.analyseResourceLeaks = true;
 
@@ -1592,6 +1599,9 @@ public class CompilerOptions {
 				this.nonNullByDefaultAnnotationName = CharOperation.splitAndTrimOn('.', ((String)optionValue).toCharArray());
 			}
 			if ((optionValue = optionsMap.get(OPTION_ReportMissingNonNullByDefaultAnnotation)) != null) updateSeverity(MissingNonNullByDefaultAnnotation, optionValue);
+			if ((optionValue = optionsMap.get(OPTION_SyntacticNullAnalysisForFields)) != null) {
+				this.enableSyntacticNullAnalysisForFields = ENABLED.equals(optionValue);
+			}
 		}
 
 		// Javadoc options

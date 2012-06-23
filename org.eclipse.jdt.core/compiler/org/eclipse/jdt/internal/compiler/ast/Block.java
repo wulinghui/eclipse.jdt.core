@@ -33,10 +33,14 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	// empty block
 	if (this.statements == null)	return flowInfo;
 	int complaintLevel = (flowInfo.reachMode() & FlowInfo.UNREACHABLE) != 0 ? Statement.COMPLAINED_FAKE_REACHABLE : Statement.NOT_COMPLAINED;
+	boolean enableSyntacticNullAnalysisForFields = currentScope.compilerOptions().enableSyntacticNullAnalysisForFields;
 	for (int i = 0, max = this.statements.length; i < max; i++) {
 		Statement stat = this.statements[i];
 		if ((complaintLevel = stat.complainIfUnreachable(flowInfo, this.scope, complaintLevel, true)) < Statement.COMPLAINED_UNREACHABLE) {
 			flowInfo = stat.analyseCode(this.scope, flowContext, flowInfo);
+		}
+		if (enableSyntacticNullAnalysisForFields) {
+			flowContext.expireNullCheckedFieldInfo();
 		}
 	}
 	if (this.explicitDeclarations > 0) {

@@ -160,7 +160,7 @@ public void generatePostIncrement(BlockScope currentScope, CodeStream codeStream
 	codeStream.arrayAtPut(this.resolvedType.id, false);
 }
 
-public int nullStatus(FlowInfo flowInfo) {
+public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
 	return FlowInfo.UNKNOWN;
 }
 
