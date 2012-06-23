@@ -53,7 +53,7 @@ public NullAnnotationTest(String name) {
 // Static initializer to specify tests subset using TESTS_* static variables
 // All specified tests which do not belong to the class are skipped...
 static {
-//		TESTS_NAMES = new String[] { "test_nullable_field_10a" };
+//		TESTS_NAMES = new String[] { "test_nonnull_field_" };
 //		TESTS_NUMBERS = new int[] { 561 };
 //		TESTS_RANGE = new int[] { 1, 2049 };
 }
@@ -4071,6 +4071,25 @@ public void test_nonnull_field_12() {
 		"	^^^^^^^^^^^^\n" + 
 		"The nullness annotation @NonNull is not applicable for the primitive type int\n" + 
 		"----------\n");
+}
+
+// A final field is initialized to non-null, treat as effectively @NonNull
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
+public void test_nonnull_field_13() {
+	runConformTestWithLibs(
+		new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"public class X {\n" +
+			"    final String s1 = \"\";\n" +
+			"    @NonNull String s2;\n" +
+			"    X() {\n" +
+			"        s2 = s1;\n" +
+			"    }\n" +
+			"}\n"
+		},
+		null /*customOptions*/,
+		"");
 }
 
 // access to a nullable field - field reference
