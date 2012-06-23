@@ -141,11 +141,15 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 
 		// propagate to statements
 		if (this.statements != null) {
+			boolean enableSyntacticNullAnalysisForFields = this.scope.compilerOptions().enableSyntacticNullAnalysisForFields;
 			int complaintLevel = (nonStaticFieldInfoReachMode & FlowInfo.UNREACHABLE) == 0 ? Statement.NOT_COMPLAINED : Statement.COMPLAINED_FAKE_REACHABLE;
 			for (int i = 0, count = this.statements.length; i < count; i++) {
 				Statement stat = this.statements[i];
 				if ((complaintLevel = stat.complainIfUnreachable(flowInfo, this.scope, complaintLevel, true)) < Statement.COMPLAINED_UNREACHABLE) {
 					flowInfo = stat.analyseCode(this.scope, constructorContext, flowInfo);
+				}
+				if (enableSyntacticNullAnalysisForFields) {
+					constructorContext.expireNullCheckedFieldInfo();
 				}
 			}
 		}

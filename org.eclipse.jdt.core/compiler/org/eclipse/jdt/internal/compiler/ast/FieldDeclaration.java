@@ -80,7 +80,7 @@ public FlowInfo analyseCode(MethodScope initializationScope, FlowContext flowCon
 	long tagBits = this.binding.tagBits;
 	if ((tagBits & TagBits.AnnotationNonNull) != 0) {
 		if (this.initialization != null) {
-			int nullStatus = this.initialization.nullStatus(flowInfo);
+			int nullStatus = this.initialization.nullStatus(flowInfo, flowContext);
 			// check against annotation @NonNull:
 			if (nullStatus != FlowInfo.NON_NULL) {
 				char[][] annotationName = initializationScope.environment().getNonNullAnnotationName();

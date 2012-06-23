@@ -73,7 +73,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		codeStream.recordPositionsFrom(pc, this.sourceStart);
 	}
 
-public int nullStatus(FlowInfo flowInfo) {
+public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
 	return FlowInfo.NON_NULL;
 	// we may have complained on checkNPE, but we avoid duplicate error
 }

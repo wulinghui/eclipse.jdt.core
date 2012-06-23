@@ -72,7 +72,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	else
 		FakedTrackingVariable.cleanUpAfterAssignment(currentScope, this.lhs.bits, this.expression);
 
-	int nullStatus = this.expression.nullStatus(flowInfo);
+	int nullStatus = this.expression.nullStatus(flowInfo, flowContext);
 	if (local != null && (local.type.tagBits & TagBits.IsBaseType) == 0) {
 		if (nullStatus == FlowInfo.NULL) {
 			flowContext.recordUsingNullReference(currentScope, local, this.lhs,
@@ -80,8 +80,16 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		}
 	}
 	VariableBinding var = this.lhs.nullAnnotatedVariableBinding();
-	if (var != null)
+	if (var != null) {
 		nullStatus = checkAssignmentAgainstNullAnnotation(currentScope, flowContext, var, nullStatus, this.expression, this.expression.resolvedType);
+		if (nullStatus == FlowInfo.NON_NULL 
+				&& var instanceof FieldBinding 
+				&& this.lhs instanceof Reference
+				&& currentScope.compilerOptions().enableSyntacticNullAnalysisForFields) 
+		{
+			flowContext.addNullCheckedFieldReferences((Reference) this.lhs, 2); // make info survives the end of this statement
+		}
+	}
 	if (local != null && (local.type.tagBits & TagBits.IsBaseType) == 0) {
 		flowInfo.markNullStatus(local, nullStatus);
 		if (flowContext.initsOnFinally != null)
@@ -133,8 +141,8 @@ FieldBinding getLastField(Expression someExpression) {
     return null;
 }
 
-public int nullStatus(FlowInfo flowInfo) {
-	return this.expression.nullStatus(flowInfo);
+public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
+	return this.expression.nullStatus(flowInfo, flowContext);
 }
 
 public StringBuffer print(int indent, StringBuffer output) {

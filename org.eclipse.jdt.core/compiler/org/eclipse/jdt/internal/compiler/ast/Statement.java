@@ -92,7 +92,7 @@ protected void analyseArguments(BlockScope currentScope, FlowContext flowContext
 			if (methodBinding.parameterNonNullness[i] == Boolean.TRUE) {
 				TypeBinding expectedType = methodBinding.parameters[i];
 				Expression argument = arguments[i];
-				int nullStatus = argument.nullStatus(flowInfo); // slight loss of precision: should also use the null info from the receiver.
+				int nullStatus = argument.nullStatus(flowInfo, flowContext); // slight loss of precision: should also use the null info from the receiver.
 				if (nullStatus != FlowInfo.NON_NULL) // if required non-null is not provided
 					flowContext.recordNullityMismatch(currentScope, argument, argument.resolvedType, expectedType, nullStatus);
 			}

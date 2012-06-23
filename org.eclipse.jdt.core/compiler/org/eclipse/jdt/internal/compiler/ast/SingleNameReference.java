@@ -808,6 +808,18 @@ public TypeBinding[] genericTypeArguments() {
 	return null;
 }
 
+public boolean isEquivalent(Reference reference) {
+	char[] otherToken = null;
+	if (reference instanceof SingleNameReference) {
+		otherToken = ((SingleNameReference) reference).token;
+	} else if (reference instanceof FieldReference) {
+		FieldReference fr = (FieldReference) reference;
+		if (fr.receiver.isThis() && !(fr.receiver instanceof QualifiedThisReference))
+			otherToken = fr.token;
+	}
+	return otherToken != null && CharOperation.equals(this.token, otherToken);
+}
+
 /**
  * Returns the local variable referenced by this node. Can be a direct reference (SingleNameReference)
  * or thru a cast expression etc...

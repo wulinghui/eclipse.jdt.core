@@ -155,11 +155,12 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		//               NullReferenceTest#test0510
 	}
 	manageSyntheticAccessIfNecessary(currentScope, flowInfo);
+	flowContext.expireNullCheckedFieldInfo(); // no longer trust this info after any message send
 	return flowInfo;
 }
 public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo) {
 	// message send as a receiver
-	if ((nullStatus(flowInfo) & FlowInfo.POTENTIALLY_NULL) != 0)
+	if ((nullStatus(flowInfo, flowContext) & FlowInfo.POTENTIALLY_NULL) != 0)
 		scope.problemReporter().messageSendPotentialNullReference(this.binding, this);
 	return true; // done all possible checking
 }
@@ -315,7 +316,7 @@ public void manageSyntheticAccessIfNecessary(BlockScope currentScope, FlowInfo f
 		}
 	}
 }
-public int nullStatus(FlowInfo flowInfo) {
+public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
 	if (this.binding.isValidBinding()) {
 		// try to retrieve null status of this message send from an annotation of the called method:
 		long tagBits = this.binding.tagBits;

@@ -445,8 +445,8 @@ public LocalVariableBinding localVariableBinding() {
 	return this.expression.localVariableBinding();
 }
 
-public int nullStatus(FlowInfo flowInfo) {
-	return this.expression.nullStatus(flowInfo);
+public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
+	return this.expression.nullStatus(flowInfo, flowContext);
 }
 
 /**

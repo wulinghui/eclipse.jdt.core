@@ -813,6 +813,27 @@ public TypeBinding getOtherFieldBindings(BlockScope scope) {
 			: type;
 }
 
+public boolean isEquivalent(Reference reference) {
+	if (reference instanceof FieldReference) {
+		return reference.isEquivalent(this); // comparison FR <-> QNR is implemented only once
+	}
+	if (!(reference instanceof QualifiedNameReference)) return false;
+	QualifiedNameReference qualifiedReference = (QualifiedNameReference) reference;
+	if (this.tokens.length != qualifiedReference.tokens.length) return false;
+	if (this.binding != qualifiedReference.binding) return false;
+	if (this.otherBindings != null) {
+		if (qualifiedReference.otherBindings == null) return false;
+		int len = this.otherBindings.length;
+		if (len != qualifiedReference.otherBindings.length) return false;
+		for (int i=0; i<len; i++) {
+			if (this.otherBindings[i] != qualifiedReference.otherBindings[i]) return false;
+		}
+	} else if (qualifiedReference.otherBindings != null) {
+		return false;
+	}
+	return true;
+}
+
 public boolean isFieldAccess() {
 	if (this.otherBindings != null) {
 		return true;

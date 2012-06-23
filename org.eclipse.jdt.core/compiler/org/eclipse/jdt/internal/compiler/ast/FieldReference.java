@@ -161,6 +161,9 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 }
 
 public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo) {
+	if (flowContext.isNullcheckedFieldAccess(this)) {
+		return true; // enough seen
+	}
 	return checkNullableFieldDereference(scope, this.binding, this.nameSourcePosition);
 }
 
@@ -442,6 +445,54 @@ public void generatePostIncrement(BlockScope currentScope, CodeStream codeStream
 public TypeBinding[] genericTypeArguments() {
 	return null;
 }
+
+public boolean isEquivalent(Reference reference) {
+	// only consider field references relative to "this":
+	if (!this.receiver.isThis() || this.receiver instanceof QualifiedThisReference) {
+		// search deeper for "this" inside:
+		char[][] thisTokens = getThisFieldTokens(0);
+		if (thisTokens == null) {
+			return false;
+		}
+		// other can be "this.f1.f2", too, or "f1.f2":
+		char[][] otherTokens = null;
+		if (reference instanceof FieldReference) {
+			otherTokens = ((FieldReference) reference).getThisFieldTokens(0);
+		} else if (reference instanceof QualifiedNameReference) {
+			otherTokens = ((QualifiedNameReference) reference).tokens;
+		}
+		return CharOperation.equals(thisTokens, otherTokens);
+	}
+	char[] otherToken = null;
+	// 'reference' can be "f1" or "this.f1":
+	if (reference instanceof SingleNameReference) {
+		otherToken = ((SingleNameReference) reference).token;
+	} else if (reference instanceof FieldReference) {
+		FieldReference fr = (FieldReference) reference;
+		if (fr.receiver.isThis() && !(fr.receiver instanceof QualifiedThisReference)) {
+			otherToken = fr.token;
+		}		
+	}
+	return otherToken != null && CharOperation.equals(this.token, otherToken);
+}
+
+private char[][] getThisFieldTokens(int count) {
+	char[][] result = null;
+	if (this.receiver.isThis() && ! (this.receiver instanceof QualifiedThisReference)) {
+		// found an inner-most this-reference, start building the token array:
+		result = new char[count+1][];
+		// fill it front to tail while traveling back out:
+		result[0] = this.token;
+	} else if (this.receiver instanceof FieldReference) {
+		result = ((FieldReference)this.receiver).getThisFieldTokens(count+1);
+		if (result != null) {
+			// front to tail: outermost is last:
+			result[result.length-1-count] = this.token;
+		}
+	}
+	return result;
+}
+
 public boolean isSuperAccess() {
 	return this.receiver.isSuper();
 }

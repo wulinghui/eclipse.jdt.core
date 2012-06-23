@@ -26,8 +26,8 @@ public class EqualExpression extends BinaryExpression {
 		super(left,right,operator);
 	}
 	private void checkNullComparison(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo, FlowInfo initsWhenTrue, FlowInfo initsWhenFalse) {
-		int rightStatus = this.right.nullStatus(flowInfo);
-		int leftStatus = this.left.nullStatus(flowInfo);
+		int rightStatus = this.right.nullStatus(flowInfo, flowContext);
+		int leftStatus = this.left.nullStatus(flowInfo, flowContext);
 
 		boolean leftNonNullChecked = false;
 		boolean rightNonNullChecked = false;
@@ -46,12 +46,28 @@ public class EqualExpression extends BinaryExpression {
 			LocalVariableBinding local = this.left.localVariableBinding();
 			if (local != null && (local.type.tagBits & TagBits.IsBaseType) == 0) {
 				checkVariableComparison(scope, flowContext, flowInfo, initsWhenTrue, initsWhenFalse, local, rightStatus, this.left);
+			} else if (this.left instanceof Reference
+							&& !checkForNull
+							&& scope.compilerOptions().enableSyntacticNullAnalysisForFields)
+			{
+				FieldBinding field = ((Reference)this.left).lastFieldBinding();
+				if (field != null && (field.type.tagBits & TagBits.IsBaseType) == 0) {
+					flowContext.addNullCheckedFieldReferences((Reference) this.left, 1);
+				}
 			}
 		}
 		if (!rightNonNullChecked) {
 			LocalVariableBinding local = this.right.localVariableBinding();
 			if (local != null && (local.type.tagBits & TagBits.IsBaseType) == 0) {
 				checkVariableComparison(scope, flowContext, flowInfo, initsWhenTrue, initsWhenFalse, local, leftStatus, this.right);
+			} else if (this.right instanceof Reference
+							&& !checkForNull 
+							&& scope.compilerOptions().enableSyntacticNullAnalysisForFields) 
+			{
+				FieldBinding field = ((Reference)this.right).lastFieldBinding();
+				if (field != null && (field.type.tagBits & TagBits.IsBaseType) == 0) {
+					flowContext.addNullCheckedFieldReferences((Reference) this.right, 1);
+				}				
 			}
 		}
 

@@ -58,6 +58,10 @@ public class ThisReference extends Reference {
 		return true;
 	}
 
+	public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo) {
+		return true; // never problematic
+	}
+
 	/*
 	 * @see Reference#generateAssignment(...)
 	 */

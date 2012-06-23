@@ -41,6 +41,13 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	return flowInfo;
 }
 
+public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo) {
+	if (flowContext.isNullcheckedFieldAccess(this)) {
+		return true; // enough seen
+	}
+	return super.checkNPE(scope, flowContext, flowInfo);
+}
+
 protected boolean checkNullableFieldDereference(Scope scope, FieldBinding field, long sourcePosition) {
 	if ((field.tagBits & TagBits.AnnotationNullable) != 0) {
 		scope.problemReporter().nullableFieldDereference(field, sourcePosition);
@@ -103,23 +110,31 @@ public abstract void generateCompoundAssignment(BlockScope currentScope, CodeStr
 
 public abstract void generatePostIncrement(BlockScope currentScope, CodeStream codeStream, CompoundAssignment postIncrement, boolean valueRequired);
 
+/** 
+ * Is the given reference equivalent to the receiver, 
+ * meaning that both denote the same path of field reads?
+ */
+public boolean isEquivalent(Reference reference) {
+	return false;
+}
+
 public FieldBinding lastFieldBinding() {
 	// override to answer the field designated by the entire reference
 	// (as opposed to fieldBinding() which answers the first field in a QNR)
 	return null;
 }
 
-public int nullStatus(FlowInfo flowInfo) {
+public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
 	FieldBinding fieldBinding = lastFieldBinding();
 	if (fieldBinding != null) {
-		if (fieldBinding.isNonNull()) {
+		if (fieldBinding.isNonNull() || flowContext.isNullcheckedFieldAccess(this)) {
 			return FlowInfo.NON_NULL;
 		} else if (fieldBinding.isNullable()) {
 			return FlowInfo.POTENTIALLY_NULL;
 		}
 		return FlowInfo.UNKNOWN;
 	}
-	return super.nullStatus(flowInfo);
+	return super.nullStatus(flowInfo, flowContext);
 }
 
 /* report if a private field is only read from a 'special operator',

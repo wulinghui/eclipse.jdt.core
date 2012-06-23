@@ -72,6 +72,13 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		this.trueInitStateIndex = currentScope.methodScope().recordInitializationStates(trueFlowInfo);
 		trueFlowInfo = this.valueIfTrue.analyseCode(currentScope, flowContext, trueFlowInfo);
 
+		// may need to fetch this null status before expireNullCheckedFieldInfo():
+		int preComputedTrueNullStatus = currentScope.compilerOptions().enableSyntacticNullAnalysisForFields
+				? preComputedTrueNullStatus = this.valueIfTrue.nullStatus(trueFlowInfo, flowContext)
+				: -1;
+		// wipe information that was meant only for valueIfTrue:
+		flowContext.expireNullCheckedFieldInfo();
+
 		// process the if-false part
 		FlowInfo falseFlowInfo = flowInfo.initsWhenFalse().copy();
 		if (isConditionOptimizedTrue) {
@@ -89,10 +96,14 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		FlowInfo mergedInfo;
 		if (isConditionOptimizedTrue){
 			mergedInfo = trueFlowInfo.addPotentialInitializationsFrom(falseFlowInfo);
-			this.nullStatus = this.valueIfTrue.nullStatus(trueFlowInfo);
+			if (preComputedTrueNullStatus != -1) {
+				this.nullStatus = preComputedTrueNullStatus;
+			} else { 
+				this.nullStatus = this.valueIfTrue.nullStatus(trueFlowInfo, flowContext);
+			}
 		} else if (isConditionOptimizedFalse) {
 			mergedInfo = falseFlowInfo.addPotentialInitializationsFrom(trueFlowInfo);
-			this.nullStatus = this.valueIfFalse.nullStatus(falseFlowInfo);
+			this.nullStatus = this.valueIfFalse.nullStatus(falseFlowInfo, flowContext);
 		} else {
 			// this block must meet two conflicting requirements (see https://bugs.eclipse.org/324178):
 			// (1) For null analysis of "Object o2 = (o1 != null) ? o1 : new Object();" we need to distinguish
@@ -105,7 +116,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 			//     (regardless of the evaluation of the condition).
 			
 			// to support (1) use the infos of both branches originating from the condition for computing the nullStatus:
-			computeNullStatus(trueFlowInfo, falseFlowInfo);
+			computeNullStatus(preComputedTrueNullStatus, trueFlowInfo, falseFlowInfo, flowContext);
 			
 			// to support (2) we split the true/false branches according to their inner structure. Consider this:
 			// if (b ? false : (true && (v = false))) return v; -- ok
@@ -148,11 +159,13 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		return mergedInfo;
 	}
 
-	private void computeNullStatus(FlowInfo trueBranchInfo, FlowInfo falseBranchInfo) {
+	private void computeNullStatus(int ifTrueNullStatus, FlowInfo trueBranchInfo, FlowInfo falseBranchInfo, FlowContext flowContext) {
 		// given that the condition cannot be optimized to a constant 
 		// we now merge the nullStatus from both branches:
-		int ifTrueNullStatus = this.valueIfTrue.nullStatus(trueBranchInfo);
-		int ifFalseNullStatus = this.valueIfFalse.nullStatus(falseBranchInfo);
+		if (ifTrueNullStatus == -1) { // has this status been pre-computed?
+			ifTrueNullStatus = this.valueIfTrue.nullStatus(trueBranchInfo, flowContext);
+		}
+		int ifFalseNullStatus = this.valueIfFalse.nullStatus(falseBranchInfo, flowContext);
 
 		if (ifTrueNullStatus == ifFalseNullStatus) {
 			this.nullStatus = ifTrueNullStatus;
@@ -367,7 +380,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		codeStream.updateLastRecordedEndPC(currentScope, codeStream.position);
 	}
 
-	public int nullStatus(FlowInfo flowInfo) {
+	public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
 		return this.nullStatus;
 	}
 

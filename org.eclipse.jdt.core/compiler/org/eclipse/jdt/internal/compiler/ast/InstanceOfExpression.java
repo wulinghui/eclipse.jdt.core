@@ -42,6 +42,12 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		// no impact upon enclosing try context
 		return FlowInfo.conditional(initsWhenTrue, flowInfo.copy());
 	}
+	if (this.expression instanceof Reference && currentScope.compilerOptions().enableSyntacticNullAnalysisForFields) {
+		FieldBinding field = ((Reference)this.expression).lastFieldBinding();
+		if (field != null && (field.type.tagBits & TagBits.IsBaseType) == 0) {
+			flowContext.addNullCheckedFieldReferences((Reference) this.expression, 1);
+		}
+	}
 	return this.expression.analyseCode(currentScope, flowContext, flowInfo).
 			unconditionalInits();
 }
