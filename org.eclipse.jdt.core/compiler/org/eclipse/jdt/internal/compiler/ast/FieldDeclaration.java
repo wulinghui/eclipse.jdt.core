@@ -77,15 +77,19 @@ public FlowInfo analyseCode(MethodScope initializationScope, FlowContext flowCon
 				.unconditionalInits();
 		flowInfo.markAsDefinitelyAssigned(this.binding);
 	}
-	long tagBits = this.binding.tagBits;
-	if ((tagBits & TagBits.AnnotationNonNull) != 0) {
-		if (this.initialization != null) {
+	if (this.initialization != null) {
+		if ((this.binding.tagBits & TagBits.AnnotationNonNull) != 0) {
 			int nullStatus = this.initialization.nullStatus(flowInfo, flowContext);
 			// check against annotation @NonNull:
 			if (nullStatus != FlowInfo.NON_NULL) {
 				char[][] annotationName = initializationScope.environment().getNonNullAnnotationName();
 				initializationScope.problemReporter().nullityMismatch(this.initialization, this.initialization.resolvedType, this.binding.type, nullStatus, annotationName);
 			}
+		} else if (this.binding.isFinal()
+					&& initializationScope.compilerOptions().isAnnotationBasedNullAnalysisEnabled
+					&& this.initialization.nullStatus(flowInfo, flowContext) == FlowInfo.NON_NULL) 
+		{
+			this.binding.tagBits |= TagBits.AnnotationNonNull; // well-initialized final is effectively @NonNull
 		}
 	}
 	return flowInfo;

@@ -4073,6 +4073,25 @@ public void test_nonnull_field_12() {
 		"----------\n");
 }
 
+// A final field is initialized to non-null, treat as effectively @NonNull
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
+public void test_nonnull_field_13() {
+	runConformTestWithLibs(
+		new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"public class X {\n" +
+			"    final String s1 = \"\";\n" +
+			"    @NonNull String s2;\n" +
+			"    X() {\n" +
+			"        s2 = s1;\n" +
+			"    }\n" +
+			"}\n"
+		},
+		null /*customOptions*/,
+		"");
+}
+
 // access to a nullable field - field reference
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nullable_field_1() {
