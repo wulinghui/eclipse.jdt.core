@@ -8308,14 +8308,13 @@ public void nullityMismatch(Expression expression, TypeBinding providedType, Typ
 		return;
 	}
 	if ((nullStatus & FlowInfo.POTENTIALLY_NULL) != 0) {
-		if (expression instanceof SingleNameReference) {
-			SingleNameReference snr = (SingleNameReference) expression;
-			if (snr.binding instanceof LocalVariableBinding) {
-				if (((LocalVariableBinding)snr.binding).isNullable()) {
-					nullityMismatchSpecdNullable(expression, requiredType, annotationName);
-					return;
-				}
-			}
+		VariableBinding var = expression.localVariableBinding();
+		if (var == null && expression instanceof Reference) {
+			var = ((Reference)expression).lastFieldBinding();
+		}
+		if (var != null && var.isNullable()) {
+			nullityMismatchSpecdNullable(expression, requiredType, annotationName);
+			return;
 		}
 		nullityMismatchPotentiallyNull(expression, requiredType, annotationName);
 		return;

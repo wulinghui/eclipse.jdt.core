@@ -53,7 +53,7 @@ public NullAnnotationTest(String name) {
 // Static initializer to specify tests subset using TESTS_* static variables
 // All specified tests which do not belong to the class are skipped...
 static {
-//		TESTS_NAMES = new String[] { "test_nonnull_field_" };
+//		TESTS_NAMES = new String[] { "test_nullable_field_13" };
 //		TESTS_NUMBERS = new int[] { 561 };
 //		TESTS_RANGE = new int[] { 1, 2049 };
 }
@@ -4644,6 +4644,34 @@ public void test_nullable_field_12() {
 		"	System.out.println(o4.toString()); // warn here: expired by call to hoo()\n" + 
 		"	                   ^^\n" + 
 		"Potential null pointer access: The field o4 is declared as @Nullable\n" + 
+		"----------\n");
+}
+
+// example from comment 47
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
+public void test_nullable_field_13() {
+	Map options = getCompilerOptions();
+	options.put(JavaCore.COMPILER_PB_SYNTACTIC_NULL_ANALYSIS_FOR_FIELDS, JavaCore.ENABLED);
+	runNegativeTestWithLibs(
+		new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"public class X {\n" +
+			"    @Nullable Object o1;\n" +
+			"    @NonNull Object o2 = new Object();\n" +
+			"    public void foo(X other) {\n" +
+			"         if (other.o1 == null){\n" +
+			"				this.o2 = other.o1; // warn here: assign @Nullable to @NonNull\n" +
+			"		  }\n" +
+			"    }\n" +
+			"}\n"
+		},
+		options,
+		"----------\n" + 
+		"1. ERROR in X.java (at line 7)\n" + 
+		"	this.o2 = other.o1; // warn here: assign @Nullable to @NonNull\n" + 
+		"	          ^^^^^^^^\n" + 
+		"Null type mismatch: required \'@NonNull Object\' but the provided value is specified as @Nullable\n" + 
 		"----------\n");
 }
 
