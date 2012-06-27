@@ -1171,6 +1171,7 @@ void scanFieldForNullAnnotation(IBinaryField field, FieldBinding fieldBinding) {
 	if (fieldBinding.type == null || fieldBinding.type.isBaseType())
 		return; // null annotations are only applied to reference types
 
+	boolean explicitNullness = false;
 	IBinaryAnnotation[] annotations = field.getAnnotations();
 	if (annotations != null) {
 		for (int i = 0; i < annotations.length; i++) {
@@ -1180,13 +1181,18 @@ void scanFieldForNullAnnotation(IBinaryField field, FieldBinding fieldBinding) {
 			char[][] typeName = CharOperation.splitOn('/', annotationTypeName, 1, annotationTypeName.length-1); // cut of leading 'L' and trailing ';'
 			if (CharOperation.equals(typeName, nonNullAnnotationName)) {
 				fieldBinding.tagBits |= TagBits.AnnotationNonNull;
+				explicitNullness = true;
 				break;
 			}
 			if (CharOperation.equals(typeName, nullableAnnotationName)) {
 				fieldBinding.tagBits |= TagBits.AnnotationNullable;
+				explicitNullness = true;
 				break;
 			}
 		}
+	}
+	if (!explicitNullness && (this.tagBits & TagBits.AnnotationNonNullByDefault) != 0) {
+		fieldBinding.tagBits |= TagBits.AnnotationNonNull;
 	}
 }
 

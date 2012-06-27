@@ -4092,6 +4092,73 @@ public void test_nonnull_field_13() {
 		"");
 }
 
+// A field in a different CU is implicitly @NonNull (by type default) - that class is read from binary
+// Assignment to other @NonNull field should not raise a warning
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
+public void test_nonnull_field_14() {
+	runConformTestWithLibs(
+		new String[] {
+			"p1/X.java",
+			"package p1;\n" +
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"@NonNullByDefault\n" +
+			"public class X {\n" +
+			"    public String s1 = \"\";\n" +
+			"}\n",
+		},
+		null /*customOptions*/,
+		"");
+	runConformTestWithLibs(
+			new String[] {
+			"p2/Y.java",
+			"package p2;\n" +
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"import p1.X;\n" +
+			"public class Y {\n" +
+			"    @NonNull String s2 = \"\";\n" +
+			"    void foo(X other) {\n" +
+			"        s2 = other.s1;\n" +
+			"    }\n" +
+			"}\n"
+		},
+		null /*customOptions*/,
+		"");
+}
+
+// A field in a different CU is implicitly @NonNull (by package default) - that class is read from binary
+// Assignment to other @NonNull field should not raise a warning
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
+public void test_nonnull_field_14b() {
+	runConformTestWithLibs(
+		new String[] {
+			"p1/package-info.java",
+			"@org.eclipse.jdt.annotation.NonNullByDefault\n" +
+			"package p1;\n",
+			"p1/X.java",
+			"package p1;\n" +
+			"public class X {\n" +
+			"    public String s1 = \"\";\n" +
+			"}\n",
+		},
+		null /*customOptions*/,
+		"");
+	runConformTestWithLibs(
+			new String[] {
+			"p2/Y.java",
+			"package p2;\n" +
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"import p1.X;\n" +
+			"public class Y {\n" +
+			"    @NonNull String s2 = \"\";\n" +
+			"    void foo(X other) {\n" +
+			"        s2 = other.s1;\n" +
+			"    }\n" +
+			"}\n"
+		},
+		null /*customOptions*/,
+		"");
+}
+
 // access to a nullable field - field reference
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
 public void test_nullable_field_1() {
