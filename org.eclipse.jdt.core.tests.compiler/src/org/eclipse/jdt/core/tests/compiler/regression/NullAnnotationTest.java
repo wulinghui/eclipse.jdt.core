@@ -2697,9 +2697,9 @@ public void test_default_nullness_016() {
 			"}\n",
 		},
 		"----------\n" + 
-		"1. ERROR in X.java (at line 3)\n" + 
-		"	public class X {\n" + 
-		"	             ^\n" + 
+		"1. ERROR in X.java (at line 4)\n" + 
+		"	Object foo;\n" + 
+		"	       ^^^\n" + 
 		"The @NonNull field foo may not have been initialized\n" + 
 		"----------\n" + 
 		"2. ERROR in X.java (at line 6)\n" + 
@@ -2707,9 +2707,9 @@ public void test_default_nullness_016() {
 		"	      ^^^^\n" + 
 		"Null type mismatch: required \'@NonNull Object\' but the provided value is null\n" + 
 		"----------\n" + 
-		"3. ERROR in X.java (at line 8)\n" + 
-		"	class Inner {\n" + 
-		"	      ^^^^^\n" + 
+		"3. ERROR in X.java (at line 9)\n" + 
+		"	Object iFoo;\n" + 
+		"	       ^^^^\n" + 
 		"The @NonNull field iFoo may not have been initialized\n" + 
 		"----------\n" + 
 		"4. ERROR in X.java (at line 11)\n" + 
@@ -2740,20 +2740,20 @@ public void test_default_nullness_017() {
 		},
 		options,
 		"----------\n" + 
-		"1. ERROR in X.java (at line 5)\n" + 
-		"	class Local {\n" + 
-		"	      ^^^^^\n" + 
+		"1. ERROR in X.java (at line 6)\n" + 
+		"	Object foo;\n" + 
+		"	       ^^^\n" + 
 		"The @NonNull field foo may not have been initialized\n" + 
 		"----------\n" + 
-		"2. ERROR in X.java (at line 5)\n" + 
-		"	class Local {\n" + 
-		"	      ^^^^^\n" + 
-		"The @NonNull field goo may not have been initialized\n" + 
-		"----------\n" + 
-		"3. WARNING in X.java (at line 7)\n" + 
+		"2. WARNING in X.java (at line 7)\n" + 
 		"	@NonNull Object goo;\n" + 
 		"	^^^^^^^^^^^^^^^\n" + 
 		"The nullness annotation is redundant with a default that applies to this location\n" + 
+		"----------\n" + 
+		"3. ERROR in X.java (at line 7)\n" + 
+		"	@NonNull Object goo;\n" + 
+		"	                ^^^\n" + 
+		"The @NonNull field goo may not have been initialized\n" + 
 		"----------\n");
 }
 
@@ -3639,9 +3639,9 @@ public void test_nonnull_field_2() {
 		},
 		null /*customOptions*/,
 		"----------\n" +
-		"1. ERROR in X.java (at line 2)\n" +
-		"	public class X {\n" +
-		"	             ^\n" +
+		"1. ERROR in X.java (at line 3)\n" +
+		"	@NonNull Object o;\n" +
+		"	                ^\n" +
 		"The @NonNull field o may not have been initialized\n" +
 		"----------\n");
 }
