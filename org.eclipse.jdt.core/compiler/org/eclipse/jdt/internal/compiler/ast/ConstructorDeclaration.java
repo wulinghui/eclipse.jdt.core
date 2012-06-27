@@ -178,7 +178,7 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 					} else if (field.isNonNull()) {
 							this.scope.problemReporter().uninitializedNonNullField(
 								field,
-								((this.bits & ASTNode.IsDefaultConstructor) != 0) ? (ASTNode) this.scope.referenceType() : this);						
+								((this.bits & ASTNode.IsDefaultConstructor) != 0) ? (ASTNode) this.scope.referenceType().declarationOf(field.original()) : this);						
 					}
 				}
 			}
