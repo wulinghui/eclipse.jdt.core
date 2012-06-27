@@ -4740,6 +4740,55 @@ public void test_nullable_field_13() {
 		"----------\n");
 }
 
+// access to a nullable field - protected by check against a @NonNull value
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
+public void test_nullable_field_14() {
+	Map options = getCompilerOptions();
+	options.put(JavaCore.COMPILER_PB_SYNTACTIC_NULL_ANALYSIS_FOR_FIELDS, JavaCore.ENABLED);
+	runConformTestWithLibs(
+		new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"public class X {\n" +
+			"    @Nullable Object o = new Object();\n" +
+			"    public String oString(@NonNull Object a) {\n" +
+			"         if (this.o == a)\n" +
+			"             return this.o.toString();\n" + // silent after check
+			"         return \"\";\n" +
+			"    }\n" +
+			"}\n"
+		},
+		options,
+		"");
+}
+
+// access to a nullable field - not protected by negative check against a @NonNull value
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
+public void test_nullable_field_14a() {
+	Map options = getCompilerOptions();
+	options.put(JavaCore.COMPILER_PB_SYNTACTIC_NULL_ANALYSIS_FOR_FIELDS, JavaCore.ENABLED);
+	runNegativeTestWithLibs(
+		new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"public class X {\n" +
+			"    @Nullable Object o = new Object();\n" +
+			"    public String oString(@NonNull Object a) {\n" +
+			"         if (this.o != a)\n" +
+			"             return this.o.toString(); // warn here, check has no effect\n" +
+			"         return \"\";\n" +
+			"    }\n" +
+			"}\n"
+		},
+		options,
+		"----------\n" + 
+		"1. ERROR in X.java (at line 6)\n" + 
+		"	return this.o.toString(); // warn here, check has no effect\n" + 
+		"	            ^\n" + 
+		"Potential null pointer access: The field o is declared as @Nullable\n" + 
+		"----------\n");
+}
+
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=372011
 // Test whether @NonNullByDefault on a binary package or an enclosing type is respected from enclosed elements.
 public void testBug372011() {
