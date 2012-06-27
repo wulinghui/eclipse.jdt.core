@@ -53,7 +53,7 @@ public NullAnnotationTest(String name) {
 // Static initializer to specify tests subset using TESTS_* static variables
 // All specified tests which do not belong to the class are skipped...
 static {
-//		TESTS_NAMES = new String[] { "test_nonnull_field_14" };
+//		TESTS_NAMES = new String[] { "test_nullable_field_14" };
 //		TESTS_NUMBERS = new int[] { 561 };
 //		TESTS_RANGE = new int[] { 1, 2049 };
 }
@@ -4739,6 +4739,55 @@ public void test_nullable_field_13() {
 		"	this.o2 = other.o1; // warn here: assign @Nullable to @NonNull\n" + 
 		"	          ^^^^^^^^\n" + 
 		"Null type mismatch: required \'@NonNull Object\' but the provided value is specified as @Nullable\n" + 
+		"----------\n");
+}
+
+// access to a nullable field - protected by check against a @NonNull value
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
+public void test_nullable_field_14() {
+	Map options = getCompilerOptions();
+	options.put(JavaCore.COMPILER_PB_SYNTACTIC_NULL_ANALYSIS_FOR_FIELDS, JavaCore.ENABLED);
+	runConformTestWithLibs(
+		new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"public class X {\n" +
+			"    @Nullable Object o = new Object();\n" +
+			"    public String oString(@NonNull Object a) {\n" +
+			"         if (this.o == a)\n" +
+			"             return this.o.toString();\n" + // silent after check
+			"         return \"\";\n" +
+			"    }\n" +
+			"}\n"
+		},
+		options,
+		"");
+}
+
+// access to a nullable field - not protected by negative check against a @NonNull value
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
+public void test_nullable_field_14a() {
+	Map options = getCompilerOptions();
+	options.put(JavaCore.COMPILER_PB_SYNTACTIC_NULL_ANALYSIS_FOR_FIELDS, JavaCore.ENABLED);
+	runNegativeTestWithLibs(
+		new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"public class X {\n" +
+			"    @Nullable Object o = new Object();\n" +
+			"    public String oString(@NonNull Object a) {\n" +
+			"         if (this.o != a)\n" +
+			"             return this.o.toString(); // warn here, check has no effect\n" +
+			"         return \"\";\n" +
+			"    }\n" +
+			"}\n"
+		},
+		options,
+		"----------\n" + 
+		"1. ERROR in X.java (at line 6)\n" + 
+		"	return this.o.toString(); // warn here, check has no effect\n" + 
+		"	            ^\n" + 
+		"Potential null pointer access: The field o is declared as @Nullable\n" + 
 		"----------\n");
 }
 

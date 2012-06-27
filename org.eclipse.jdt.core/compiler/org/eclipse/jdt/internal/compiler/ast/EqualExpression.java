@@ -35,11 +35,11 @@ public class EqualExpression extends BinaryExpression {
 		// check if either is a non-local expression known to be nonnull and compared to null, candidates are
 		// - method/field annotated @NonNull
 		// - allocation expression, some literals, this reference (see inside expressionNonNullComparison(..))
-		boolean checkForNull = ((this.bits & OperatorMASK) >> OperatorSHIFT) == EQUAL_EQUAL;
+		boolean checkEquality = ((this.bits & OperatorMASK) >> OperatorSHIFT) == EQUAL_EQUAL;
 		if (leftStatus == FlowInfo.NON_NULL && rightStatus == FlowInfo.NULL) {
-			leftNonNullChecked = scope.problemReporter().expressionNonNullComparison(this.left, checkForNull);
+			leftNonNullChecked = scope.problemReporter().expressionNonNullComparison(this.left, checkEquality);
 		} else if (leftStatus == FlowInfo.NULL && rightStatus == FlowInfo.NON_NULL) {
-			rightNonNullChecked = scope.problemReporter().expressionNonNullComparison(this.right, checkForNull);
+			rightNonNullChecked = scope.problemReporter().expressionNonNullComparison(this.right, checkEquality);
 		}
 		
 		if (!leftNonNullChecked) {
@@ -47,7 +47,7 @@ public class EqualExpression extends BinaryExpression {
 			if (local != null && (local.type.tagBits & TagBits.IsBaseType) == 0) {
 				checkVariableComparison(scope, flowContext, flowInfo, initsWhenTrue, initsWhenFalse, local, rightStatus, this.left);
 			} else if (this.left instanceof Reference
-							&& !checkForNull
+							&& ((!checkEquality && rightStatus == FlowInfo.NULL) || (checkEquality && rightStatus == FlowInfo.NON_NULL))
 							&& scope.compilerOptions().enableSyntacticNullAnalysisForFields)
 			{
 				FieldBinding field = ((Reference)this.left).lastFieldBinding();
@@ -61,7 +61,7 @@ public class EqualExpression extends BinaryExpression {
 			if (local != null && (local.type.tagBits & TagBits.IsBaseType) == 0) {
 				checkVariableComparison(scope, flowContext, flowInfo, initsWhenTrue, initsWhenFalse, local, leftStatus, this.right);
 			} else if (this.right instanceof Reference
-							&& !checkForNull 
+							&& ((!checkEquality && leftStatus == FlowInfo.NULL) || (checkEquality && leftStatus == FlowInfo.NON_NULL))
 							&& scope.compilerOptions().enableSyntacticNullAnalysisForFields) 
 			{
 				FieldBinding field = ((Reference)this.right).lastFieldBinding();
@@ -73,7 +73,7 @@ public class EqualExpression extends BinaryExpression {
 
 		if (leftNonNullChecked || rightNonNullChecked) {
 			// above checks have not propagated unreachable into the corresponding branch, do it now:
-			if (checkForNull) {
+			if (checkEquality) {
 				initsWhenTrue.setReachMode(FlowInfo.UNREACHABLE_BY_NULLANALYSIS);
 			} else {
 				initsWhenFalse.setReachMode(FlowInfo.UNREACHABLE_BY_NULLANALYSIS);
