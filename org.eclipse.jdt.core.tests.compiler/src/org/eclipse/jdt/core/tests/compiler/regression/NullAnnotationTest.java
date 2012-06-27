@@ -4645,6 +4645,34 @@ public void test_nullable_field_12() {
 		"----------\n");
 }
 
+// example from comment 47
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=331649
+public void test_nullable_field_13() {
+	Map options = getCompilerOptions();
+	options.put(JavaCore.COMPILER_PB_SYNTACTIC_NULL_ANALYSIS_FOR_FIELDS, JavaCore.ENABLED);
+	runNegativeTestWithLibs(
+		new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"public class X {\n" +
+			"    @Nullable Object o1;\n" +
+			"    @NonNull Object o2 = new Object();\n" +
+			"    public void foo(X other) {\n" +
+			"         if (other.o1 == null){\n" +
+			"				this.o2 = other.o1; // warn here: assign @Nullable to @NonNull\n" +
+			"		  }\n" +
+			"    }\n" +
+			"}\n"
+		},
+		options,
+		"----------\n" + 
+		"1. ERROR in X.java (at line 7)\n" + 
+		"	this.o2 = other.o1; // warn here: assign @Nullable to @NonNull\n" + 
+		"	          ^^^^^^^^\n" + 
+		"Null type mismatch: required \'@NonNull Object\' but the provided value is specified as @Nullable\n" + 
+		"----------\n");
+}
+
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=372011
 // Test whether @NonNullByDefault on a binary package or an enclosing type is respected from enclosed elements.
 public void testBug372011() {
