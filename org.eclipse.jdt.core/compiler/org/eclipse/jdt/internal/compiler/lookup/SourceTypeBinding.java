@@ -1461,12 +1461,17 @@ public FieldBinding resolveTypeFor(FieldBinding field) {
 			// apply null default:
 			LookupEnvironment environment = this.scope.environment();
 			if (environment.globalOptions.isAnnotationBasedNullAnalysisEnabled) {
-				initializeNullDefault();
-				if (findNonNullDefault(this.scope, environment) == NONNULL_BY_DEFAULT) {
-					field.fillInDefaultNonNullness(fieldDecl, initializationScope);
+				if (fieldDecl.getKind() == AbstractVariableDeclaration.ENUM_CONSTANT) {
+					// enum constants neither have a type declaration nor can they be null
+					field.tagBits |= TagBits.AnnotationNonNull;
+				} else {
+					initializeNullDefault();
+					if (findNonNullDefault(this.scope, environment) == NONNULL_BY_DEFAULT) {
+						field.fillInDefaultNonNullness(fieldDecl, initializationScope);
+					}
+					// validate null annotation:
+					this.scope.validateNullAnnotation(field.tagBits, fieldDecl.type, fieldDecl.annotations);
 				}
-				// validate null annotation:
-				this.scope.validateNullAnnotation(field.tagBits, fieldDecl.type, fieldDecl.annotations);
 			}
 		} finally {
 		    initializationScope.initializedField = previousField;

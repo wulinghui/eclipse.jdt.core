@@ -127,6 +127,17 @@ void runNegativeTestWithLibs(String[] testFiles, Map customOptions, String expec
 void runConformTestWithLibs(String[] testFiles, Map customOptions, String expectedCompilerLog) {
 	runConformTestWithLibs(false /* flush output directory */, testFiles, customOptions, expectedCompilerLog);
 }
+void runConformTestWithLibs(String[] testFiles, Map customOptions, String expectedCompilerLog, String expectedOutput) {
+	runConformTest(
+			false, /* flush output directory */
+			testFiles,
+			this.LIBS,
+			customOptions,
+			expectedCompilerLog,
+			expectedOutput,
+			"",/* expected error */
+		    JavacTestOptions.Excuse.EclipseWarningConfiguredAsError);
+}
 void runConformTestWithLibs(boolean shouldFlushOutputDirectory, String[] testFiles, Map customOptions, String expectedCompilerLog) {
 	runConformTest(
 			shouldFlushOutputDirectory,
@@ -4787,6 +4798,49 @@ public void test_nullable_field_14a() {
 		"	            ^\n" + 
 		"Potential null pointer access: The field o is declared as @Nullable\n" + 
 		"----------\n");
+}
+
+// an enum is declared within the scope of a null-default
+// https://bugs.eclipse.org/331649#c61
+public void test_enum_field_01() {
+	runConformTestWithLibs(
+		new String[] {
+			"tests/X.java",
+			"package tests;\n" +
+			"@org.eclipse.jdt.annotation.NonNullByDefault\n" +
+			"public class X {\n" +
+			"    enum A { B }\n" +
+			"    public static void main(String ... args) {\n" +
+			"         System.out.println(A.B);\n" +
+			"    }\n" +
+			"}\n"
+		},
+		null,
+		"",
+		"B");
+}
+
+// Bug 380896 - Enum constants not recognised as being NonNull.
+// see also https://bugs.eclipse.org/331649#c61
+public void test_enum_field_02() {
+	runConformTestWithLibs(
+		new String[] {
+			"tests/X.java",
+			"package tests;\n" +
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"public class X {\n" +
+			"    enum A { B }\n" +
+			"    public static void main(String ... args) {\n" +
+			"         test(A.B);\n" +
+			"    }\n" +
+			"    static void test(@NonNull A a) {\n" +
+			"        System.out.println(a.ordinal());\n" +
+			"    }\n" +
+			"}\n"
+		},
+		null,
+		"",
+		"0");
 }
 
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=372011
