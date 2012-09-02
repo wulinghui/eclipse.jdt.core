@@ -84,8 +84,10 @@ public abstract class AbstractMethodDeclaration
 				argument.createBinding(this.scope, this.binding.parameters[i]);
 				// createBinding() has resolved annotations, now transfer nullness info from the argument to the method:
 				if ((argument.binding.tagBits & (TagBits.AnnotationNonNull|TagBits.AnnotationNullable)) != 0) {
-					if (this.binding.parameterNonNullness == null)
+					if (this.binding.parameterNonNullness == null) {
 						this.binding.parameterNonNullness = new Boolean[this.arguments.length];
+						this.binding.tagBits |= TagBits.IsNullnessKnown;
+					}
 					this.binding.parameterNonNullness[i] = Boolean.valueOf((argument.binding.tagBits & TagBits.AnnotationNonNull) != 0);
 				}
 			}
@@ -529,13 +531,15 @@ public abstract class AbstractMethodDeclaration
 
 	void validateNullAnnotations() {
 		// null annotations on parameters?
-		if (this.binding != null && this.binding.parameterNonNullness != null) {
-			int length = this.binding.parameters.length;
-			for (int i=0; i<length; i++) {
-				if (this.binding.parameterNonNullness[i] != null) {
-					long nullAnnotationTagBit =  this.binding.parameterNonNullness[i].booleanValue()
-							? TagBits.AnnotationNonNull : TagBits.AnnotationNullable;
-					this.scope.validateNullAnnotation(nullAnnotationTagBit, this.arguments[i].type, this.arguments[i].annotations);
+		if (this.binding != null) {
+			if (this.binding.parameterNonNullness != null) {
+				int length = this.binding.parameters.length;
+				for (int i=0; i<length; i++) {
+					if (this.binding.parameterNonNullness[i] != null) {
+						long nullAnnotationTagBit =  this.binding.parameterNonNullness[i].booleanValue()
+								? TagBits.AnnotationNonNull : TagBits.AnnotationNullable;
+						this.scope.validateNullAnnotation(nullAnnotationTagBit, this.arguments[i].type, this.arguments[i].annotations);
+					}
 				}
 			}
 		}

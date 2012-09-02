@@ -451,10 +451,9 @@ public final char[] constantPoolName() {
 /**
  * After method verifier has finished, fill in missing @NonNull specification from the applicable default.
  */
-protected void fillInDefaultNonNullness() {
+protected void fillInDefaultNonNullness(AbstractMethodDeclaration sourceMethod) {
 	if (this.parameterNonNullness == null)
 		this.parameterNonNullness = new Boolean[this.parameters.length];
-	AbstractMethodDeclaration sourceMethod = sourceMethod();
 	boolean added = false;
 	int length = this.parameterNonNullness.length;
 	for (int i = 0; i < length; i++) {
@@ -466,7 +465,7 @@ protected void fillInDefaultNonNullness() {
 			if (sourceMethod != null) {
 				sourceMethod.arguments[i].binding.tagBits |= TagBits.AnnotationNonNull;
 			}
-		} else if (this.parameterNonNullness[i].booleanValue()) {
+		} else if (sourceMethod != null && this.parameterNonNullness[i].booleanValue()) {
 			sourceMethod.scope.problemReporter().nullAnnotationIsRedundant(sourceMethod, i);
 		}
 	}
@@ -477,7 +476,7 @@ protected void fillInDefaultNonNullness() {
 		&& (this.tagBits & (TagBits.AnnotationNonNull|TagBits.AnnotationNullable)) == 0)
 	{
 		this.tagBits |= TagBits.AnnotationNonNull;
-	} else if ((this.tagBits & TagBits.AnnotationNonNull) != 0) {
+	} else if (sourceMethod != null && (this.tagBits & TagBits.AnnotationNonNull) != 0) {
 		sourceMethod.scope.problemReporter().nullAnnotationIsRedundant(sourceMethod, -1/*signifies method return*/);
 	}
 }
@@ -1169,5 +1168,12 @@ public String toString() {
 }
 public TypeVariableBinding[] typeVariables() {
 	return this.typeVariables;
+}
+public boolean hasNonNullDefault() {
+	if ((this.tagBits & TagBits.AnnotationNonNullByDefault) != 0)
+		return true;
+	if ((this.tagBits & TagBits.AnnotationNullUnspecifiedByDefault) != 0)
+		return false;
+	return this.declaringClass.hasNonNullDefault();
 }
 }

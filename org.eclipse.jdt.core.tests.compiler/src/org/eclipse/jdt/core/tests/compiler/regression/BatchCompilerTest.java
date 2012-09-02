@@ -1842,6 +1842,7 @@ public void test012b(){
 			"		<argument value=\"---OUTPUT_DIR_PLACEHOLDER---\"/>\n" + 
 			"	</command_line>\n" + 
 			"	<options>\n" + 
+			"		<option key=\"org.eclipse.jdt.core.compiler.annotation.inheritNullAnnotations\" value=\"disabled\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.annotation.missingNonNullByDefaultAnnotation\" value=\"ignore\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.annotation.nonnull\" value=\"org.eclipse.jdt.annotation.NonNull\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.annotation.nonnullbydefault\" value=\"org.eclipse.jdt.annotation.NonNullByDefault\"/>\n" + 

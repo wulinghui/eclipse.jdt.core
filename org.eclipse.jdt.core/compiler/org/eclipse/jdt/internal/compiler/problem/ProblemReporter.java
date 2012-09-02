@@ -332,6 +332,7 @@ public static int getIrritant(int problemID) {
 		case IProblem.CannotImplementIncompatibleNullness:
 		case IProblem.UninitializedNonNullField:
 		case IProblem.UninitializedNonNullFieldHintMissingDefault:
+		case IProblem.ConflictingNullAnnotations:
 			return CompilerOptions.NullSpecViolation;
 
 		case IProblem.RequiredNonNullButProvidedPotentialNull:
@@ -8547,6 +8548,23 @@ public void contradictoryNullAnnotations(Annotation annotation) {
 			new String(nullableAnnotationName[nullableAnnotationName.length-1])
 		};
 	this.handle(IProblem.ContradictoryNullAnnotations, arguments, shortArguments, annotation.sourceStart, annotation.sourceEnd);
+}
+
+public void conflictingNullAnnotations(MethodBinding currentMethod, ASTNode location, MethodBinding inheritedMethod)
+{
+	char[][] nonNullAnnotationName = this.options.nonNullAnnotationName;
+	char[][] nullableAnnotationName = this.options.nullableAnnotationName;
+	String[] arguments = {
+		new String(CharOperation.concatWith(nonNullAnnotationName, '.')),
+		new String(CharOperation.concatWith(nullableAnnotationName, '.')),
+		new String(inheritedMethod.declaringClass.readableName())
+	};
+	String[] shortArguments = {
+			new String(nonNullAnnotationName[nonNullAnnotationName.length-1]),
+			new String(nullableAnnotationName[nullableAnnotationName.length-1]),
+			new String(inheritedMethod.declaringClass.shortReadableName())
+		};
+	this.handle(IProblem.ConflictingNullAnnotations, arguments, shortArguments, location.sourceStart, location.sourceEnd);
 }
 
 public void illegalAnnotationForBaseType(TypeReference type, Annotation[] annotations, char[] annotationName, long nullAnnotationTagBit)

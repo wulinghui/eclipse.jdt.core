@@ -1531,6 +1531,8 @@ void setSourceStart(int sourceStart);
 	int RedundantNullCheckOnNonNullSpecdField = Internal + 937;
 	/** @since 3.9 */
 	int NonNullSpecdFieldComparisonYieldsFalse = Internal + 938;
+	/** @since 3.8 */
+	int ConflictingNullAnnotations = MethodRelated + 939;
 
 	/**
 	 * External problems -- These are problems defined by other plugins

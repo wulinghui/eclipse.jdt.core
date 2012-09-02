@@ -405,6 +405,7 @@ public void test011_problem_categories() {
 		expectedProblemAttributes.put("ContradictoryNullAnnotations", new ProblemAttributes(CategorizedProblem.CAT_INTERNAL));
 		expectedProblemAttributes.put("ComparingIdentical", new ProblemAttributes(CategorizedProblem.CAT_POTENTIAL_PROGRAMMING_PROBLEM));
 		expectedProblemAttributes.put("ConflictingImport", new ProblemAttributes(CategorizedProblem.CAT_IMPORT));
+		expectedProblemAttributes.put("ConflictingNullAnnotations", new ProblemAttributes(CategorizedProblem.CAT_POTENTIAL_PROGRAMMING_PROBLEM));
 		expectedProblemAttributes.put("ConstructorVarargsArgumentNeedCast", new ProblemAttributes(CategorizedProblem.CAT_POTENTIAL_PROGRAMMING_PROBLEM));
 		expectedProblemAttributes.put("CorruptedSignature", new ProblemAttributes(CategorizedProblem.CAT_BUILDPATH));
 		expectedProblemAttributes.put("DeadCode", new ProblemAttributes(CategorizedProblem.CAT_POTENTIAL_PROGRAMMING_PROBLEM));
@@ -1117,6 +1118,7 @@ public void test012_compiler_problems_tuning() {
 		expectedProblemAttributes.put("CodeSnippetMissingMethod", SKIP);
 		expectedProblemAttributes.put("ComparingIdentical", new ProblemAttributes(JavaCore.COMPILER_PB_COMPARING_IDENTICAL));
 		expectedProblemAttributes.put("ConflictingImport", SKIP);
+		expectedProblemAttributes.put("ConflictingNullAnnotations", new ProblemAttributes(JavaCore.COMPILER_PB_NULL_SPECIFICATION_VIOLATION));
 		expectedProblemAttributes.put("ContradictoryNullAnnotations", SKIP);
 		expectedProblemAttributes.put("ConstructorVarargsArgumentNeedCast", new ProblemAttributes(JavaCore.COMPILER_PB_VARARGS_ARGUMENT_NEED_CAST));
 		expectedProblemAttributes.put("CorruptedSignature", SKIP);

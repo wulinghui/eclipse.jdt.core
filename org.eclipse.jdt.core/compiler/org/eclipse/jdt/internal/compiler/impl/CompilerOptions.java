@@ -162,6 +162,7 @@ public class CompilerOptions {
 	static final char[][] DEFAULT_NONNULLBYDEFAULT_ANNOTATION_NAME = CharOperation.splitOn('.', "org.eclipse.jdt.annotation.NonNullByDefault".toCharArray()); //$NON-NLS-1$
 	public static final String OPTION_ReportMissingNonNullByDefaultAnnotation = "org.eclipse.jdt.core.compiler.annotation.missingNonNullByDefaultAnnotation";  //$NON-NLS-1$
 	public static final String OPTION_SyntacticNullAnalysisForFields = "org.eclipse.jdt.core.compiler.problem.syntacticNullAnalysisForFields"; //$NON-NLS-1$
+	public static final String OPTION_InheritNullAnnotations = "org.eclipse.jdt.core.compiler.annotation.inheritNullAnnotations";  //$NON-NLS-1$
 	/**
 	 * Possible values for configurable options
 	 */
@@ -427,6 +428,8 @@ public class CompilerOptions {
 
 	/** Experimental switch: should immediate null-check for @Nullable fields be considered during null analysis (syntactical match)? */
 	public boolean enableSyntacticNullAnalysisForFields;
+	/** Experimental switch: should null annotations of overridden methods be inherited? */
+	public boolean inheritNullAnnotations;
 
 	// keep in sync with warningTokenToIrritant and warningTokenFromIrritant
 	public final static String[] warningTokens = {
@@ -814,7 +817,8 @@ public class CompilerOptions {
 			OPTION_ReportNullAnnotationInferenceConflict,
 			OPTION_ReportNullUncheckedConversion,
 			OPTION_ReportRedundantNullAnnotation,
-			OPTION_SyntacticNullAnalysisForFields
+			OPTION_SyntacticNullAnalysisForFields,
+			OPTION_InheritNullAnnotations
 		};
 		return result;
 	}
@@ -1111,6 +1115,7 @@ public class CompilerOptions {
 		optionsMap.put(OPTION_NonNullByDefaultAnnotationName, String.valueOf(CharOperation.concatWith(this.nonNullByDefaultAnnotationName, '.')));
 		optionsMap.put(OPTION_ReportMissingNonNullByDefaultAnnotation, getSeverityString(MissingNonNullByDefaultAnnotation));
 		optionsMap.put(OPTION_SyntacticNullAnalysisForFields, this.enableSyntacticNullAnalysisForFields ? ENABLED : DISABLED);
+		optionsMap.put(OPTION_InheritNullAnnotations, this.inheritNullAnnotations ? ENABLED : DISABLED);
 		return optionsMap;
 	}
 
@@ -1270,6 +1275,7 @@ public class CompilerOptions {
 		this.nonNullByDefaultAnnotationName = DEFAULT_NONNULLBYDEFAULT_ANNOTATION_NAME;
 		this.intendedDefaultNonNullness = 0;
 		this.enableSyntacticNullAnalysisForFields = false;
+		this.inheritNullAnnotations = false;
 		
 		this.analyseResourceLeaks = true;
 
@@ -1601,6 +1607,9 @@ public class CompilerOptions {
 			if ((optionValue = optionsMap.get(OPTION_ReportMissingNonNullByDefaultAnnotation)) != null) updateSeverity(MissingNonNullByDefaultAnnotation, optionValue);
 			if ((optionValue = optionsMap.get(OPTION_SyntacticNullAnalysisForFields)) != null) {
 				this.enableSyntacticNullAnalysisForFields = ENABLED.equals(optionValue);
+			}
+			if ((optionValue = optionsMap.get(OPTION_InheritNullAnnotations)) != null) {
+				this.inheritNullAnnotations = ENABLED.equals(optionValue);
 			}
 		}
 

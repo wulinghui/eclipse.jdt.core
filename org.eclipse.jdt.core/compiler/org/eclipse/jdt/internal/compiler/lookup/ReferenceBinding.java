@@ -973,6 +973,23 @@ public boolean hasMemberTypes() {
     return false;
 }
 
+/**
+ * Answer whether a @NonNullByDefault is applicable at the given method binding.
+ */
+boolean hasNonNullDefault() {
+	// Note, STB overrides for correctly handling local types
+	ReferenceBinding currentType = this;
+	while (currentType != null) {
+		if ((currentType.tagBits & TagBits.AnnotationNonNullByDefault) != 0)
+			return true;
+		if ((currentType.tagBits & TagBits.AnnotationNullUnspecifiedByDefault) != 0)
+			return false;
+		currentType = currentType.enclosingType();
+	}
+	// package
+	return this.getPackage().defaultNullness == NONNULL_BY_DEFAULT;
+}
+
 public final boolean hasRestrictedAccess() {
 	return (this.modifiers & ExtraCompilerModifiers.AccRestrictedAccess) != 0;
 }
