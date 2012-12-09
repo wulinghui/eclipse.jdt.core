@@ -13396,11 +13396,6 @@ public void testBug317719f() throws Exception {
 			"	Zork z;\n" + 
 			"	^^^^\n" + 
 			"Zork cannot be resolved to a type\n" + 
-			"----------\n" + 
-			"5. ERROR in X.java (at line 7)\n" + 
-			"	class ChildX<Z> extends X<Z>{}\n" + 
-			"	      ^^^^^^\n" + 
-			"Duplicate methods named forAccountSet with the parameters (List<R>) and (List) are defined by the type X<Z>\n" + 
 			"----------\n":
 				"----------\n" + 
 				"1. ERROR in X.java (at line 3)\n" + 

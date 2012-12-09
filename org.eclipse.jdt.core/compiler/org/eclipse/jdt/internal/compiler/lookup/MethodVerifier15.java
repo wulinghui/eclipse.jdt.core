@@ -509,7 +509,7 @@ void checkMethods() {
 				}
 			}
 		}
-		// first round: only check which methods are skippable by comparing all pairs
+		// first round: collect information into skip and isOverridden by comparing all pairs:
 		// (and perform some side effects : bridge methods & use flags)
 		for (int i = 0; i < inheritedLength; i++) {
 			MethodBinding matchMethod = foundMatch[i];
@@ -535,31 +535,15 @@ void checkMethods() {
 				// This elimination used to happen rather eagerly in computeInheritedMethods step
 				// itself earlier. (https://bugs.eclipse.org/bugs/show_bug.cgi?id=302358)
 				if (inheritedMethod.declaringClass != otherInheritedMethod.declaringClass) {
-					if (otherInheritedMethod.declaringClass.isInterface() && !inheritedMethod.declaringClass.isInterface()) {
-						if (isInterfaceMethodImplemented(otherInheritedMethod, inheritedMethod, otherInheritedMethod.declaringClass)) {
-							skip[j] = true;
-							isOverridden[j] = true;
-							continue;
-						}
-					} else if (inheritedMethod.declaringClass.isInterface() && !otherInheritedMethod.declaringClass.isInterface()) {
-						if (isInterfaceMethodImplemented(inheritedMethod, otherInheritedMethod, inheritedMethod.declaringClass)) {
-							skip[i] = true;
-							isOverridden[i] = true;
-							continue;
-						}
-					} else if (isParameterSubsignature(inheritedMethod, otherInheritedMethod)) {// FIXME(stephan) ; shouldn't we keep using areMethodsCompatible(inheritedMethod, otherInheritedMethod) instead?
-						skip[j] = true;
-						isOverridden[j] = inheritedMethod.declaringClass.isCompatibleWith(otherInheritedMethod.declaringClass);
+					// these method calls produce their effect as side-effects into skip and isOverridden:
+					if (isSkippableOrOverridden(inheritedMethod, otherInheritedMethod, skip, isOverridden, j))
 						continue;
-					} else if (isParameterSubsignature(otherInheritedMethod, inheritedMethod)) {// FIXME(stephan) ; see above
-						skip[i] = true;
-						isOverridden[i] = otherInheritedMethod.declaringClass.isCompatibleWith(inheritedMethod.declaringClass);
+					if (isSkippableOrOverridden(otherInheritedMethod, inheritedMethod, skip, isOverridden, i))
 						continue;
-					}
 				}
 			}
 		}
-		// second round: collect and check matchingInherited:
+		// second round: collect and check matchingInherited, directly check methods with no replacing etc.
 		for (int i = 0; i < inheritedLength; i++) {
 			MethodBinding matchMethod = foundMatch[i];
 			if (skip[i]) continue;
@@ -567,25 +551,22 @@ void checkMethods() {
 			if (matchMethod == null)
 				matchingInherited[++index] = inheritedMethod;
 			for (int j = i + 1; j < inheritedLength; j++) {
-				MethodBinding otherInheritedMethod = inherited[j];
-				if (matchMethod == foundMatch[j] && matchMethod != null)
-					continue; // both inherited methods matched the same currentMethod
-				if (canSkipInheritedMethods(inheritedMethod, otherInheritedMethod))
-					continue;
+				if (foundMatch[j] == null) {
+					MethodBinding otherInheritedMethod = inherited[j];
+					if (matchMethod == foundMatch[j] && matchMethod != null)
+						continue; // both inherited methods matched the same currentMethod
+					if (canSkipInheritedMethods(inheritedMethod, otherInheritedMethod))
+						continue;
 
-				otherInheritedMethod = computeSubstituteMethod(otherInheritedMethod, inheritedMethod);
-				if (otherInheritedMethod != null) {
-					if (((!inheritedMethod.isAbstract() || otherInheritedMethod.isAbstract()) 		// if (abstract(inherited) => abstract(other)) check if inherited overrides other 
-								&& isSubstituteParameterSubsignature(inheritedMethod, otherInheritedMethod))
-						|| ((!otherInheritedMethod.isAbstract() || inheritedMethod.isAbstract())	// if (abstract(other) => abstract(inherited)) check if other overrides inherited 
-								&& isSubstituteParameterSubsignature(otherInheritedMethod, inheritedMethod))) // FIXME(stephan): shouldn't we use a substitute for inheritedMethod here?
-					{
-						if (index == -1)
-							matchingInherited[++index] = inheritedMethod;
-						if (foundMatch[j] == null)
-							matchingInherited[++index] = otherInheritedMethod;
+					MethodBinding replaceMatch;
+					if ((replaceMatch = findReplacedMethod(inheritedMethod, otherInheritedMethod)) != null) {
+						matchingInherited[++index] = replaceMatch;
 						skip[j] = true;
-					} else if (matchMethod == null && foundMatch[j] == null) {
+					} else if ((replaceMatch = findReplacedMethod(otherInheritedMethod, inheritedMethod)) != null) {
+						matchingInherited[++index] = replaceMatch;
+						skip[j] = true;						
+					} else if (matchMethod == null) {
+						// none replaced by the other, check these methods against each other now:
 						checkInheritedMethods(inheritedMethod, otherInheritedMethod);
 					}
 				}
@@ -599,6 +580,45 @@ void checkMethods() {
 			while (index >= 0) matchingInherited[index--] = null; // clear the previous contents of the matching methods
 		}
 	}
+}
+/* mark as skippable
+ * - any interface method implemented by a class method
+ * - an x method (x in {class, interface}), for which another x method with a subsignature was found
+ * mark as isOverridden
+ * - any skippable method as defined above iff it is actually overridden by the specific method (disregarding visibility etc.)
+ * Note, that 'idx' corresponds to the position of 'general' in the arrays 'skip' and 'isOverridden'
+ */
+boolean isSkippableOrOverridden(MethodBinding specific, MethodBinding general, boolean[] skip, boolean[] isOverridden, int idx) {
+	boolean specificIsInterface = specific.declaringClass.isInterface();
+	boolean generalIsInterface = general.declaringClass.isInterface();
+	if (!specificIsInterface && generalIsInterface) {
+		if (isInterfaceMethodImplemented(general, specific, general.declaringClass)) {
+			skip[idx] = true;
+			isOverridden[idx] = true;
+			return true;
+		}
+	} else if (specificIsInterface == generalIsInterface) { 
+		if (isParameterSubsignature(specific, general)) {
+			skip[idx] = true;
+			isOverridden[idx] = specific.declaringClass.isCompatibleWith(general.declaringClass);
+			return true;
+		}
+	}
+	return false;
+}
+/* 'general' is considered as replaced by 'specific' if
+ * - 'specific' is "at least as concrete as" 'general'
+ * - 'specific' has a signature that is a subsignature of the substituted signature of 'general' (as seen from specific's declaring class)  
+ */
+MethodBinding findReplacedMethod(MethodBinding specific, MethodBinding general) {
+	MethodBinding generalSubstitute = computeSubstituteMethod(general, specific);
+	if (generalSubstitute != null 
+			&& (!specific.isAbstract() || general.isAbstract())	// if (abstract(specific) => abstract(general)) check if 'specific' overrides 'general' 
+			&& isSubstituteParameterSubsignature(specific, generalSubstitute)) 
+	{
+		return generalSubstitute;
+	} 
+	return null;
 }
 void checkTypeVariableMethods(TypeParameter typeParameter) {
 	char[][] methodSelectors = this.inheritedMethods.keyTable;
