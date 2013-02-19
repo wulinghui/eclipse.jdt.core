@@ -156,6 +156,10 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 						public int sourceEnd() {return resource.sourceEnd(); }
 						public int sourceStart() {return resource.sourceStart(); }
 						public TypeBinding expectedType() { return null; }
+						public InferenceContext18 inferenceContext() {
+							// FIXME Auto-generated method stub
+							return null;
+						}
 					};
 					closeMethod = this.scope.compilationUnitScope().findMethod(binding, ConstantPool.Close, new TypeBinding[0], site, false);
 				}
@@ -319,6 +323,10 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 						public int sourceEnd() {return resource.sourceEnd(); }
 						public int sourceStart() {return resource.sourceStart(); }
 						public TypeBinding expectedType() { return null; }
+						public InferenceContext18 inferenceContext() {
+							// FIXME Auto-generated method stub
+							return null;
+						}
 					};
 					closeMethod = this.scope.compilationUnitScope().findMethod(binding, ConstantPool.Close, new TypeBinding[0], site, false);
 				}

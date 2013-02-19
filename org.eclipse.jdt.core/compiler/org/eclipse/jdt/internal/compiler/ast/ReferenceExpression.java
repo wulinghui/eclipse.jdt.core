@@ -32,6 +32,7 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
+import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.PolyTypeBinding;
@@ -61,6 +62,11 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 		this.method = method;
 		this.sourceStart = lhs.sourceStart;
 		this.sourceEnd = sourceEnd;
+	}
+	
+	public InferenceContext18 inferenceContext() {
+		// FIXME Auto-generated method stub
+		return null;
 	}
 
 	public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo) {

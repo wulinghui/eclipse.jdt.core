@@ -55,6 +55,11 @@ public FieldBinding lastFieldBinding() {
 	return null;
 }
 
+public InferenceContext18 inferenceContext() {
+	// FIXME Auto-generated method stub
+	return null;
+}
+
 public boolean isSuperAccess() {
 	return false;
 }

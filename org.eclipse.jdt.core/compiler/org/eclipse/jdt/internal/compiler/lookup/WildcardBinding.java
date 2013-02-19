@@ -425,6 +425,28 @@ public class WildcardBinding extends ReferenceBinding {
         return this.genericSignature;
     }
 
+	TypeBound[] getTypeBounds(TypeBinding[] parameters, InferenceVariable variable, int idx, InferenceContext18 context) {
+		int relation = 0;
+        switch (this.boundKind) {
+            case Wildcard.SUPER :
+                relation = ReductionResult.SUPERTYPE;
+                break;
+            case Wildcard.EXTENDS :
+                relation = ReductionResult.SUBTYPE;
+				break;
+			default: // UNBOUND
+			    return NO_TYPE_BOUNDS;
+        }
+        int n = this.otherBounds == null ? 1 : this.otherBounds.length+1;
+        TypeBound[] bounds = new TypeBound[n];
+        InferenceVariable inferenceVariable = context.createInferenceVariable(this);
+        bounds[0] = new TypeBound(inferenceVariable, this.bound, relation);
+        for (int i = 1; i < n; i++) {
+			bounds[i] = new TypeBound(inferenceVariable, this.otherBounds[i-1], relation);
+		}
+        return bounds;
+	}
+
 	public int hashCode() {
 		return this.genericType.hashCode();
 	}
@@ -486,7 +508,65 @@ public class WildcardBinding extends ReferenceBinding {
 		return this.superclass != null && this.superInterfaces != null;
 	}
 
-    /**
+	boolean inRecursiveFunction = false;
+	boolean isProperType() {
+		if (this.inRecursiveFunction)
+			return true;
+		this.inRecursiveFunction = true;
+		try {
+			if (this.bound != null && !this.bound.isProperType())
+				return false;
+			if (this.superclass != null && !this.superclass.isProperType())
+				return false;
+			if (this.superInterfaces != null)
+				for (int i = 0, l = this.superInterfaces.length; i < l; i++)
+					if (!this.superInterfaces[i].isProperType())
+						return false;
+			return true;
+		} finally {
+			this.inRecursiveFunction = false;
+		}
+	}
+
+	TypeBinding substituteInferenceVariable(InferenceVariable var, TypeBinding substituteType) {
+		boolean haveSubstitution = false;
+		TypeBinding currentBound = this.bound;
+		if (currentBound != null) {
+			currentBound = currentBound.substituteInferenceVariable(var, substituteType);
+			haveSubstitution |= currentBound != this.bound;
+		}
+		TypeBinding[] currentOtherBounds = null;
+		if (this.otherBounds != null) {
+			int length = ((ReferenceBinding[])this.otherBounds).length;
+			if (haveSubstitution)
+				System.arraycopy(this.otherBounds, 0, currentOtherBounds=new ReferenceBinding[length], 0, length);
+			for (int i = 0; i < length; i++) {
+				TypeBinding currentOtherBound = this.otherBounds[i];
+				if (currentOtherBound != null) {
+					currentOtherBound = currentOtherBound.substituteInferenceVariable(var, substituteType);
+					if (currentOtherBound != this.otherBounds[i]) {
+						if (currentOtherBounds == null)
+							System.arraycopy(this.otherBounds, 0, currentOtherBounds=new ReferenceBinding[length], 0, length);
+						currentOtherBounds[i] = currentOtherBound;
+					}
+				}
+			}
+		}
+		haveSubstitution |= currentOtherBounds != null;
+		if (haveSubstitution) {
+			WildcardBinding newWild = new WildcardBinding(this.genericType, 
+					this.rank,
+					currentBound,
+					currentOtherBounds,
+					this.boundKind,
+					this.environment);
+			newWild.tagBits = this.tagBits;
+			return newWild;
+		}
+		return this;
+	}
+
+	/**
 	 * Returns true if the type is a wildcard
 	 */
 	public boolean isUnboundWildcard() {

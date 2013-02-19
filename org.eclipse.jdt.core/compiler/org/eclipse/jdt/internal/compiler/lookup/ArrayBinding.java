@@ -237,6 +237,10 @@ public boolean isCompatibleWith(TypeBinding otherType, Scope captureScope) {
 	return false;
 }
 
+boolean isProperType() {
+	return this.leafComponentType.isProperType();
+}
+
 public int kind() {
 	return ARRAY_TYPE;
 }

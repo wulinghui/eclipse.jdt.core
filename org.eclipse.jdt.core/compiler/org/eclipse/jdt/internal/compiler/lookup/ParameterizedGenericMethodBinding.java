@@ -52,6 +52,20 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 			// perform type argument inference (15.12.2.7)
 			// initializes the map of substitutes (var --> type[][]{ equal, extends, super}
 			TypeBinding[] parameters = originalMethod.parameters;
+// 1.8
+			InferenceContext18 infCtx18 = invocationSite.inferenceContext();
+			if (infCtx18 != null) {
+				// 18.5.1
+				infCtx18.createInitialBoundSet(typeVariables); // creates initial bound set B
+				infCtx18.createInitialConstraints(parameters);
+				if (infCtx18.solve()) {
+					TypeBinding[] solutions = infCtx18.getSolutions(typeVariables);
+					if (solutions != null) {
+						return scope.environment().createParameterizedGenericMethod(originalMethod, solutions);
+					}
+				}				
+			}
+// 1.8
 			inferenceContext = new InferenceContext(originalMethod);
 			methodSubstitute = inferFromArgumentTypes(scope, originalMethod, arguments, parameters, inferenceContext);
 			if (methodSubstitute == null)

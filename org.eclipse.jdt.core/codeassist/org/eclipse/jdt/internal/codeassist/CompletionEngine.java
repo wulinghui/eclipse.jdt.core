@@ -619,6 +619,10 @@ public final class CompletionEngine
 		public int sourceEnd() { return 0; 	}
 		public int sourceStart() { return 0; 	}
 		public TypeBinding expectedType() { return null; }
+		public InferenceContext18 inferenceContext() {
+			// FIXME Auto-generated method stub
+			return null;
+		}
 	};
 
 	private int foundTypesCount;

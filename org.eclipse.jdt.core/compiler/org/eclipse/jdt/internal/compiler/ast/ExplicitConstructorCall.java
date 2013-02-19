@@ -5,6 +5,10 @@
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contributions for
@@ -25,6 +29,7 @@ import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
+import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.LocalTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
@@ -58,6 +63,7 @@ public class ExplicitConstructorCall extends Statement implements InvocationSite
 
 	// TODO Remove once DOMParser is activated
 	public int typeArgumentsSourceStart;
+	private InferenceContext18 inferenceContext;
 
 	public ExplicitConstructorCall(int accessMode) {
 		this.accessMode = accessMode;
@@ -184,6 +190,10 @@ public class ExplicitConstructorCall extends Statement implements InvocationSite
 	 */
 	public TypeBinding[] genericTypeArguments() {
 		return this.genericTypeArguments;
+	}
+
+	public InferenceContext18 inferenceContext() {
+		return this.inferenceContext;
 	}
 
 	public boolean isImplicitSuper() {
@@ -413,6 +423,7 @@ public class ExplicitConstructorCall extends Statement implements InvocationSite
 			if (receiverType == null) {
 				return;
 			}
+			this.inferenceContext = new InferenceContext18(scope, this.arguments, this.genericTypeArguments);
 			if ((this.binding = scope.getConstructor(receiverType, argumentTypes, this)).isValidBinding()) {
 				if (polyExpressionSeen) {
 					boolean variableArity = this.binding.isVarargs();

@@ -46,6 +46,7 @@ import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
+import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MissingTypeBinding;
@@ -82,6 +83,7 @@ public class MessageSend extends Expression implements InvocationSite {
 	public TypeReference[] typeArguments;
 	public TypeBinding[] genericTypeArguments;
 	private ExpressionContext expressionContext = VANILLA_CONTEXT;
+	private InferenceContext18 inferenceContext;
 
 public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo) {
 	boolean nonStatic = !this.binding.isStatic();
@@ -314,6 +316,10 @@ public TypeBinding[] genericTypeArguments() {
 	return this.genericTypeArguments;
 }
 
+public InferenceContext18 inferenceContext() {
+	return this.inferenceContext;
+}
+
 public boolean isSuperAccess() {
 	return this.receiver.isSuper();
 }
@@ -533,6 +539,10 @@ public TypeBinding resolveType(BlockScope scope) {
 		scope.problemReporter().errorNoMethodFor(this, this.actualReceiverType, argumentTypes);
 		return null;
 	}
+	// FIXME: calculate this flag:
+	this.isPolyExpression = true;
+	this.inferenceContext = new InferenceContext18(scope, this.arguments, this.genericTypeArguments);
+
 	this.binding = this.receiver.isImplicitThis()
 			? scope.getImplicitMethod(this.selector, argumentTypes, this)
 			: scope.getMethod(this.actualReceiverType, this.selector, argumentTypes, this);

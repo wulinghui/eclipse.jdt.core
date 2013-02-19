@@ -772,6 +772,34 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 		return this.superclass != null && this.superInterfaces != null;
 	}
 
+	boolean isProperType() {
+		if (this.arguments != null) {
+			for (int i = 0; i < this.arguments.length; i++)
+				if (!this.arguments[i].isProperType())
+					return false;
+		}
+		return true;
+	}
+
+	TypeBinding substituteInferenceVariable(InferenceVariable var, TypeBinding substituteType) {
+		if (this.arguments != null) {
+			TypeBinding[] newArgs = null;
+			int length = this.arguments.length;
+			for (int i = 0; i < length; i++) {
+				TypeBinding oldArg = this.arguments[i];
+				TypeBinding newArg = oldArg.substituteInferenceVariable(var, substituteType);
+				if (newArg != oldArg) {
+					if (newArgs == null)
+						System.arraycopy(this.arguments, 0, newArgs = new TypeBinding[length], 0, length); 
+					newArgs[i] = newArg;
+				}
+			}
+			if (newArgs != null)
+				return this.environment.createParameterizedType(this.type, newArgs, this.enclosingType);
+		}
+		return this;
+	}
+
 	/**
 	 * @see org.eclipse.jdt.internal.compiler.lookup.Substitution#isRawSubstitution()
 	 */
@@ -806,6 +834,19 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 			}
 		}
 		return this.memberTypes;
+	}
+
+	boolean mentionsAny(TypeBinding[] parameters, int idx) {
+		if (super.mentionsAny(parameters, idx))
+			return true;
+		if (this.arguments != null) {
+			int len = this.arguments.length;
+			for (int i = 0; i < len; i++) {
+				if (this.arguments[i] != this && this.arguments[i].mentionsAny(parameters, idx))
+					return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -1199,7 +1240,7 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 		return this.singleAbstractMethod;
 	}
 
-	private boolean typeParametersMentioned(TypeBinding upperBound) {
+	static boolean typeParametersMentioned(TypeBinding upperBound) {
 		class MentionListener extends TypeBindingVisitor {
 			private boolean typeParametersMentioned = false;
 			public boolean visit(TypeVariableBinding typeVariable) {

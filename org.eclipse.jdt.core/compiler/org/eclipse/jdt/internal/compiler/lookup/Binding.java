@@ -60,6 +60,8 @@ public abstract class Binding {
 	public static final MethodBinding[] UNINITIALIZED_METHODS = new MethodBinding[0];
 	public static final ReferenceBinding[] UNINITIALIZED_REFERENCE_TYPES = new ReferenceBinding[0];
 
+	static final TypeBound[] NO_TYPE_BOUNDS = new TypeBound[0];
+
 	// Nullness defaults:
 	public static final int NO_NULL_DEFAULT = 0;
 	public static final int NULL_UNSPECIFIED_BY_DEFAULT = 1;

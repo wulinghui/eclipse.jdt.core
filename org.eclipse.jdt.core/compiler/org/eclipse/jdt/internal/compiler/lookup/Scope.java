@@ -3904,6 +3904,10 @@ public abstract class Scope {
 			public int sourceStart() { return invocationSite.sourceStart(); }
 			public int sourceEnd() { return invocationSite.sourceStart(); }
 			public TypeBinding expectedType() { return invocationSite.expectedType(); }
+			public InferenceContext18 inferenceContext() {
+				// FIXME Auto-generated method stub
+				return null;
+			}
 		};
 		MethodBinding[] moreSpecific = new MethodBinding[visibleSize];
 		int count = 0;

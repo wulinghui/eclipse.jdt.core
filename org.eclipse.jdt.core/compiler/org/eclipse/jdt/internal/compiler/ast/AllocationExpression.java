@@ -48,6 +48,7 @@ public class AllocationExpression extends Expression implements InvocationSite {
 
 	public FakedTrackingVariable closeTracker;	// when allocation a Closeable store a pre-liminary tracking variable here
 	private ExpressionContext expressionContext = VANILLA_CONTEXT;
+	private InferenceContext18 inferenceContext;
 
 public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo) {
 	// check captured variables are initialized in current context (26134)
@@ -417,6 +418,7 @@ public TypeBinding resolveType(BlockScope scope) {
 		}
 		this.resolvedType = this.type.resolvedType = scope.environment().createParameterizedType(((ParameterizedTypeBinding) this.resolvedType).genericType(), inferredTypes, ((ParameterizedTypeBinding) this.resolvedType).enclosingType());
  	}
+	this.inferenceContext = new InferenceContext18(scope, this.arguments, this.genericTypeArguments);
 	ReferenceBinding allocationType = (ReferenceBinding) this.resolvedType;
 	if (!(this.binding = scope.getConstructor(allocationType, argumentTypes, this)).isValidBinding()) {
 		if (this.binding.declaringClass == null) {
@@ -474,6 +476,10 @@ public TypeBinding[] inferElidedTypes(ReferenceBinding allocationType, Reference
 		return ((ParameterizedTypeBinding)factory.returnType).arguments;
 	}
 	return null;
+}
+
+public InferenceContext18 inferenceContext() {
+	return this.inferenceContext;
 }
 
 public void checkTypeArgumentRedundancy(ParameterizedTypeBinding allocationType, ReferenceBinding enclosingType, TypeBinding[] argumentTypes, final BlockScope scope) {

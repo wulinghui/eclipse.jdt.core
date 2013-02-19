@@ -25,4 +25,6 @@ public interface InvocationSite {
 	int sourceEnd();
 	int sourceStart();
 	TypeBinding expectedType();
+
+	InferenceContext18 inferenceContext();
 }

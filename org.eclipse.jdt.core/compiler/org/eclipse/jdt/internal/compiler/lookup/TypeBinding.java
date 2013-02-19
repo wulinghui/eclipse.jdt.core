@@ -604,6 +604,14 @@ public boolean isParameterizedWithOwnVariables() {
 	return true;
 }
 
+/** JLS8 Sect 18.1.1: */
+boolean isProperType() {
+	return true;
+}
+TypeBinding substituteInferenceVariable(InferenceVariable var, TypeBinding substituteType) {
+	return this; // default: not substituting anything
+}
+
 private boolean isProvableDistinctSubType(TypeBinding otherType) {
 	if (otherType.isInterface()) {
 		if (isInterface())
@@ -1271,8 +1279,25 @@ public MethodBinding getSingleAbstractMethod(Scope scope) {
 	return null;
 }
 
+/**
+ * Compute the initial type bounds as per JLS8 sect 18.1.3.
+ * TODO: replace other arguments with use of the InferenceContext18,
+ * which should provide all information necessary for this computation.
+ */
+TypeBound[] getTypeBounds(TypeBinding[] parameters, InferenceVariable variable, int idx, InferenceContext18 context) {
+	return new TypeBound[] { new TypeBound(variable, this, ReductionResult.SAME) };
+}
+
 public ReferenceBinding[] getIntersectingTypes() {
 	return null;
 }
 
+/** Does this type mention any of the given type parameters, except the one at position 'idx'? */
+boolean mentionsAny(TypeBinding[] parameters, int idx) {
+	for (int i = 0; i < parameters.length; i++)
+		if (i != idx)
+			if (parameters[i] == this)
+				return true;
+	return false;
+}
 }

@@ -17,6 +17,7 @@ package org.eclipse.jdt.internal.compiler.ast;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
+import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
@@ -63,6 +64,11 @@ public abstract class AbstractVariableDeclaration extends Statement implements I
 	 * Returns the constant kind of this variable declaration
 	 */
 	public abstract int getKind();
+
+	public InferenceContext18 inferenceContext() {
+		// FIXME Auto-generated method stub
+		return null;
+	}
 
 	/* (non-Javadoc)
 	 * @see org.eclipse.jdt.internal.compiler.lookup.InvocationSite#isSuperAccess()

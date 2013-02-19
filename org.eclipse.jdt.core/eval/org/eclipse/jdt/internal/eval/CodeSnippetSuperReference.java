@@ -12,6 +12,7 @@ package org.eclipse.jdt.internal.eval;
 
 import org.eclipse.jdt.internal.compiler.ast.SuperReference;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
+import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
@@ -37,6 +38,10 @@ public TypeBinding[] genericTypeArguments() {
 
 public TypeBinding resolveType(BlockScope scope) {
 	scope.problemReporter().cannotUseSuperInCodeSnippet(this.sourceStart, this.sourceEnd);
+	return null;
+}
+public InferenceContext18 inferenceContext() {
+	// FIXME Auto-generated method stub
 	return null;
 }
 public boolean isSuperAccess(){

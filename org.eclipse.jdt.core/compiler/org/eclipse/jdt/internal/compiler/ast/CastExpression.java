@@ -30,6 +30,7 @@ import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
+import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.LookupEnvironment;
@@ -262,6 +263,10 @@ private static void checkAlternateBinding(BlockScope scope, Expression receiver,
 			public int sourceStart() { return 0; }
 			public int sourceEnd() { return 0; }
 			public TypeBinding expectedType() { return invocationSite.expectedType(); }
+			public InferenceContext18 inferenceContext() {
+				// FIXME Auto-generated method stub
+				return null;
+			}
 		};
 		MethodBinding bindingIfNoCast;
 		if (binding.isConstructor()) {

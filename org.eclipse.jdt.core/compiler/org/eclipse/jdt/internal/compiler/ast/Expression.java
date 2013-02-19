@@ -63,6 +63,7 @@ public abstract class Expression extends Statement implements ExpressionContext 
 
 	public int implicitConversion;
 	public TypeBinding resolvedType;
+	public boolean isPolyExpression; // TODO try to find a ASTNode.bit for this.
 
 public static final boolean isConstantValueRepresentable(Constant constant, int constantTypeID, int targetTypeID) {
 	//true if there is no loss of precision while casting.
