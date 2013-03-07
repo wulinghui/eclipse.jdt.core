@@ -57,15 +57,16 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 					if (method.returnType == TypeBinding.VOID)
 						return FALSE; // error: poly expression has no value
 					inferenceContext.addTypeVariableSubstitutions(method.typeVariables);
-					// TODO handle primitive types
+					if (method.returnType.isBaseType())
+						InferenceContext18.missingImplementation("NYI");
 					return new ConstraintTypeFormula(inferenceContext.substitute(method.returnType), this.right, COMPATIBLE);
 				}
 			} else if (this.left instanceof ConditionalExpression) {
-				// TODO
+				InferenceContext18.missingImplementation("NYI");
 			} else if (this.left instanceof LambdaExpression) {
-				// TODO
+				InferenceContext18.missingImplementation("NYI");
 			} else if (this.left instanceof ReferenceExpression) {
-				// TODO
+				InferenceContext18.missingImplementation("NYI");
 			}
 		}
 		return FALSE;

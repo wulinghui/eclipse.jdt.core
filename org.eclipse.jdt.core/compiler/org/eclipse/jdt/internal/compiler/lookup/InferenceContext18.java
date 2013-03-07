@@ -14,6 +14,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -59,18 +60,41 @@ public class InferenceContext18 {
 		this.currentBounds = new BoundSet(this, typeParameters);
 	}
 
-	public void createInitialConstraints(TypeBinding[] parameters) {
+	public void createInitialConstraintsForParameters(TypeBinding[] parameters) {
 		// 18.5.1
 		// TODO discriminate (strict,loose,variable-arity) invocations
-		if (this.invocationArguments == null) return; // huh?
+		if (this.invocationArguments == null)
+			return;
 		int len = Math.min(this.invocationArguments.length, parameters.length); // varargs
 		this.constraints = new ConstraintFormula[len];
 		for (int i = 0; i < len; i++) {
-			TypeBinding thetaF = Scope.substitute(new InferenceSubstitution(this.environment, this.inferenceVariables), parameters[i]);	
+			TypeBinding thetaF = substitute(parameters[i]);	
 			this.constraints[i] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
 		}
 	}
-	
+
+	public void createInitialConstraintsForTargetType(TypeBinding returnType, TypeBinding expectedType) {
+		// 18.5.2
+// TODO: should depend on isPolyExpression once that is reliably in place:
+		if (expectedType == null) return;
+// TODO: enable once isPolyExpression is reliably in place
+//		if (returnType == TypeBinding.VOID) this.currentBounds.isFalse = true;
+		if (expectedType.isBaseType())
+// TODO: could be OK if !isPolyExpression:
+			return;
+//			InferenceContext18.missingImplementation("NYI");
+		TypeBinding thetaR = substitute(returnType);
+		int l = 0;
+		if (this.constraints != null) {
+			l = this.constraints.length;
+			System.arraycopy(this.constraints, 0, this.constraints=new ConstraintFormula[l+1], 0, l);
+		} else {
+			l = 0;
+			this.constraints = new ConstraintFormula[1];
+		}
+		this.constraints[l] = new ConstraintTypeFormula(thetaR, expectedType, ReductionResult.COMPATIBLE);
+	}
+
 	public InferenceVariable createInferenceVariable(ReferenceBinding type) {
 		InferenceVariable variable;
 		if (this.inferenceVariables == null) {
@@ -98,11 +122,18 @@ public class InferenceContext18 {
 		for (int i = 0; i < typeVariables.length; i++)
 			this.inferenceVariables[start+i] = new InferenceVariable(typeVariables[i], start+i);
 	}
-	
-	void addConstraint(ConstraintFormula constraint) {
-		int len = this.constraints.length;
-		System.arraycopy(this.constraints, 0, this.constraints = new ConstraintFormula[len+1], 0, len);
-		this.constraints[len] = constraint;
+
+	private void addConstraints(ConstraintFormula[] newConstraints) {
+		int len1 = 0;
+		int len2 = newConstraints.length;
+		if (this.constraints != null) {
+			len1 = this.constraints.length;
+		} else {
+			this.constraints = new ConstraintFormula[len2];
+		}
+		if (len1 > 0)
+			System.arraycopy(this.constraints, 0, this.constraints = new ConstraintFormula[len1+len2], 0, len1);
+		System.arraycopy(newConstraints, 0, this.constraints, len1, len2);
 	}
 
 	/**
@@ -110,17 +141,20 @@ public class InferenceContext18 {
 	 * @return success?
 	 */
 	public boolean solve() {
-//		while (true) {
+		while (true) {
 			if (!reduce())
 				return false;
 			this.constraints = this.currentBounds.incorporate(this);
 			if (this.constraints == ConstraintFormula.FALSE_ARRAY) 
 				return false;
-			resolve();
-			if (isResolved())
-				return true;
-//		}
-		return false; // FIXME
+			if (resolve())
+				return isResolved();
+		}
+/* TODO: are we sure this will always terminate? Cf. e.g. (Discussion in 18.3):
+ *  
+ *    "The assertion that incorporation reaches a fixed point is not obvious. ...
+ *    To do: each of these properties needs to be guaranteed via refinements to the specification."
+ */
 	}
 
 	/**
@@ -148,9 +182,11 @@ public class InferenceContext18 {
 	}
 	
 	/**
-	 * <b>JLS 18.4</b> Resolution 
+	 * <b>JLS 18.4</b> Resolution
+	 * @return answer true iff a fix point has been reached, i.e., no more constraints have been added.
 	 */
-	void resolve() {
+	private boolean resolve() {
+		boolean didAddConstraints = false;
 		if (this.inferenceVariables != null) {
 			for (int i = 0; i < this.inferenceVariables.length; i++) {
 				// find a minimal set of dependent variables:
@@ -174,14 +210,14 @@ public class InferenceContext18 {
 						}
 						// 2. attempt:
 						TypeBinding[] upperBounds = tmpBoundSet.upperBounds(variable);
-						if (upperBounds != Binding.NO_SUPERINTERFACES) {
+						if (upperBounds != Binding.NO_TYPES) {
 							TypeBinding glb;
 							if (upperBounds.length == 1) {
 								glb = upperBounds[0];
 							} else {
 								ReferenceBinding[] glbs = Scope.greaterLowerBound((ReferenceBinding[])upperBounds);
 								if (glbs == null)
-									throw new IllegalStateException("no glb");
+									throw new UnsupportedOperationException("no glb for "+Arrays.asList(upperBounds));
 								else if (glbs.length == 1)
 									glb = glbs[0];
 								else
@@ -199,19 +235,24 @@ public class InferenceContext18 {
 							if (newConstraints[j] == ReductionResult.FALSE)
 								hasFalse = true;
 					hasFalse |= !tmpBoundSet.isSatisfiable();
-					if (!hasFalse) {
-						this.currentBounds = tmpBoundSet;
+					if (hasFalse) {
+						return true; // we have the final outcome
 					} else {
-						// TODO
+						if (newConstraints.length > 0) {
+							addConstraints(newConstraints);
+							didAddConstraints = true;
+						}
+						this.currentBounds = tmpBoundSet;
 					}
 				}
 			}
 		}
+		return !didAddConstraints;
 	}
 	
 	/** 
 	 * starting with our i'th inference variable collect all variables
-	 * reachable via dependencies.
+	 * reachable via dependencies (regardless of relation kind).
 	 * @param variableSet collect all variables found into this set
 	 * @param i seed index into {@link #inferenceVariables}.
 	 * @return count of unresolved variables in the set.
@@ -297,5 +338,13 @@ public class InferenceContext18 {
 		if (this.currentBounds != null)
 			buf.append(this.currentBounds.toString());
 		return buf.toString();
+	}
+
+	// INTERIM: infrastructure for detecting failures caused by specific known incompleteness:
+	static final String JLS_18_2_3_INCOMPLETE_TO_DO_DEFINE_THE_MOST_SPECIFIC_ARRAY_SUPERTYPE_OF_A_TYPE_T = "JLS 18.2.3 incomplete: \"\"To do: [...] define the most specific array supertype of a type T."; //$NON-NLS-1$
+	public static void missingImplementation(String msg) {
+		if (msg == JLS_18_2_3_INCOMPLETE_TO_DO_DEFINE_THE_MOST_SPECIFIC_ARRAY_SUPERTYPE_OF_A_TYPE_T)
+			return; // when enabled produces 56 distinct errors in GenericTypeTest
+		throw new UnsupportedOperationException(msg);
 	}
 }

@@ -57,7 +57,9 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 			if (infCtx18 != null) {
 				// 18.5.1
 				infCtx18.createInitialBoundSet(typeVariables); // creates initial bound set B
-				infCtx18.createInitialConstraints(parameters);
+				infCtx18.createInitialConstraintsForParameters(parameters);
+//				if (invocationSite.isPolyExpression()) TODO
+					infCtx18.createInitialConstraintsForTargetType(originalMethod.returnType, invocationSite.expectedType());
 				if (infCtx18.solve()) {
 					TypeBinding[] solutions = infCtx18.getSolutions(typeVariables);
 					if (solutions != null) {

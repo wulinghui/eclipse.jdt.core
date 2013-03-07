@@ -55,8 +55,6 @@ class ConstraintTypeFormula extends ConstraintFormula {
 			return reduceSubType(inferenceContext.scope, this.right, this.left);
 		case TYPE_ARGUMENT_CONTAINED:
 			// 18.2.3:
-			if (this.right instanceof InferenceVariable || this.left instanceof InferenceVariable)
-				return FALSE;
 			if (this.right.kind() != Binding.WILDCARD_TYPE) {
 				if (this.left.kind() != Binding.WILDCARD_TYPE) {
 					return new ConstraintTypeFormula(this.left, this.right, SUBTYPE);						
@@ -126,7 +124,7 @@ class ConstraintTypeFormula extends ConstraintFormula {
 				}
 				return FALSE;
 			case Binding.ARRAY_TYPE:
-				// TODO
+				InferenceContext18.missingImplementation(InferenceContext18.JLS_18_2_3_INCOMPLETE_TO_DO_DEFINE_THE_MOST_SPECIFIC_ARRAY_SUPERTYPE_OF_A_TYPE_T);
 				break;
 			case Binding.PARAMETERIZED_TYPE:
 				// 18.2.3: "To do: define the parameterization of a class C for a type T;"
@@ -145,17 +143,20 @@ class ConstraintTypeFormula extends ConstraintFormula {
 				return results;
 			case Binding.WILDCARD_TYPE:
 				// TODO If S is an intersection type of which T is an element, the constraint reduces to true. 
+				if (subCandidate.kind() == Binding.INTERSECTION_TYPE)
+					InferenceContext18.missingImplementation("NYI");
 				WildcardBinding variable = (WildcardBinding) superCandidate;
 				if (variable.boundKind == Wildcard.SUPER)
 					return new ConstraintTypeFormula(subCandidate, variable.bound, SUBTYPE);
 				return FALSE;
 			case Binding.TYPE_PARAMETER:
 				// same as wildcard (but we don't have a lower bound any way)
-				// TODO If S is an intersection type of which T is an element, the constraint reduces to true. 
+				// TODO If S is an intersection type of which T is an element, the constraint reduces to true.
+				if (subCandidate.kind() == Binding.INTERSECTION_TYPE)
+					InferenceContext18.missingImplementation("NYI");
 				return FALSE;
 			case Binding.INTERSECTION_TYPE:
-				// TODO
-				break;
+				InferenceContext18.missingImplementation("NYI");
 		}
 		return this;// TODO
 	}
