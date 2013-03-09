@@ -19,8 +19,19 @@ package org.eclipse.jdt.internal.compiler.lookup;
  */
 abstract class ConstraintFormula extends ReductionResult {
 
-	public static final ConstraintFormula[] FALSE_ARRAY = new ConstraintFormula[0];
-	public static final ConstraintFormula[] TRUE_ARRAY = new ConstraintFormula[0];
-
 	public abstract Object reduce(InferenceContext18 inferenceContext);
+
+	/** 5.3: compatibility check which includes the option of boxing/unboxing. */
+	protected boolean isCompatibleWithInLooseInvocationContext(TypeBinding one, TypeBinding two, InferenceContext18 context) {
+		if (one.isCompatibleWith(two, context.scope))
+			return true;
+		if (one.isBaseType()) {
+			if (one != TypeBinding.NULL && !two.isBaseType())
+				return context.environment.computeBoxingType(one) != one;
+		} else if (two.isBaseType() && two != TypeBinding.NULL) {
+			return context.environment.computeBoxingType(two) != two;
+		}
+		return false;
+	}
+
 }

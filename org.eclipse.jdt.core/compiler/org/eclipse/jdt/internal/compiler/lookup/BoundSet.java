@@ -14,11 +14,9 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -66,15 +64,17 @@ class BoundSet {
 		}
 		// pre: this.superBounds != null
 		public TypeBinding[] lowerBounds() {
-			TypeBinding[] rights = new TypeBinding[this.superBounds.size()];
+			TypeBinding[] boundTypes = new TypeBinding[this.superBounds.size()];
 			Iterator it = this.superBounds.iterator();
 			int i = 0;
 			while(it.hasNext()) {
-				TypeBinding right=((TypeBound)it.next()).right;
-				if ((right).isProperType())
-					rights[i++] = right;
+				TypeBinding boundType = ((TypeBound)it.next()).right;
+				if ((boundType).isProperType())
+					boundTypes[i++] = boundType;
 			}
-			return rights;
+			if (i < boundTypes.length)
+				System.arraycopy(boundTypes, 0, boundTypes=new TypeBinding[i], 0, i);
+			return boundTypes;
 		}
 		// pre: this.subBounds != null
 		public TypeBinding[] upperBounds() {
@@ -160,10 +160,13 @@ class BoundSet {
 			return copy;
 		}
 	}
+	// main storage of type bounds:
 	HashMap/*<InferenceVariable,ThreeSets>*/ boundsPerVariable = new HashMap();
 
+	// TypeBounds of the form Expression -> T
 	ConstraintExpressionFormula[] delayedExpressionConstraints = new ConstraintExpressionFormula[2];
 	int constraintCount = 0;
+	// TODO: find a trigger, when these should be retried (after resolution of a inference variable in the RHS)
 
 	// A bound set evaluates to false if it contains the "FALSE" type bound.
 	private boolean isFalse = false;
@@ -242,14 +245,10 @@ class BoundSet {
 	 * Each new constraint is first reduced and checked for TRUE or FALSE, which will
 	 * abort the processing. 
 	 * @param context the context that manages our inference variables
-	 * @return the new constraints derived from existing type bounds, 
-	 * 	or {@link ConstraintFormula#TRUE_ARRAY} or {@link ConstraintFormula#FALSE_ARRAY}
-	 *  to signal termination of the process or <code>null</code> to signal no change. 
+	 * @return false if any constraint resolved to false, true otherwise  
 	 */
-	/*@Nullable*/ ConstraintFormula[] incorporate(InferenceContext18 context) {
+	boolean incorporate(InferenceContext18 context) {
 		boolean hasUpdate;
-		ConstraintFormula[] newConstraints = null;
-		int newConstraintsCount = 0;
 		do {
 			hasUpdate = false;
 			// using a flattened copy also allows us to insert more bounds during the process
@@ -257,7 +256,7 @@ class BoundSet {
 			TypeBound[] bounds = flatten();
 			int boundsCount = bounds.length;
 			if (boundsCount < 2)
-				return newConstraints;
+				return true;
 			// check each pair:
 			for (int i = 0; i < boundsCount; i++) {
 				TypeBound boundI = bounds[i];
@@ -305,31 +304,20 @@ class BoundSet {
 							}
 					}
 					if (newConstraint != null) {
-						ConstraintFormula[] result = reduceOneConstraint(context, newConstraint);
-						if (result == ConstraintFormula.FALSE_ARRAY || result == ConstraintFormula.TRUE_ARRAY)
-							return result; 
-						if (result != null) {
-							// not directly reduceable
-							int l1;
-							int l2 = result.length;
-							if (newConstraints == null)
-								newConstraints = new ConstraintFormula[5];
-							else if ((l1=newConstraints.length) + l2 <= newConstraintsCount+1) // TODO check arithm.
-								System.arraycopy(newConstraints, 0, newConstraints=new ConstraintFormula[l1+5], 0, l1);
-							
-							for (int k = 0; k < result.length; k++)
-								newConstraints[newConstraintsCount++] = result[k];
-						} else {
-							hasUpdate = true; // has already been added to currentBounds
-						}
+						if (!reduceOneConstraint(context, newConstraint))
+							return false;
+						hasUpdate = true;
 					}
 				}
 				boundI.hasBeenIncorporated = true;
 			}
+			/* TODO: are we sure this will always terminate? Cf. e.g. (Discussion in 18.3):
+			 *  
+			 *    "The assertion that incorporation reaches a fixed point is not obvious. ...
+			 *    To do: each of these properties needs to be guaranteed via refinements to the specification."
+			 */
 		} while (hasUpdate);
-		if (newConstraints != null && newConstraintsCount < newConstraints.length) // need to shrink?
-			System.arraycopy(newConstraints, 0, newConstraints = new ConstraintFormula[newConstraintsCount], 0, newConstraintsCount);
-		return newConstraints;
+		return true;
 	}
 
 	private ConstraintFormula combineSameSame(TypeBound boundS, TypeBound boundT) {
@@ -408,42 +396,40 @@ class BoundSet {
 	}
 
 	/**
-	 * Try to reduce the one given constraint. 
+	 * Try to reduce the one given constraint.
+	 * If a constraint produces further constraints reduce those recursively.
 	 */
-	public ConstraintFormula[] reduceOneConstraint(InferenceContext18 context, ConstraintFormula currentConstraint) {
-		// since a single constraint can produce more than one constraint
-		// it's good to serialize these in a queue to work from:
-		List queue = new ArrayList();
-		int clottedBottem = 0; // below this offset all constraints are un-reduceable, no need to touch again 
-		while (currentConstraint != null || queue.size() > clottedBottem) {
-			if (currentConstraint == null)
-				currentConstraint = (ConstraintFormula) queue.remove(clottedBottem);
-			Object result = currentConstraint.reduce(context);
-			boolean progress = result != currentConstraint;
-			currentConstraint = null; // consume
-			if (!progress) {
-				queue.add(clottedBottem++, result);
+	public boolean reduceOneConstraint(InferenceContext18 context, ConstraintFormula currentConstraint) {
+		Object result = currentConstraint.reduce(context);
+		if (result == currentConstraint) {
+			// not reduceable
+			if (!(result instanceof ConstraintExpressionFormula))
+				throw new IllegalStateException("only constraint expression formula should be un-reduceable");
+			ConstraintExpressionFormula formula = (ConstraintExpressionFormula) result;
+			if (formula.relation != ReductionResult.COMPATIBLE)
+				throw new IllegalStateException("only compatibility constraint should be un-reduceable");
+			// store formula as is, to be interpreted as a special type bound 'Expression -> T'
+			addFormula(formula);
+			return true;
+		}
+		if (result == ReductionResult.FALSE)
+			return false;
+		if (result == ReductionResult.TRUE)
+			return true;
+		if (result != null) {
+			if (result instanceof ConstraintFormula) {
+				if (!reduceOneConstraint(context, (ConstraintFormula) result))
+					return false;
+			} else if (result instanceof ConstraintFormula[]) {
+				ConstraintFormula[] resultArray = (ConstraintFormula[]) result;
+				for (int i = 0; i < resultArray.length; i++)
+					if (!reduceOneConstraint(context, resultArray[i]))
+						return false;
 			} else {
-				if (result == ReductionResult.FALSE)
-					return ConstraintFormula.FALSE_ARRAY;
-				if (result == ReductionResult.TRUE)
-					return ConstraintFormula.TRUE_ARRAY;
-				if (result != null) {
-					if (result instanceof ConstraintFormula) {
-						currentConstraint = (ConstraintFormula) result;
-					} else if (result instanceof ConstraintFormula[]) {
-						ConstraintFormula[] resultArray = (ConstraintFormula[]) result;
-						for (int i = 0; i < resultArray.length; i++)
-							queue.add(resultArray[i]);
-					} else {
-						this.addBound((TypeBound)result);
-					}
-				}
+				this.addBound((TypeBound)result);
 			}
 		}
-		if (queue.size() > 0)
-			return (ConstraintFormula[]) queue.toArray(new ConstraintFormula[queue.size()]);
-		return null; // all are taken care of
+		return true; // no FALSE encountered
 	}
 
 	/**
@@ -451,6 +437,7 @@ class BoundSet {
 	 * Does this bound set define a direct dependency between the two given inference variables? 
 	 */
 	public boolean dependsOnResolutionOf(InferenceVariable alpha, InferenceVariable beta) {
+		// no need to inspect delayedExpressionConstraints, LHS has no inference variable
 		ThreeSets sets = (ThreeSets) this.boundsPerVariable.get(alpha);
 		if (sets != null && sets.hasDependency(beta))
 			return true;
@@ -480,16 +467,14 @@ class BoundSet {
 		if (three == null || three.superBounds == null)
 			return Binding.NO_TYPES;
 		return three.lowerBounds();
+		// bounds where 'variable' appears at the RHS are not relevant because
+		// we're only interested in bounds with a proper type, but if 'variable'
+		// appears as RHS the bound is by construction an inference variable,too.
 	}
 	
-	// term 'instantiation' is defined in spec, but this seems to be unnecessary
+	// term 'instantiation' is defined in spec, but we don't need a query for this
 	// due to update into InferenceVariable.resolvedType
-	
-	/** Does this bound set contain the bound FALSE? */
-	public boolean isSatisfiable() {
-		return !this.isFalse;
-	}
-	
+
 	// debugging:
 	public String toString() {
 		StringBuffer buf = new StringBuffer("Type Bounds:\n"); //$NON-NLS-1$

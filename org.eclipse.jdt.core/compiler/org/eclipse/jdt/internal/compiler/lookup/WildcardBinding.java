@@ -537,7 +537,7 @@ public class WildcardBinding extends ReferenceBinding {
 		}
 		TypeBinding[] currentOtherBounds = null;
 		if (this.otherBounds != null) {
-			int length = ((ReferenceBinding[])this.otherBounds).length;
+			int length = this.otherBounds.length;
 			if (haveSubstitution)
 				System.arraycopy(this.otherBounds, 0, currentOtherBounds=new ReferenceBinding[length], 0, length);
 			for (int i = 0; i < length; i++) {

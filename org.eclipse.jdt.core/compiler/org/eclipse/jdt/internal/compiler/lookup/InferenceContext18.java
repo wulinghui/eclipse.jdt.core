@@ -33,7 +33,7 @@ public class InferenceContext18 {
 	}
 	InferenceVariable[] inferenceVariables;
 	BoundSet currentBounds;
-	ConstraintFormula[] constraints;
+	ConstraintFormula[] initialConstraints;
 	
 	Scope scope;
 	LookupEnvironment environment;
@@ -66,10 +66,10 @@ public class InferenceContext18 {
 		if (this.invocationArguments == null)
 			return;
 		int len = Math.min(this.invocationArguments.length, parameters.length); // varargs
-		this.constraints = new ConstraintFormula[len];
+		this.initialConstraints = new ConstraintFormula[len];
 		for (int i = 0; i < len; i++) {
 			TypeBinding thetaF = substitute(parameters[i]);	
-			this.constraints[i] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
+			this.initialConstraints[i] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
 		}
 	}
 
@@ -85,14 +85,14 @@ public class InferenceContext18 {
 //			InferenceContext18.missingImplementation("NYI");
 		TypeBinding thetaR = substitute(returnType);
 		int l = 0;
-		if (this.constraints != null) {
-			l = this.constraints.length;
-			System.arraycopy(this.constraints, 0, this.constraints=new ConstraintFormula[l+1], 0, l);
+		if (this.initialConstraints != null) {
+			l = this.initialConstraints.length;
+			System.arraycopy(this.initialConstraints, 0, this.initialConstraints=new ConstraintFormula[l+1], 0, l);
 		} else {
 			l = 0;
-			this.constraints = new ConstraintFormula[1];
+			this.initialConstraints = new ConstraintFormula[1];
 		}
-		this.constraints[l] = new ConstraintTypeFormula(thetaR, expectedType, ReductionResult.COMPATIBLE);
+		this.initialConstraints[l] = new ConstraintTypeFormula(thetaR, expectedType, ReductionResult.COMPATIBLE);
 	}
 
 	public InferenceVariable createInferenceVariable(ReferenceBinding type) {
@@ -123,72 +123,41 @@ public class InferenceContext18 {
 			this.inferenceVariables[start+i] = new InferenceVariable(typeVariables[i], start+i);
 	}
 
-	private void addConstraints(ConstraintFormula[] newConstraints) {
-		int len1 = 0;
-		int len2 = newConstraints.length;
-		if (this.constraints != null) {
-			len1 = this.constraints.length;
-		} else {
-			this.constraints = new ConstraintFormula[len2];
-		}
-		if (len1 > 0)
-			System.arraycopy(this.constraints, 0, this.constraints = new ConstraintFormula[len1+len2], 0, len1);
-		System.arraycopy(newConstraints, 0, this.constraints, len1, len2);
-	}
-
 	/**
 	 * Try to solve the inference problem defined by constraints and bounds previously registered.
 	 * @return success?
 	 */
 	public boolean solve() {
-		while (true) {
-			if (!reduce())
-				return false;
-			this.constraints = this.currentBounds.incorporate(this);
-			if (this.constraints == ConstraintFormula.FALSE_ARRAY) 
-				return false;
-			if (resolve())
-				return isResolved();
-		}
-/* TODO: are we sure this will always terminate? Cf. e.g. (Discussion in 18.3):
- *  
- *    "The assertion that incorporation reaches a fixed point is not obvious. ...
- *    To do: each of these properties needs to be guaranteed via refinements to the specification."
- */
+		if (!reduce())
+			return false;
+		if (!this.currentBounds.incorporate(this))
+			return false;
+		if (!resolve())
+			return false;
+		return isResolved();
 	}
 
 	/**
-	 * JLS 18.2. perform one round of reduction 
+	 * JLS 18.2. reduce all initial constraints 
 	 */
 	boolean reduce() {
-		if (this.constraints != null) {
-			int j = 0;
-			for (int i = 0; i < this.constraints.length; i++) {
-				ConstraintFormula currentConstraint = this.constraints[i];
-				ConstraintFormula[] result = this.currentBounds.reduceOneConstraint(this, currentConstraint);
-				if (result == ConstraintFormula.FALSE_ARRAY)
+		if (this.initialConstraints != null) {
+			for (int i = 0; i < this.initialConstraints.length; i++) {
+				if (!this.currentBounds.reduceOneConstraint(this, this.initialConstraints[i]))
 					return false;
-				if (result == ConstraintFormula.TRUE_ARRAY)
-					continue;
-				if (result != null) { // not reduced
-					for (int k = 0; k < result.length; k++)
-						this.constraints[j++] = result[k];
-				}
 			}
-			if (j < this.constraints.length)
-				System.arraycopy(this.constraints, 0, this.constraints = new ConstraintFormula[j], 0, j);
 		}
 		return true;
 	}
 	
 	/**
 	 * <b>JLS 18.4</b> Resolution
-	 * @return answer true iff a fix point has been reached, i.e., no more constraints have been added.
+	 * @return answer false if some constraint resolved to FALSE, true otherwise.
 	 */
 	private boolean resolve() {
-		boolean didAddConstraints = false;
 		if (this.inferenceVariables != null) {
 			for (int i = 0; i < this.inferenceVariables.length; i++) {
+				if (this.inferenceVariables[i].isResolved()) continue;
 				// find a minimal set of dependent variables:
 				Set variableSet = new HashSet();
 				int numUnresolved = addDependencies(variableSet, i); // numUnresolved => terminate
@@ -226,28 +195,13 @@ public class InferenceContext18 {
 							tmpBoundSet.addBound(new TypeBound(variable, glb, ReductionResult.SAME));
 						}
 					}
-					// check if incorporation produces new constraints:
-					ConstraintFormula[] newConstraints = tmpBoundSet.incorporate(this);
-					// check success:
-					boolean hasFalse = false;
-					if (newConstraints != null)
-						for (int j = 0; j < newConstraints.length; j++)
-							if (newConstraints[j] == ReductionResult.FALSE)
-								hasFalse = true;
-					hasFalse |= !tmpBoundSet.isSatisfiable();
-					if (hasFalse) {
-						return true; // we have the final outcome
-					} else {
-						if (newConstraints.length > 0) {
-							addConstraints(newConstraints);
-							didAddConstraints = true;
-						}
-						this.currentBounds = tmpBoundSet;
-					}
+					if (!tmpBoundSet.incorporate(this))
+						return false; // FIXME revert effects!
+					this.currentBounds = tmpBoundSet;
 				}
 			}
 		}
-		return !didAddConstraints;
+		return true;
 	}
 	
 	/** 
@@ -329,11 +283,11 @@ public class InferenceContext18 {
 				buf.append('\n');
 			}
 		}
-		if (this.constraints != null) {
-			buf.append("Constraints:\n"); //$NON-NLS-1$
-			for (int i = 0; i < this.constraints.length; i++)
-				if (this.constraints[i] != null)
-					buf.append('\t').append(this.constraints[i].toString()).append('\n');
+		if (this.initialConstraints != null) {
+			buf.append("Initial Constraints:\n"); //$NON-NLS-1$
+			for (int i = 0; i < this.initialConstraints.length; i++)
+				if (this.initialConstraints[i] != null)
+					buf.append('\t').append(this.initialConstraints[i].toString()).append('\n');
 		}
 		if (this.currentBounds != null)
 			buf.append(this.currentBounds.toString());
@@ -341,10 +295,13 @@ public class InferenceContext18 {
 	}
 
 	// INTERIM: infrastructure for detecting failures caused by specific known incompleteness:
-	static final String JLS_18_2_3_INCOMPLETE_TO_DO_DEFINE_THE_MOST_SPECIFIC_ARRAY_SUPERTYPE_OF_A_TYPE_T = "JLS 18.2.3 incomplete: \"\"To do: [...] define the most specific array supertype of a type T."; //$NON-NLS-1$
+	static final String JLS_18_2_3_INCOMPLETE_TO_DO_DEFINE_THE_MOST_SPECIFIC_ARRAY_SUPERTYPE_OF_A_TYPE_T = "JLS 18.2.3 incomplete: \"To do: [...] define the most specific array supertype of a type T.\""; //$NON-NLS-1$
+	static final String JLS_18_2_3_INCOMPLETE_TO_DEFINE_THE_PARAMETERIZATION_OF_A_CLASS_C_FOR_A_TYPE_T = "JLS 18.2.3 incomplete: \"To do: define the parameterization of a class C for a type T\""; //$NON-NLS-1$
 	public static void missingImplementation(String msg) {
 		if (msg == JLS_18_2_3_INCOMPLETE_TO_DO_DEFINE_THE_MOST_SPECIFIC_ARRAY_SUPERTYPE_OF_A_TYPE_T)
-			return; // when enabled produces 56 distinct errors in GenericTypeTest
+			return; // without this return we see 56 distinct errors in GenericTypeTest
+		if (msg == JLS_18_2_3_INCOMPLETE_TO_DEFINE_THE_PARAMETERIZATION_OF_A_CLASS_C_FOR_A_TYPE_T)
+			return; // without this return we see 54 distinct errors in GenericTypeTest
 		throw new UnsupportedOperationException(msg);
 	}
 }

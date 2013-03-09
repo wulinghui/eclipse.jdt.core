@@ -29,7 +29,6 @@ import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
  */
 class ConstraintExpressionFormula extends ConstraintFormula {
 	Expression left;
-	boolean isDelayed; // TODO defined in spec but never referenced
 
 	ConstraintExpressionFormula(Expression expression, TypeBinding type, int relation) {
 		this.left = expression;
@@ -42,10 +41,11 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 		if (exprType == null || !exprType.isValidBinding())
 			return FALSE;
 		if (this.right.isProperType()) {
-			if (exprType.isCompatibleWith(this.right, inferenceContext.scope))
+			if (isCompatibleWithInLooseInvocationContext(exprType, this.right, inferenceContext))
 				return TRUE;
 			return FALSE;
-		} else if (!this.left.isPolyExpression) {
+		}
+		if (!this.left.isPolyExpression) {
 			return new ConstraintTypeFormula(exprType, this.right, COMPATIBLE);
 		} else {
 			// shapes of poly expressions (18.2.1)
@@ -60,6 +60,9 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 					if (method.returnType.isBaseType())
 						InferenceContext18.missingImplementation("NYI");
 					return new ConstraintTypeFormula(inferenceContext.substitute(method.returnType), this.right, COMPATIBLE);
+				} else {
+					// TODO: wrongly assumed to be a poly expression?
+					return new ConstraintTypeFormula(exprType, this.right, COMPATIBLE);
 				}
 			} else if (this.left instanceof ConditionalExpression) {
 				InferenceContext18.missingImplementation("NYI");

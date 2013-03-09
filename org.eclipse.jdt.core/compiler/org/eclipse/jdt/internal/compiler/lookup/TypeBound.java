@@ -48,7 +48,6 @@ public class TypeBound extends ReductionResult {
 		this.relation = relation;
 	}
 
-
 	/** distinguish bounds from dependencies. */
 	boolean isBound() {
 		return this.right.isProperType();

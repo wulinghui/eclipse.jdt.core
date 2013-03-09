@@ -41,11 +41,18 @@ class ConstraintTypeFormula extends ConstraintFormula {
 		case COMPATIBLE:
 			// 18.2.2:
 			if (this.left.isProperType() && this.right.isProperType()) {
-				if (this.left.isCompatibleWith(this.right, inferenceContext.scope))
+				if (isCompatibleWithInLooseInvocationContext(this.left, this.right, inferenceContext))
 					return TRUE;
 				return FALSE;
 			}
-			// TODO handle primitive types
+			if (this.left.isBaseType() && this.left != TypeBinding.NULL) {
+				TypeBinding sPrime = inferenceContext.environment.computeBoxingType(this.left);
+				return new ConstraintTypeFormula(sPrime, this.right, COMPATIBLE);
+			}
+			if (this.right.isBaseType() && this.right != TypeBinding.NULL) {
+				TypeBinding tPrime = inferenceContext.environment.computeBoxingType(this.right);
+				return new ConstraintTypeFormula(this.left, tPrime, COMPATIBLE);
+			}
 			return new ConstraintTypeFormula(this.left, this.right, SUBTYPE);
 		case SUBTYPE:
 			// 18.2.3:
@@ -53,6 +60,9 @@ class ConstraintTypeFormula extends ConstraintFormula {
 		case SUPERTYPE:
 			// 18.2.3:
 			return reduceSubType(inferenceContext.scope, this.right, this.left);
+		case SAME:
+			// 18.2.4:
+			return reduceTypeEquality();
 		case TYPE_ARGUMENT_CONTAINED:
 			// 18.2.3:
 			if (this.right.kind() != Binding.WILDCARD_TYPE) {
@@ -90,7 +100,46 @@ class ConstraintTypeFormula extends ConstraintFormula {
 				}
 			}
 		}
-		return this; // TODO is this handled by our caller?
+		return this;
+	}
+
+	private Object reduceTypeEquality() {
+		// 18.2.4
+		if (this.left.kind() == Binding.WILDCARD_TYPE) {
+			if (this.right.kind() == Binding.WILDCARD_TYPE) {
+				WildcardBinding leftWC = (WildcardBinding)this.left;
+				WildcardBinding rightWC = (WildcardBinding)this.right;
+				if (leftWC.bound == null && rightWC.bound == null)
+					return TRUE;
+				if ((leftWC.boundKind == Wildcard.EXTENDS && rightWC.boundKind == Wildcard.EXTENDS)
+					||(leftWC.boundKind == Wildcard.SUPER && rightWC.boundKind == Wildcard.SUPER))
+				{
+					return new ConstraintTypeFormula(leftWC.bound, rightWC.bound, SAME); // TODO more bounds?
+				}						
+			}
+		} else {
+			if (this.right.kind() != Binding.WILDCARD_TYPE) {
+				// left and right are types
+				if (this.left.isProperType() && this.right.isProperType()) {
+					if (this.left == this.right)
+						return TRUE;
+					return FALSE;
+				}
+				if (this.left instanceof InferenceVariable) {
+					return new TypeBound((InferenceVariable) this.left, this.right, SAME);
+				}
+				if (this.right instanceof InferenceVariable) {
+					return new TypeBound((InferenceVariable) this.right, this.left, SAME);
+				}
+				if (this.left.original() == this.right.original()) {
+					throw new UnsupportedOperationException("NYI");
+				}
+				if (this.left.isArrayType() && this.right.isArrayType() && this.left.dimensions() == this.right.dimensions()) {
+					return new ConstraintTypeFormula(this.left.leafComponentType(), this.right.leafComponentType(), SAME);
+				}
+			}
+		}
+		return FALSE;
 	}
 
 	private Object reduceSubType(Scope scope, TypeBinding subCandidate, TypeBinding superCandidate) {
@@ -110,6 +159,7 @@ class ConstraintTypeFormula extends ConstraintFormula {
 		switch (superCandidate.kind()) {
 			case Binding.GENERIC_TYPE:
 			case Binding.TYPE:
+			case Binding.RAW_TYPE: // TODO: check special handling of raw types?
 				c = (ReferenceBinding) superCandidate;
 				if (subCandidate instanceof ReferenceBinding) {
 					ReferenceBinding s = (ReferenceBinding) subCandidate;
@@ -125,7 +175,7 @@ class ConstraintTypeFormula extends ConstraintFormula {
 				return FALSE;
 			case Binding.ARRAY_TYPE:
 				InferenceContext18.missingImplementation(InferenceContext18.JLS_18_2_3_INCOMPLETE_TO_DO_DEFINE_THE_MOST_SPECIFIC_ARRAY_SUPERTYPE_OF_A_TYPE_T);
-				break;
+				return FALSE;
 			case Binding.PARAMETERIZED_TYPE:
 				// 18.2.3: "To do: define the parameterization of a class C for a type T;"
 				// BEGIN GUESS WORK:
@@ -133,8 +183,11 @@ class ConstraintTypeFormula extends ConstraintFormula {
 				TypeBinding substitutedSub = subCandidate.findSuperTypeOriginatingFrom(superCandidate);
 				if (substitutedSub == null) return FALSE;
 				TypeBinding[] subArgs = ((ParameterizedTypeBinding) substitutedSub).arguments;
-				if (superArgs == null || subArgs == null || superArgs.length != subArgs.length)
-					return this; // TODO
+				if (superArgs == null || subArgs == null || superArgs.length != subArgs.length) {
+					// bail out only if our guess work produced a useless result
+					InferenceContext18.missingImplementation(InferenceContext18.JLS_18_2_3_INCOMPLETE_TO_DEFINE_THE_PARAMETERIZATION_OF_A_CLASS_C_FOR_A_TYPE_T);
+					return FALSE; // TODO
+				}
 				// END GUESS WORK
 				ConstraintFormula[] results = new ConstraintFormula[superArgs.length];
 				for (int i = 0; i < superArgs.length; i++) {
