@@ -39,6 +39,7 @@ class BoundSet {
 		Set/*<TypeBound>*/ superBounds;
 		Set/*<TypeBound>*/ sameBounds;
 		Set/*<TypeBound>*/ subBounds;
+		TypeBinding	instantiation;
 		
 		public ThreeSets() {
 			// empty, the sets are lazily initialized
@@ -157,6 +158,7 @@ class BoundSet {
 				copy.sameBounds = new HashSet(this.sameBounds);
 			if (this.subBounds != null)
 				copy.subBounds = new HashSet(this.subBounds);
+			copy.instantiation = this.instantiation;
 			return copy;
 		}
 	}
@@ -166,26 +168,23 @@ class BoundSet {
 	// TypeBounds of the form Expression -> T
 	ConstraintExpressionFormula[] delayedExpressionConstraints = new ConstraintExpressionFormula[2];
 	int constraintCount = 0;
-	// TODO: find a trigger, when these should be retried (after resolution of a inference variable in the RHS)
 
-	// A bound set evaluates to false if it contains the "FALSE" type bound.
-	private boolean isFalse = false;
-
-	// just for the two constants TRUE and FALSE:
-	private BoundSet() {}
+	// avoid attempts to incorporate the same pair of type bounds more than once:
+	Set/*<TypeBound>*/ incorporatedBounds = new HashSet();
 	
-	public BoundSet(InferenceContext18 context, TypeBinding[] typeParameters) {
-		if (typeParameters != null) {
-			InferenceVariable[] variables = context.inferenceVariables;
-			int length = typeParameters.length;
-			for (int i = 0; i < length; i++) {
-				TypeBinding typeParameter = typeParameters[i];
-				TypeBound[] someBounds = typeParameter.getTypeBounds(typeParameters, variables[i], i, context);
-				if (someBounds.length == 0) {
-					addBound(new TypeBound(variables[i], context.object, ReductionResult.SUBTYPE));
-				} else {
-					addBounds(someBounds);
-				}
+	public BoundSet() {}
+	
+	// pre: typeParameters != null
+	public void addBoundsFromTypeParameters(InferenceContext18 context, TypeBinding[] typeParameters) {
+		InferenceVariable[] variables = context.inferenceVariables;
+		int length = typeParameters.length;
+		for (int i = 0; i < length; i++) {
+			TypeBinding typeParameter = typeParameters[i];
+			TypeBound[] someBounds = typeParameter.getTypeBounds(typeParameters, variables[i], i, context);
+			if (someBounds.length == 0) {
+				addBound(new TypeBound(variables[i], context.object, ReductionResult.SUBTYPE));
+			} else {
+				addBounds(someBounds);
 			}
 		}
 	}
@@ -221,11 +220,16 @@ class BoundSet {
 	}
 
 	public void addBound(TypeBound bound) {
-		this.isFalse |= (bound == ReductionResult.FALSE);
 		ThreeSets three = (ThreeSets) this.boundsPerVariable.get(bound.left);
 		if (three == null)
 			this.boundsPerVariable.put(bound.left, (three = new ThreeSets()));
 		three.addBound(bound);
+		// check if this makes the inference variable instantiated:
+		TypeBinding typeBinding = bound.right;
+		if (bound.relation == ReductionResult.SAME && typeBinding.isProperType()) {
+			three.instantiation = typeBinding;
+			recheckDelayedConstraints(bound.left, typeBinding);
+		}
 	}
 
 	private void addBounds(TypeBound[] newBounds) {
@@ -238,6 +242,31 @@ class BoundSet {
 		if (this.constraintCount + 1 >= oldLength) 
 			System.arraycopy(this.delayedExpressionConstraints, 0, this.delayedExpressionConstraints = new ConstraintExpressionFormula[oldLength+4], 0, oldLength);
 		this.delayedExpressionConstraints[this.constraintCount++] = formula;
+	}
+
+	public boolean isInstantiated(InferenceVariable inferenceVariable) {
+		ThreeSets three = (ThreeSets) this.boundsPerVariable.get(inferenceVariable);
+		if (three != null)
+			return three.instantiation != null;
+		return false;
+	}
+
+	public TypeBinding getInstantiation(InferenceVariable inferenceVariable) {
+		ThreeSets three = (ThreeSets) this.boundsPerVariable.get(inferenceVariable);
+		if (three != null)
+			return three.instantiation;
+		return null;
+	}
+
+	private void recheckDelayedConstraints(InferenceVariable inferenceVariable, TypeBinding typeBinding) {
+		// 18.1.3: A bound of the form Expression → T represents a constraint formula that cannot be further reduced
+		//         until one or more inference variables in T are instantiated.
+		// This method is trigger in the event an inference variable is marked as instantiated.
+		for (int i = 0; i < this.constraintCount; i++) {
+			ConstraintExpressionFormula constraint = this.delayedExpressionConstraints[i];
+			if (constraint.right.mentionsAny(new TypeBinding[]{inferenceVariable}, -1))
+				throw new UnsupportedOperationException("NYI");
+		}
 	}
 
 	/**
@@ -262,7 +291,7 @@ class BoundSet {
 				TypeBound boundI = bounds[i];
 				for (int j = i+1; j < boundsCount; j++) {
 					TypeBound boundJ = bounds[j];
-					if (boundI.hasBeenIncorporated && boundJ.hasBeenIncorporated)
+					if (this.incorporatedBounds.contains(boundI) && this.incorporatedBounds.contains(boundJ))
 						continue;
 					ConstraintFormula newConstraint = null;
 					switch (boundI.relation) {
@@ -309,7 +338,7 @@ class BoundSet {
 						hasUpdate = true;
 					}
 				}
-				boundI.hasBeenIncorporated = true;
+				this.incorporatedBounds.add(boundI);
 			}
 			/* TODO: are we sure this will always terminate? Cf. e.g. (Discussion in 18.3):
 			 *  
@@ -471,9 +500,6 @@ class BoundSet {
 		// we're only interested in bounds with a proper type, but if 'variable'
 		// appears as RHS the bound is by construction an inference variable,too.
 	}
-	
-	// term 'instantiation' is defined in spec, but we don't need a query for this
-	// due to update into InferenceVariable.resolvedType
 
 	// debugging:
 	public String toString() {

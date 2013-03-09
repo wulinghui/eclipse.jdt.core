@@ -26,11 +26,6 @@ import org.eclipse.jdt.internal.compiler.ast.Expression;
  */
 public class InferenceContext18 {
 
-	private static final int[] INVERSE = new int[6];
-	static {
-		INVERSE[ReductionResult.SUBTYPE] = ReductionResult.SUPERTYPE;
-		INVERSE[ReductionResult.SUPERTYPE] = ReductionResult.SUBTYPE;
-	}
 	InferenceVariable[] inferenceVariables;
 	BoundSet currentBounds;
 	ConstraintFormula[] initialConstraints;
@@ -55,9 +50,11 @@ public class InferenceContext18 {
 	public void createInitialBoundSet(TypeBinding[] typeParameters) {
 		// JLS8 18.1.3
 		if (this.currentBounds != null) return; // already initialized from explicit type parameters
-		if (typeParameters != null)
+		this.currentBounds = new BoundSet();
+		if (typeParameters != null) {
 			addTypeVariableSubstitutions(typeParameters);
-		this.currentBounds = new BoundSet(this, typeParameters);
+			this.currentBounds.addBoundsFromTypeParameters(this, typeParameters);
+		}
 	}
 
 	public void createInitialConstraintsForParameters(TypeBinding[] parameters) {
@@ -157,28 +154,29 @@ public class InferenceContext18 {
 	private boolean resolve() {
 		if (this.inferenceVariables != null) {
 			for (int i = 0; i < this.inferenceVariables.length; i++) {
-				if (this.inferenceVariables[i].isResolved()) continue;
+				if (this.currentBounds.isInstantiated(this.inferenceVariables[i])) continue;
 				// find a minimal set of dependent variables:
 				Set variableSet = new HashSet();
-				int numUnresolved = addDependencies(variableSet, i); // numUnresolved => terminate
+				int numUninstantiated = addDependencies(variableSet, i);
 				int numVars = variableSet.size();
 				
-				if (numUnresolved > 0 && numVars > 0) {
+				if (numUninstantiated > 0 && numVars > 0) {
 					// try to instantiate this set of variables in a fresh copy of the bound set:
-					BoundSet tmpBoundSet = this.currentBounds.copy();
+					BoundSet oldBoundSet = this.currentBounds;
+					this.currentBounds = this.currentBounds.copy();
 					InferenceVariable[] variables = (InferenceVariable[]) variableSet.toArray(new InferenceVariable[numVars]);
 					for (int j = 0; j < variables.length; j++) {
 						InferenceVariable variable = variables[j];
 						// 1. attempt:
-						TypeBinding[] lowerBounds = tmpBoundSet.lowerBounds(variable);
+						TypeBinding[] lowerBounds = this.currentBounds.lowerBounds(variable);
 						if (lowerBounds != Binding.NO_TYPES) {
 							TypeBinding lub = this.scope.lowerUpperBound(lowerBounds);
 							if (lub != TypeBinding.VOID && lub != null)
-								tmpBoundSet.addBound(new TypeBound(variable, lub, ReductionResult.SAME));
+								this.currentBounds.addBound(new TypeBound(variable, lub, ReductionResult.SAME));
 							continue;
 						}
 						// 2. attempt:
-						TypeBinding[] upperBounds = tmpBoundSet.upperBounds(variable);
+						TypeBinding[] upperBounds = this.currentBounds.upperBounds(variable);
 						if (upperBounds != Binding.NO_TYPES) {
 							TypeBinding glb;
 							if (upperBounds.length == 1) {
@@ -192,12 +190,13 @@ public class InferenceContext18 {
 								else
 									glb = new IntersectionCastTypeBinding(glbs, this.environment);
 							}
-							tmpBoundSet.addBound(new TypeBound(variable, glb, ReductionResult.SAME));
+							this.currentBounds.addBound(new TypeBound(variable, glb, ReductionResult.SAME));
 						}
 					}
-					if (!tmpBoundSet.incorporate(this))
-						return false; // FIXME revert effects!
-					this.currentBounds = tmpBoundSet;
+					if (!this.currentBounds.incorporate(this)) {
+						this.currentBounds = oldBoundSet;
+						return false; // FIXME ensure all effects reverted / discarded
+					}
 				}
 			}
 		}
@@ -209,19 +208,19 @@ public class InferenceContext18 {
 	 * reachable via dependencies (regardless of relation kind).
 	 * @param variableSet collect all variables found into this set
 	 * @param i seed index into {@link #inferenceVariables}.
-	 * @return count of unresolved variables in the set.
+	 * @return count of uninstantiated variables in the set.
 	 */
 	private int addDependencies(Set variableSet, int i) {
 		InferenceVariable currentVariable = this.inferenceVariables[i];
-		if (currentVariable.isResolved()) return 0;
+		if (this.currentBounds.isInstantiated(currentVariable)) return 0;
 		if (!variableSet.add(currentVariable)) return 1;
-		int numUnresolved = 1;
+		int numUninstantiated = 1;
 		for (int j = 0; j < this.inferenceVariables.length; j++) {
 			if (i == j) continue;
 			if (this.currentBounds.dependsOnResolutionOf(currentVariable, this.inferenceVariables[j]))
-				numUnresolved += addDependencies(variableSet, j);
+				numUninstantiated += addDependencies(variableSet, j);
 		}
-		return numUnresolved;
+		return numUninstantiated;
 	}
 
 	/**
@@ -232,12 +231,12 @@ public class InferenceContext18 {
 	}
 
 	/**
-	 * Have all inference variables been resolved successfully?
+	 * Have all inference variables been instantiated successfully?
 	 */
 	public boolean isResolved() {
 		if (this.inferenceVariables != null) {
 			for (int i = 0; i < this.inferenceVariables.length; i++) {
-				if (!this.inferenceVariables[i].isResolved())
+				if (!this.currentBounds.isInstantiated(this.inferenceVariables[i]))
 					return false;
 			}
 		}
@@ -247,7 +246,7 @@ public class InferenceContext18 {
 	/**
 	 * Retrieve the resolved solutions for all given type variables.
 	 * @param typeParameters
-	 * @return the substituted types or <code>null</code> is any type variable could not be substituted.
+	 * @return the substituted types or <code>null</code> if any type variable could not be substituted.
 	 */
 	public TypeBinding /*@Nullable*/[] getSolutions(final TypeVariableBinding[] typeParameters) {
 		int len = typeParameters.length;
@@ -256,7 +255,7 @@ public class InferenceContext18 {
 			for (int j = 0; j < this.inferenceVariables.length; j++) {
 				InferenceVariable variable = this.inferenceVariables[j];
 				if (variable.typeParameter == typeParameters[i]) {
-					substitutions[i] = variable.resolvedType;
+					substitutions[i] = this.currentBounds.getInstantiation(variable);
 					break;
 				}
 			}
@@ -276,10 +275,10 @@ public class InferenceContext18 {
 			buf.append("Inference Variables:\n"); //$NON-NLS-1$
 			for (int i = 0; i < this.inferenceVariables.length; i++) {
 				buf.append('\t').append(this.inferenceVariables[i].sourceName).append("\t:\t"); //$NON-NLS-1$
-				if (this.inferenceVariables[i].isResolved())
-					buf.append(this.inferenceVariables[i].resolvedType.readableName());
+				if (this.currentBounds.isInstantiated(this.inferenceVariables[i]))
+					buf.append(this.currentBounds.getInstantiation(this.inferenceVariables[i]).readableName());
 				else
-					buf.append("UNRESOLVED"); //$NON-NLS-1$
+					buf.append("NOT INSTANTIATED"); //$NON-NLS-1$
 				buf.append('\n');
 			}
 		}

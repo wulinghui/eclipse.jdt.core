@@ -20,9 +20,6 @@ package org.eclipse.jdt.internal.compiler.lookup;
 public class TypeBound extends ReductionResult {
 	
 	InferenceVariable left;
-
-	// avoid attempts to incorporate the same pair of type bounds more than once:
-	boolean hasBeenIncorporated; // TODO: check if this has to be a property of the BoundSet as to support retrying during resolution
 	
 	static TypeBound createBoundOrDependency(InferenceContext18 context, TypeBinding type, TypeBinding[] parameters, InferenceVariable variable, int idx) {
         // Part of JLS8 sect 18.1.3:
@@ -37,8 +34,6 @@ public class TypeBound extends ReductionResult {
 		this.left = inferenceVariable;
 		this.right = typeBinding;
 		this.relation = relation;
-		if (relation == SAME && typeBinding.isProperType())
-			inferenceVariable.resolvedType = typeBinding;
 	}
 
 	/** Create a type dependency. */

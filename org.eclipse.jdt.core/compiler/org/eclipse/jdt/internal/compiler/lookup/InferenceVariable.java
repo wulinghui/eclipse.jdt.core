@@ -22,8 +22,7 @@ import org.eclipse.jdt.core.compiler.CharOperation;
 public class InferenceVariable extends ReferenceBinding {
 
 	TypeBinding typeParameter;
-	TypeBinding resolvedType;
-	int rank;
+	int rank; // TODO: remove?
 	
 	public InferenceVariable(TypeBinding typeParameter, int variableRank) {
 		this.typeParameter = typeParameter;
@@ -37,16 +36,14 @@ public class InferenceVariable extends ReferenceBinding {
 	}
 
 	public char[] constantPoolName() {
-		return this.resolvedType.constantPoolName();
+		throw new UnsupportedOperationException();
 	}
 
 	public PackageBinding getPackage() {
-		return this.resolvedType.getPackage();
+		throw new UnsupportedOperationException();
 	}
 
 	public boolean isCompatibleWith(TypeBinding right, Scope scope) {
-		if (this.resolvedType != null)
-			return this.resolvedType.isCompatibleWith(right, scope);
 		return false;
 	}
 
@@ -60,12 +57,8 @@ public class InferenceVariable extends ReferenceBinding {
 		return this;
 	}
 
-	public boolean isResolved() {
-		return this.resolvedType != null;
-	}
-
 	public char[] qualifiedSourceName() {
-		return this.resolvedType.qualifiedSourceName();
+		throw new UnsupportedOperationException();
 	}
 
 	public char[] sourceName() {
@@ -77,9 +70,7 @@ public class InferenceVariable extends ReferenceBinding {
 	}
 
 	public boolean hasTypeBit(int bit) {
-		if (this.resolvedType instanceof ReferenceBinding)
-			return ((ReferenceBinding)this.resolvedType).hasTypeBit(bit);
-		return false;
+		throw new UnsupportedOperationException();
 	}
 	
 	public String debugName() {
