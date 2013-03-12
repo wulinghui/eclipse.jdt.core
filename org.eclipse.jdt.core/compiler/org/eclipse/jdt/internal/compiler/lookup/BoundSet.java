@@ -161,6 +161,52 @@ class BoundSet {
 			copy.instantiation = this.instantiation;
 			return copy;
 		}
+		public TypeBinding findSingleWrapperType() {
+			TypeBinding wrapperBound = null;
+			if (this.subBounds != null) {
+				Iterator it = this.subBounds.iterator();
+				while(it.hasNext()) {
+					TypeBinding boundType = ((TypeBound)it.next()).right;
+					if ((boundType).isProperType()) {
+						switch (boundType.id) {
+							case TypeIds.T_JavaLangByte:
+							case TypeIds.T_JavaLangShort:
+							case TypeIds.T_JavaLangCharacter:
+							case TypeIds.T_JavaLangInteger:
+							case TypeIds.T_JavaLangLong:
+							case TypeIds.T_JavaLangFloat:
+							case TypeIds.T_JavaLangDouble:
+							case TypeIds.T_JavaLangBoolean:
+								if (wrapperBound != null)
+									return null;
+								wrapperBound = boundType;
+						}
+					}
+				}		
+			}
+			if (this.superBounds != null) {
+				Iterator it = this.superBounds.iterator();
+				while(it.hasNext()) {
+					TypeBinding boundType = ((TypeBound)it.next()).right;
+					if ((boundType).isProperType()) {
+						switch (boundType.id) {
+							case TypeIds.T_JavaLangByte:
+							case TypeIds.T_JavaLangShort:
+							case TypeIds.T_JavaLangCharacter:
+							case TypeIds.T_JavaLangInteger:
+							case TypeIds.T_JavaLangLong:
+							case TypeIds.T_JavaLangFloat:
+							case TypeIds.T_JavaLangDouble:
+							case TypeIds.T_JavaLangBoolean:
+								if (wrapperBound != null)
+									return null;
+								wrapperBound = boundType;
+						}
+					}
+				}		
+			}
+			return wrapperBound;
+		}
 	}
 	// main storage of type bounds:
 	HashMap/*<InferenceVariable,ThreeSets>*/ boundsPerVariable = new HashMap();
@@ -509,5 +555,11 @@ class BoundSet {
 			buf.append('\t').append(flattened[i].toString()).append('\n');
 		}
 		return buf.toString();
+	}
+
+	public TypeBinding findWrapperTypeBound(InferenceVariable variable) {
+		ThreeSets three = (ThreeSets) this.boundsPerVariable.get(variable);
+		if (three == null) return null;
+		return three.findSingleWrapperType();
 	}
 }

@@ -76,11 +76,28 @@ public class InferenceContext18 {
 		if (expectedType == null) return;
 // TODO: enable once isPolyExpression is reliably in place
 //		if (returnType == TypeBinding.VOID) this.currentBounds.isFalse = true;
-		if (expectedType.isBaseType())
-// TODO: could be OK if !isPolyExpression:
-			return;
-//			InferenceContext18.missingImplementation("NYI");
 		TypeBinding thetaR = substitute(returnType);
+		if (expectedType.isBaseType()) {
+			if (thetaR instanceof InferenceVariable) {
+				TypeBinding wrapper = this.currentBounds.findWrapperTypeBound((InferenceVariable)thetaR);
+				if (wrapper != null) {
+					int l = 0;
+					if (this.initialConstraints != null) {
+						l = this.initialConstraints.length;
+						System.arraycopy(this.initialConstraints, 0, this.initialConstraints=new ConstraintFormula[l+2], 0, l);
+					} else {
+						l = 0;
+						this.initialConstraints = new ConstraintFormula[2];
+					}
+					this.initialConstraints[l] = new ConstraintTypeFormula(thetaR, wrapper, ReductionResult.SAME);
+					this.initialConstraints[l+1] = new ConstraintTypeFormula(wrapper, expectedType, ReductionResult.COMPATIBLE);
+					return;
+				}
+			}
+// TODO: could be OK if !isPolyExpression:
+//			InferenceContext18.missingImplementation("NYI");
+//			return;
+		}
 		int l = 0;
 		if (this.initialConstraints != null) {
 			l = this.initialConstraints.length;
@@ -124,14 +141,14 @@ public class InferenceContext18 {
 	 * Try to solve the inference problem defined by constraints and bounds previously registered.
 	 * @return success?
 	 */
-	public boolean solve() {
+	public boolean solve(boolean includeProvisional) {
 		if (!reduce())
 			return false;
 		if (!this.currentBounds.incorporate(this))
 			return false;
 		if (!resolve())
 			return false;
-		return isResolved();
+		return isResolved() || (includeProvisional && hasDelayedConstraints());
 	}
 
 	/**
@@ -167,7 +184,7 @@ public class InferenceContext18 {
 					InferenceVariable[] variables = (InferenceVariable[]) variableSet.toArray(new InferenceVariable[numVars]);
 					for (int j = 0; j < variables.length; j++) {
 						InferenceVariable variable = variables[j];
-						// 1. attempt:
+						// try lower bounds:
 						TypeBinding[] lowerBounds = this.currentBounds.lowerBounds(variable);
 						if (lowerBounds != Binding.NO_TYPES) {
 							TypeBinding lub = this.scope.lowerUpperBound(lowerBounds);
@@ -175,7 +192,7 @@ public class InferenceContext18 {
 								this.currentBounds.addBound(new TypeBound(variable, lub, ReductionResult.SAME));
 							continue;
 						}
-						// 2. attempt:
+						// try upper bounds:
 						TypeBinding[] upperBounds = this.currentBounds.upperBounds(variable);
 						if (upperBounds != Binding.NO_TYPES) {
 							TypeBinding glb;
@@ -195,6 +212,7 @@ public class InferenceContext18 {
 					}
 					if (!this.currentBounds.incorporate(this)) {
 						this.currentBounds = oldBoundSet;
+						// TODO: implement "second attempt" from 18.4
 						return false; // FIXME ensure all effects reverted / discarded
 					}
 				}
@@ -241,6 +259,10 @@ public class InferenceContext18 {
 			}
 		}
 		return true;
+	}
+	
+	public boolean hasDelayedConstraints() {
+		return this.currentBounds.constraintCount > 0;
 	}
 
 	/**
