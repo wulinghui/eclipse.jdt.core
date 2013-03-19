@@ -548,7 +548,7 @@ public void test011_problem_categories() {
 		expectedProblemAttributes.put("IllegalModifierForMethod", new ProblemAttributes(CategorizedProblem.CAT_MEMBER));
 		expectedProblemAttributes.put("IllegalModifierForVariable", new ProblemAttributes(CategorizedProblem.CAT_MEMBER));
 		expectedProblemAttributes.put("IllegalModifiersForElidedType", new ProblemAttributes(CategorizedProblem.CAT_INTERNAL));
-		expectedProblemAttributes.put("IllegalModifiersForPackage", new ProblemAttributes(CategorizedProblem.CAT_INTERNAL));
+		expectedProblemAttributes.put("IllegalModifiers", new ProblemAttributes(CategorizedProblem.CAT_INTERNAL));
 		expectedProblemAttributes.put("IllegalPrimitiveOrArrayTypeForEnclosingInstance", new ProblemAttributes(CategorizedProblem.CAT_TYPE));
 		expectedProblemAttributes.put("IllegalQualifiedEnumConstantLabel", new ProblemAttributes(CategorizedProblem.CAT_MEMBER));
 		expectedProblemAttributes.put("IllegalQualifiedParameterizedTypeAllocation", new ProblemAttributes(CategorizedProblem.CAT_TYPE));
@@ -803,6 +803,7 @@ public void test011_problem_categories() {
 		expectedProblemAttributes.put("NonStaticAccessToStaticMethod", new ProblemAttributes(CategorizedProblem.CAT_CODE_STYLE));
 		expectedProblemAttributes.put("NonStaticContextForEnumMemberType", new ProblemAttributes(CategorizedProblem.CAT_INTERNAL));
 		expectedProblemAttributes.put("NonStaticFieldFromStaticInvocation", new ProblemAttributes(CategorizedProblem.CAT_MEMBER));
+		expectedProblemAttributes.put("NonStaticOrAlienTypeReceiver", new ProblemAttributes(CategorizedProblem.CAT_MEMBER));
 		expectedProblemAttributes.put("NonStaticTypeFromStaticInvocation", new ProblemAttributes(CategorizedProblem.CAT_INTERNAL));
 		expectedProblemAttributes.put("NotVisibleConstructor", new ProblemAttributes(CategorizedProblem.CAT_MEMBER));
 		expectedProblemAttributes.put("NotVisibleConstructorInDefaultConstructor", new ProblemAttributes(CategorizedProblem.CAT_MEMBER));
@@ -1006,6 +1007,7 @@ public void test011_problem_categories() {
 		expectedProblemAttributes.put("UnusedWarningToken", new ProblemAttributes(CategorizedProblem.CAT_UNNECESSARY_CODE));
 		expectedProblemAttributes.put("UseAssertAsAnIdentifier", new ProblemAttributes(CategorizedProblem.CAT_CODE_STYLE));
 		expectedProblemAttributes.put("UseEnumAsAnIdentifier", new ProblemAttributes(CategorizedProblem.CAT_CODE_STYLE));
+		expectedProblemAttributes.put("IllegalUseOfUnderscoreAsAnIdentifier", new ProblemAttributes(CategorizedProblem.CAT_SYNTAX));
 		expectedProblemAttributes.put("UsingDeprecatedConstructor", new ProblemAttributes(CategorizedProblem.CAT_DEPRECATION));
 		expectedProblemAttributes.put("UsingDeprecatedField", new ProblemAttributes(CategorizedProblem.CAT_DEPRECATION));
 		expectedProblemAttributes.put("UsingDeprecatedMethod", new ProblemAttributes(CategorizedProblem.CAT_DEPRECATION));
@@ -1322,7 +1324,7 @@ public void test012_compiler_problems_tuning() {
 		expectedProblemAttributes.put("IllegalModifierForMethod", SKIP);
 		expectedProblemAttributes.put("IllegalModifierForVariable", SKIP);
 		expectedProblemAttributes.put("IllegalModifiersForElidedType", SKIP);
-		expectedProblemAttributes.put("IllegalModifiersForPackage", SKIP);
+		expectedProblemAttributes.put("IllegalModifiers", SKIP);
 		expectedProblemAttributes.put("IllegalPrimitiveOrArrayTypeForEnclosingInstance", SKIP);
 		expectedProblemAttributes.put("IllegalQualifiedEnumConstantLabel", SKIP);
 		expectedProblemAttributes.put("IllegalQualifiedParameterizedTypeAllocation", SKIP);
@@ -1577,6 +1579,7 @@ public void test012_compiler_problems_tuning() {
 		expectedProblemAttributes.put("NonStaticAccessToStaticMethod", new ProblemAttributes(JavaCore.COMPILER_PB_STATIC_ACCESS_RECEIVER));
 		expectedProblemAttributes.put("NonStaticContextForEnumMemberType", SKIP);
 		expectedProblemAttributes.put("NonStaticFieldFromStaticInvocation", SKIP);
+		expectedProblemAttributes.put("NonStaticOrAlienTypeReceiver", SKIP);
 		expectedProblemAttributes.put("NonStaticTypeFromStaticInvocation", SKIP);
 		expectedProblemAttributes.put("NotVisibleConstructor", SKIP);
 		expectedProblemAttributes.put("NotVisibleConstructorInDefaultConstructor", SKIP);
@@ -1780,6 +1783,7 @@ public void test012_compiler_problems_tuning() {
 		expectedProblemAttributes.put("UnusedWarningToken", new ProblemAttributes(JavaCore.COMPILER_PB_UNUSED_WARNING_TOKEN));
 		expectedProblemAttributes.put("UseAssertAsAnIdentifier", new ProblemAttributes(JavaCore.COMPILER_PB_ASSERT_IDENTIFIER));
 		expectedProblemAttributes.put("UseEnumAsAnIdentifier", new ProblemAttributes(JavaCore.COMPILER_PB_ENUM_IDENTIFIER));
+		expectedProblemAttributes.put("IllegalUseOfUnderscoreAsAnIdentifier", SKIP);
 		expectedProblemAttributes.put("UsingDeprecatedConstructor", new ProblemAttributes(JavaCore.COMPILER_PB_DEPRECATION));
 		expectedProblemAttributes.put("UsingDeprecatedField", new ProblemAttributes(JavaCore.COMPILER_PB_DEPRECATION));
 		expectedProblemAttributes.put("UsingDeprecatedMethod", new ProblemAttributes(JavaCore.COMPILER_PB_DEPRECATION));

@@ -4751,16 +4751,18 @@ protected void consumeInterfaceMethodDeclaration(boolean hasSemicolonBody) {
 	md.declarationSourceEnd = flushCommentsDefinedPriorTo(this.endStatementPosition);
 	
 	boolean isDefault = (md.modifiers & ExtraCompilerModifiers.AccDefaultMethod) != 0;
-	if (isDefault) {
-		if (!this.parsingJava8Plus) {
-			problemReporter().defaultMethodsNotBelow18(md);
-		} else if (hasSemicolonBody) {
+	boolean isStatic = (md.modifiers & ClassFileConstants.AccStatic) != 0;
+	boolean bodyAllowed = isDefault || isStatic;
+	if (this.parsingJava8Plus) {
+		if (bodyAllowed && hasSemicolonBody) {
 			md.modifiers |= ExtraCompilerModifiers.AccSemicolonBody; // avoid complaints regarding undocumented empty body
-			problemReporter().methodNeedBody(md);	// grammar intentially allows illegal input to enable this error message
 		}
 	} else {
-		// report the problem and continue the parsing - narrowing the problem onto the method
-		if(!this.statementRecoveryActivated && !hasSemicolonBody) problemReporter().abstractMethodNeedingNoBody(md);
+		if (isDefault) problemReporter().defaultMethodsNotBelow18(md);
+		if (isStatic) problemReporter().staticInterfaceMethodsNotBelow18(md);
+	}
+	if (!bodyAllowed && !this.statementRecoveryActivated && !hasSemicolonBody) {
+		problemReporter().abstractMethodNeedingNoBody(md);
 	}
 }
 protected void consumeLabel() {
@@ -5167,6 +5169,21 @@ protected void consumeMethodHeaderRightParen() {
 					md.arguments = new Argument[length - 1],
 					0,
 					length - 1);
+			}
+			// Receiver annotations can only be type annotations; move to the type
+			Annotation[] annotations = arg.annotations;
+			if (annotations != null && annotations.length > 0) {
+				// The code assumes that receiver.type.annotations[0] will be null/empty
+				TypeReference type = arg.type;
+				if (type.annotations == null) {
+					type.bits |= ASTNode.HasTypeAnnotations;
+					type.annotations = new Annotation[type.getAnnotatableLevels()][];
+				}
+				type.annotations[0] = annotations;
+				int annotationSourceStart = annotations[0].sourceStart;
+				if (type.sourceStart > annotationSourceStart)
+					type.sourceStart = annotationSourceStart;
+				arg.annotations = null;
 			}
 		} else {
 			System.arraycopy(
@@ -5581,7 +5598,7 @@ protected void consumePackageDeclarationNameWithModifiers() {
 	}
 
 	if (packageModifiers != 0) {
-		problemReporter().illegalModifiersForPackage(packageModifiersSourceStart, packageModifiersSourceEnd);
+		problemReporter().illegalModifiers(packageModifiersSourceStart, packageModifiersSourceEnd);
 	}
 	
 	
@@ -7962,7 +7979,6 @@ protected void consumeIdentifierOrNew(boolean newForm) {
 		int newStart = this.intStack[this.intPtr--];
 		pushIdentifier(ConstantPool.Init, (((long) newStart << 32)) + (newStart + 3));
 	}
-	pushOnTypeAnnotationLengthStack(0);
 }
 protected void consumeEmptyTypeArguments() {
 	// NonWildTypeArgumentsopt ::= $empty
@@ -7975,11 +7991,12 @@ protected void consumeReferenceExpressionTypeForm(boolean isPrimitive) { // actu
 
 	ReferenceExpression referenceExpression;
 	TypeReference [] typeArguments = null;
-	SingleNameReference method;
+	char [] selector;
 	int sourceEnd;
-	
-	method = (SingleNameReference) getUnspecifiedReference();
-	sourceEnd = method.sourceEnd;
+
+	sourceEnd = (int) this.identifierPositionStack[this.identifierPtr];
+	selector = this.identifierStack[this.identifierPtr--];
+	this.identifierLengthPtr--;
 	
 	int length = this.genericsLengthStack[this.genericsLengthPtr--];
 	if (length > 0) {
@@ -8003,9 +8020,9 @@ protected void consumeReferenceExpressionTypeForm(boolean isPrimitive) { // actu
 			pushOnGenericsLengthStack(0);
 			pushOnGenericsIdentifiersLengthStack(this.identifierLengthStack[this.identifierLengthPtr]);
 		}
-		referenceExpression = new ReferenceExpression(this.compilationUnit.compilationResult, getTypeReference(dimension), typeArguments, method, sourceEnd);
+		referenceExpression = new ReferenceExpression(this.compilationUnit.compilationResult, getTypeReference(dimension), typeArguments, selector, sourceEnd);
 	} else {
-		referenceExpression = new ReferenceExpression(this.compilationUnit.compilationResult, getUnspecifiedReference(), typeArguments, method, sourceEnd);
+		referenceExpression = new ReferenceExpression(this.compilationUnit.compilationResult, getUnspecifiedReference(), typeArguments, selector, sourceEnd);
 	}
 	pushOnExpressionStack(referenceExpression);
 
@@ -8018,9 +8035,13 @@ protected void consumeReferenceExpressionPrimaryForm() {
 
 	ReferenceExpression referenceExpression;
 	TypeReference [] typeArguments = null;
-	SingleNameReference method;
-	
-	method = (SingleNameReference) getUnspecifiedReference();
+	char [] selector;
+	int sourceEnd;
+
+	sourceEnd = (int) this.identifierPositionStack[this.identifierPtr];
+	selector = this.identifierStack[this.identifierPtr--];
+	this.identifierLengthPtr--;
+
 	int length = this.genericsLengthStack[this.genericsLengthPtr--];
 	if (length > 0) {
 		this.genericsPtr -= length;
@@ -8030,7 +8051,7 @@ protected void consumeReferenceExpressionPrimaryForm() {
 	
 	Expression primary = this.expressionStack[this.expressionPtr--];
 	this.expressionLengthPtr--;
-	referenceExpression = new ReferenceExpression(this.compilationUnit.compilationResult, primary, typeArguments, method, method.sourceEnd);
+	referenceExpression = new ReferenceExpression(this.compilationUnit.compilationResult, primary, typeArguments, selector, sourceEnd);
 	pushOnExpressionStack(referenceExpression);
 	if (!this.parsingJava8Plus) {
 		problemReporter().referenceExpressionsNotBelow18(referenceExpression);
@@ -8041,9 +8062,13 @@ protected void consumeReferenceExpressionSuperForm() {
 
 	ReferenceExpression referenceExpression;
 	TypeReference [] typeArguments = null;
-	SingleNameReference method;
-	
-	method = (SingleNameReference) getUnspecifiedReference();
+	char [] selector;
+	int sourceEnd;
+
+	sourceEnd = (int) this.identifierPositionStack[this.identifierPtr];
+	selector = this.identifierStack[this.identifierPtr--];
+	this.identifierLengthPtr--;
+
 	int length = this.genericsLengthStack[this.genericsLengthPtr--];
 	if (length > 0) {
 		this.genericsPtr -= length;
@@ -8052,7 +8077,7 @@ protected void consumeReferenceExpressionSuperForm() {
 	}
 	
 	SuperReference superReference = new SuperReference(this.intStack[this.intPtr--], this.endPosition);
-	referenceExpression = new ReferenceExpression(this.compilationUnit.compilationResult, superReference, typeArguments, method, method.sourceEnd);
+	referenceExpression = new ReferenceExpression(this.compilationUnit.compilationResult, superReference, typeArguments, selector, sourceEnd);
 	pushOnExpressionStack(referenceExpression);
 	if (!this.parsingJava8Plus) {
 		problemReporter().referenceExpressionsNotBelow18(referenceExpression);
@@ -8071,11 +8096,12 @@ protected void consumeReferenceExpressionGenericTypeForm() {
 	ReferenceExpression referenceExpression;
 	TypeReference type;
 	TypeReference [] typeArguments = null;
-	SingleNameReference method;
+	char [] selector;
 	int sourceEnd;
-	
-	method = (SingleNameReference) getUnspecifiedReference();
-	sourceEnd = method.sourceEnd;
+
+	sourceEnd = (int) this.identifierPositionStack[this.identifierPtr];
+	selector = this.identifierStack[this.identifierPtr--];
+	this.identifierLengthPtr--;
 
 	int length = this.genericsLengthStack[this.genericsLengthPtr--];
 	if (length > 0) {
@@ -8098,7 +8124,7 @@ protected void consumeReferenceExpressionGenericTypeForm() {
 	this.intPtr--; // pop '<' position
 	type.sourceEnd = typeSourceEnd;
 	
-	referenceExpression = new ReferenceExpression(this.compilationUnit.compilationResult, type, typeArguments, method, sourceEnd);
+	referenceExpression = new ReferenceExpression(this.compilationUnit.compilationResult, type, typeArguments, selector, sourceEnd);
 
 	pushOnExpressionStack(referenceExpression);
 	if (!this.parsingJava8Plus) {
@@ -11546,6 +11572,9 @@ protected void pushIdentifier(char [] identifier, long position) {
 			stackLength);
 	}
 	this.identifierLengthStack[this.identifierLengthPtr] = 1;
+	if (this.parsingJava8Plus && identifier.length == 1 && identifier[0] == '_') {
+		problemReporter().illegalUseOfUnderscoreAsAnIdentifier((int) (position >>> 32), (int) position);
+	}
 }
 protected void pushIdentifier() {
 	/*push the consumeToken on the identifier stack.

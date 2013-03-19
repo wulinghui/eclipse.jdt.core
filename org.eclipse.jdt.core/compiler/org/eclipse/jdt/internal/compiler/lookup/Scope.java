@@ -1039,7 +1039,7 @@ public abstract class Scope {
 			if (exactMethod.isAbstract() && exactMethod.thrownExceptions != Binding.NO_EXCEPTIONS)
 				return null; // may need to merge exceptions with interface method
 			// special treatment for Object.getClass() in 1.5 mode (substitute parameterized return type)
-			if (receiverType.isInterface() || exactMethod.canBeSeenBy(receiverType, invocationSite, this)) {
+			if (exactMethod.canBeSeenBy(receiverType, invocationSite, this)) {
 				if (argumentTypes == Binding.NO_PARAMETERS
 				    && CharOperation.equals(selector, TypeConstants.GETCLASS)
 				    && exactMethod.returnType.isParameterizedType()/*1.5*/) {
@@ -1511,37 +1511,31 @@ public abstract class Scope {
 
 		// tiebreak using visibility check
 		int visiblesCount = 0;
-		if (receiverTypeIsInterface) {
-			if (candidatesCount == 1) {
+		for (int i = 0; i < candidatesCount; i++) {
+			MethodBinding methodBinding = candidates[i];
+			if (methodBinding.canBeSeenBy(receiverType, invocationSite, this)) {
+				if (visiblesCount != i) {
+					candidates[i] = null;
+					candidates[visiblesCount] = methodBinding;
+				}
+				visiblesCount++;
+			}
+		}
+		switch (visiblesCount) {
+			case 0 :
+				MethodBinding interfaceMethod =
+				findDefaultAbstractMethod(receiverType, selector, argumentTypes, invocationSite, classHierarchyStart, found, null);
+				if (interfaceMethod != null) return interfaceMethod;
+				MethodBinding candidate = candidates[0];
+				return new ProblemMethodBinding(candidates[0], candidates[0].selector, candidates[0].parameters, 
+						candidate.isStatic() && candidate.declaringClass.isInterface() ? ProblemReasons.NonStaticOrAlienTypeReceiver : ProblemReasons.NotVisible);
+			case 1 :
+				if (searchForDefaultAbstractMethod)
+					return findDefaultAbstractMethod(receiverType, selector, argumentTypes, invocationSite, classHierarchyStart, found, candidates[0]);
 				unitScope.recordTypeReferences(candidates[0].thrownExceptions);
 				return candidates[0];
-			}
-			visiblesCount = candidatesCount;
-		} else {
-			for (int i = 0; i < candidatesCount; i++) {
-				MethodBinding methodBinding = candidates[i];
-				if (methodBinding.canBeSeenBy(receiverType, invocationSite, this)) {
-					if (visiblesCount != i) {
-						candidates[i] = null;
-						candidates[visiblesCount] = methodBinding;
-					}
-					visiblesCount++;
-				}
-			}
-			switch (visiblesCount) {
-				case 0 :
-					MethodBinding interfaceMethod =
-						findDefaultAbstractMethod(receiverType, selector, argumentTypes, invocationSite, classHierarchyStart, found, null);
-					if (interfaceMethod != null) return interfaceMethod;
-					return new ProblemMethodBinding(candidates[0], candidates[0].selector, candidates[0].parameters, ProblemReasons.NotVisible);
-				case 1 :
-					if (searchForDefaultAbstractMethod)
-						return findDefaultAbstractMethod(receiverType, selector, argumentTypes, invocationSite, classHierarchyStart, found, candidates[0]);
-					unitScope.recordTypeReferences(candidates[0].thrownExceptions);
-					return candidates[0];
-				default :
-					break;
-			}
+			default :
+				break;
 		}
 
 		if (complianceLevel <= ClassFileConstants.JDK1_3) {
@@ -1635,7 +1629,8 @@ public abstract class Scope {
 		return methodBinding;
 	}
 
-	protected void findMethodInSuperInterfaces(ReferenceBinding currentType, char[] selector, ObjectVector found, InvocationSite invocationSite) {
+	protected void findMethodInSuperInterfaces(ReferenceBinding receiverType, char[] selector, ObjectVector found, InvocationSite invocationSite) {
+		ReferenceBinding currentType = receiverType;
 		ReferenceBinding[] itsInterfaces = currentType.superInterfaces();
 		if (itsInterfaces != null && itsInterfaces != Binding.NO_SUPERINTERFACES) {
 			ReferenceBinding[] interfacesToVisit = itsInterfaces;
@@ -1647,16 +1642,16 @@ public abstract class Scope {
 				MethodBinding[] currentMethods = currentType.getMethods(selector);
 				if (currentMethods.length > 0) {
 					int foundSize = found.size;
-					if (foundSize > 0) {
-						// its possible to walk the same superinterface from different classes in the hierarchy
-						next : for (int c = 0, l = currentMethods.length; c < l; c++) {
-							MethodBinding current = currentMethods[c];
+					next : for (int c = 0, l = currentMethods.length; c < l; c++) {
+						MethodBinding current = currentMethods[c];
+						if (!current.canBeSeenBy(receiverType, invocationSite, this)) continue next;
+
+						if (foundSize > 0) {
+							// its possible to walk the same superinterface from different classes in the hierarchy
 							for (int f = 0; f < foundSize; f++)
 								if (current == found.elementAt(f)) continue next;
-							found.add(current);
 						}
-					} else {
-						found.addAll(currentMethods);
+						found.add(current);
 					}
 				}
 				if ((itsInterfaces = currentType.superInterfaces()) != null && itsInterfaces != Binding.NO_SUPERINTERFACES) {

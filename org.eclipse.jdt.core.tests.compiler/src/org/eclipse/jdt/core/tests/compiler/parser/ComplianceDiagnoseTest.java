@@ -3119,4 +3119,135 @@ public void testBug399778a() {
 		expectedProblemLog   // 1.8 also issue type safety warning.
 	);
 }
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399780: static methods in interfaces.
+public void testBug399780() {
+	if(this.complianceLevel >= ClassFileConstants.JDK1_8) {
+		return;
+	}
+	String[] testFiles = new String[] {
+		"I.java",
+		"interface I {\n" +
+		"  public static void foo1() { System.out.println(); }\n" +
+		"  public static void foo2();\n" +
+		"  public abstract static void foo3();\n" +
+		"}\n"
+	};
+
+	String expectedProblemLog =
+			"----------\n" + 
+			"1. ERROR in I.java (at line 2)\n" + 
+			"	public static void foo1() { System.out.println(); }\n" + 
+			"	                   ^^^^^^\n" + 
+			"Illegal modifier for the interface method foo1; only public & abstract are permitted\n" + 
+			"----------\n" + 
+			"2. ERROR in I.java (at line 2)\n" + 
+			"	public static void foo1() { System.out.println(); }\n" + 
+			"	                           ^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Static methods are allowed in interfaces only at source level 1.8 or above\n" + 
+			"----------\n" + 
+			"3. ERROR in I.java (at line 3)\n" + 
+			"	public static void foo2();\n" + 
+			"	                   ^^^^^^\n" + 
+			"Illegal modifier for the interface method foo2; only public & abstract are permitted\n" + 
+			"----------\n" + 
+			"4. ERROR in I.java (at line 4)\n" + 
+			"	public abstract static void foo3();\n" + 
+			"	                            ^^^^^^\n" + 
+			"Illegal modifier for the interface method foo3; only public & abstract are permitted\n" + 
+			"----------\n";
+
+	runComplianceParserTest(
+		testFiles,
+		expectedProblemLog,
+		expectedProblemLog,
+		expectedProblemLog,
+		expectedProblemLog,
+		expectedProblemLog
+	);
+}
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=399769:  Use of '_' as identifier name should trigger a diagnostic
+public void testBug399781() {
+	String[] testFiles = new String[] {
+		"X.java",
+		"public class X {\n" +
+		"   int _;\n" +
+		"	void foo(){\n" +
+		"		int _   = 3;\n" +
+        "		int _123 = 4;\n" +
+        "		int a_   = 5;\n" +
+		"	}\n" +
+        "   void goo(int _) {}\n" +
+		"   void zoo() {\n" +
+        "      try {\n" +
+		"      } catch (Exception _) {\n" +
+        "      }\n" +
+		"   }\n" +
+		"}\n",
+	};
+
+	String expectedProblemLog =
+			"----------\n" + 
+			"1. ERROR in X.java (at line 2)\n" + 
+			"	int _;\n" + 
+			"	    ^\n" + 
+			"\'_\' should not be used as an identifier, since it is a reserved keyword from source level 1.8 on\n" + 
+			"----------\n" + 
+			"2. ERROR in X.java (at line 4)\n" + 
+			"	int _   = 3;\n" + 
+			"	    ^\n" + 
+			"\'_\' should not be used as an identifier, since it is a reserved keyword from source level 1.8 on\n" + 
+			"----------\n" + 
+			"3. WARNING in X.java (at line 4)\n" + 
+			"	int _   = 3;\n" + 
+			"	    ^\n" + 
+			"The local variable _ is hiding a field from type X\n" + 
+			"----------\n" + 
+			"4. ERROR in X.java (at line 8)\n" + 
+			"	void goo(int _) {}\n" + 
+			"	             ^\n" + 
+			"\'_\' should not be used as an identifier, since it is a reserved keyword from source level 1.8 on\n" + 
+			"----------\n" + 
+			"5. WARNING in X.java (at line 8)\n" + 
+			"	void goo(int _) {}\n" + 
+			"	             ^\n" + 
+			"The parameter _ is hiding a field from type X\n" + 
+			"----------\n" + 
+			"6. ERROR in X.java (at line 11)\n" + 
+			"	} catch (Exception _) {\n" + 
+			"	                   ^\n" + 
+			"\'_\' should not be used as an identifier, since it is a reserved keyword from source level 1.8 on\n" + 
+			"----------\n" + 
+			"7. WARNING in X.java (at line 11)\n" + 
+			"	} catch (Exception _) {\n" + 
+			"	                   ^\n" + 
+			"The parameter _ is hiding a field from type X\n" + 
+			"----------\n";
+	String expected13ProblemLog =
+			"----------\n" + 
+			"1. WARNING in X.java (at line 4)\n" + 
+			"	int _   = 3;\n" + 
+			"	    ^\n" + 
+			"The local variable _ is hiding a field from type X\n" + 
+			"----------\n" + 
+			"2. WARNING in X.java (at line 8)\n" + 
+			"	void goo(int _) {}\n" + 
+			"	             ^\n" + 
+			"The parameter _ is hiding a field from type X\n" + 
+			"----------\n" + 
+			"3. WARNING in X.java (at line 11)\n" + 
+			"	} catch (Exception _) {\n" + 
+			"	                   ^\n" + 
+			"The parameter _ is hiding a field from type X\n" + 
+			"----------\n";
+
+	runComplianceParserTest(
+			testFiles,
+			expected13ProblemLog,
+			expected13ProblemLog,
+			expected13ProblemLog,
+			expected13ProblemLog,
+			expected13ProblemLog,
+			expectedProblemLog
+	);
+}
 }

@@ -67,6 +67,7 @@ import org.eclipse.jdt.internal.core.util.Util;
 class ASTConverter {
 
 	protected AST ast;
+	private ASTNode referenceContext;
 	protected Comment[] commentsTable;
 	char[] compilationUnitSource;
 	int compilationUnitSourceLength;
@@ -82,6 +83,7 @@ class ASTConverter {
 
 	public ASTConverter(Map options, boolean resolveBindings, IProgressMonitor monitor) {
 		this.resolveBindings = resolveBindings;
+		this.referenceContext = null;
 		Object sourceModeSetting = options.get(JavaCore.COMPILER_SOURCE);
 		long sourceLevel = CompilerOptions.versionToJdkLevel(sourceModeSetting);
 		if (sourceLevel == 0) {
@@ -461,6 +463,8 @@ class ASTConverter {
 			return convert((org.eclipse.jdt.internal.compiler.ast.AnnotationMethodDeclaration) methodDeclaration);
 		}
 		MethodDeclaration methodDecl = new MethodDeclaration(this.ast);
+		ASTNode oldReferenceContext = this.referenceContext;
+		this.referenceContext = methodDecl;
 		setModifiers(methodDecl, methodDeclaration);
 		boolean isConstructor = methodDeclaration.isConstructor();
 		methodDecl.setConstructor(isConstructor);
@@ -655,6 +659,7 @@ class ASTConverter {
 			recordNodes(methodName, methodDeclaration);
 			methodDecl.resolveBinding();
 		}
+		this.referenceContext = oldReferenceContext;
 		return methodDecl;
 	}
 
@@ -839,16 +844,10 @@ class ASTConverter {
 			}
 		}
 		AnnotatableType type = (AnnotatableType) convertType(receiver.type);
-		org.eclipse.jdt.internal.compiler.ast.Annotation[] annotations = receiver.annotations;
-		int length = (annotations == null) ? 0 : annotations.length;
-		for (int i = 0; i < length; i++) {
-			type.annotations().add(convert(annotations[i]));
-		}
-		if (length > 0) {
-			int start = annotations[0].sourceStart;
-			type.setSourceRange(start, (receiver.type.sourceEnd - start + 1));
-		}
 		methodDecl.setReceiverType(type);
+		if (receiver.modifiers != 0) {
+			methodDecl.setFlags(methodDecl.getFlags() | ASTNode.MALFORMED);
+		}
 		if (this.resolveBindings) {
 			recordNodes(type, receiver);
 			type.resolveBinding();
@@ -1062,6 +1061,8 @@ class ASTConverter {
 	 */
 	public TypeDeclaration convert(org.eclipse.jdt.internal.compiler.ast.ASTNode[] nodes) {
 		final TypeDeclaration typeDecl = new TypeDeclaration(this.ast);
+		ASTNode oldReferenceContext = this.referenceContext;
+		this.referenceContext = typeDecl;
 		typeDecl.setInterface(false);
 		int nodesLength = nodes.length;
 		for (int i = 0; i < nodesLength; i++) {
@@ -1104,6 +1105,7 @@ class ASTConverter {
 				}
 			}
 		}
+		this.referenceContext = oldReferenceContext;
 		return typeDecl;
 	}
 
@@ -2140,7 +2142,16 @@ class ASTConverter {
 		return expr;
 	}
 
-	public LambdaExpression convert(org.eclipse.jdt.internal.compiler.ast.LambdaExpression lambda) {
+	public Expression convert(org.eclipse.jdt.internal.compiler.ast.LambdaExpression lambda) {
+		if (this.ast.apiLevel < AST.JLS8) {
+			if (this.referenceContext != null) {
+				this.referenceContext.setFlags(this.referenceContext.getFlags() | ASTNode.MALFORMED);
+			}
+			NullLiteral nullLiteral = new NullLiteral(this.ast);
+			nullLiteral.setFlags(nullLiteral.getFlags() | ASTNode.MALFORMED);
+			nullLiteral.setSourceRange(lambda.sourceStart, lambda.sourceEnd - lambda.sourceStart + 1);
+			return nullLiteral;		
+		}
 		final LambdaExpression	lambdaExpression = new LambdaExpression(this.ast);
 		if (this.resolveBindings) {
 			recordNodes(lambdaExpression, lambda);
@@ -2162,6 +2173,7 @@ class ASTConverter {
 						recordNodes(variableDeclarationFragment, argument);
 					}
 					variableDeclarationFragment.setName(simpleName);
+					variableDeclarationFragment.setSourceRange(start, end - start + 1);
 					lambdaExpression.parameters().add(variableDeclarationFragment);					
 				} else {
 					SingleVariableDeclaration singleVariableDeclaration = convert(argument);
@@ -2756,6 +2768,8 @@ class ASTConverter {
 
 		checkCanceled();
 		TypeDeclaration typeDecl = new TypeDeclaration(this.ast);
+		ASTNode oldReferenceContext = this.referenceContext;
+		this.referenceContext = typeDecl;
 		if (typeDeclaration.modifiersSourceStart != -1) {
 			setModifiers(typeDecl, typeDeclaration);
 		}
@@ -2812,6 +2826,7 @@ class ASTConverter {
 			recordNodes(typeName, typeDeclaration);
 			typeDecl.resolveBinding();
 		}
+		this.referenceContext = oldReferenceContext;
 		return typeDecl;
 	}
 
@@ -3261,7 +3276,9 @@ class ASTConverter {
 		while(type.isArrayType()) {
 			ArrayType arrayType = (ArrayType) type;
 			org.eclipse.jdt.internal.compiler.ast.Annotation[] typeAnnotations = annotations[level--];
-			annotateType(arrayType, typeAnnotations);
+			if (typeAnnotations != null) {
+				annotateType(arrayType, typeAnnotations);
+			}
 			type = arrayType.getComponentType();
 		}
 	}

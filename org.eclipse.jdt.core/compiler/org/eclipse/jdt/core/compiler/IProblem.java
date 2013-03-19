@@ -421,7 +421,8 @@ void setSourceStart(int sourceStart);
 	int DuplicateBlankFinalFieldInitialization = FieldRelated + 82;
 	/** @since 3.6 */
 	int UnresolvedVariable = FieldRelated + 83;
-
+	/** @since 3.9 */
+	int NonStaticOrAlienTypeReceiver = MethodRelated + 84;
 	// variable hiding
 	/** @since 3.0 */
 	int LocalVariableHidingLocalVariable = Internal + 90;
@@ -916,6 +917,8 @@ void setSourceStart(int sourceStart);
 	/** @since 3.2 */
 	int EnumConstantsCannotBeSurroundedByParenthesis = Syntax + Internal + 442;
 
+	/** @since 3.9 */
+	int IllegalUseOfUnderscoreAsAnIdentifier = Syntax + Internal + 443;
 	// detected task
 	/** @since 2.1 */
 	int Task = Internal + 450;
@@ -1669,7 +1672,7 @@ void setSourceStart(int sourceStart);
 	/** @since 3.9 */
 	int IllegalModifiersForElidedType = Internal + 1001;
 	/** @since 3.9 */
-	int IllegalModifiersForPackage = Internal + 1002;
+	int IllegalModifiers = Internal + 1002;
 
 	// default methods:
 	/** @since 3.9 */

@@ -501,9 +501,6 @@ public abstract class AbstractMethodDeclaration
 			bindThrownExceptions();
 			resolveJavadoc();
 			resolveAnnotations(this.scope, this.annotations, this.binding);
-			// jsr 308
-			if (this.receiver != null && this.receiver.annotations != null)
-				resolveAnnotations(this.scope, this.receiver.annotations, new Annotation.TypeUseBinding(Binding.TYPE_USE));
 			validateNullAnnotations();
 			resolveStatements();
 			// check @Deprecated annotation presence
@@ -521,6 +518,10 @@ public abstract class AbstractMethodDeclaration
 
 	public void resolveReceiver() {
 		if (this.receiver == null) return;
+
+		if (this.receiver.modifiers != 0) {
+			this.scope.problemReporter().illegalModifiers(this.receiver.declarationSourceStart, this.receiver.declarationSourceEnd);
+		}
 
 		TypeBinding resolvedReceiverType = this.receiver.type.resolvedType;
 		if (this.binding == null || resolvedReceiverType == null || !resolvedReceiverType.isValidBinding()) {
@@ -604,7 +605,7 @@ public abstract class AbstractMethodDeclaration
 	}
 	
 	public void tagAsHavingIgnoredMandatoryErrors(int problemId) {
-		// Not reachable. No silently ignored errors for this context;
+		// Nothing to do for this context;
 	}
 
 	public void traverse(

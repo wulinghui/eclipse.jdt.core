@@ -3978,6 +3978,20 @@ public void invalidMethod(MessageSend messageSend, MethodBinding method) {
 		case ProblemReasons.NonStaticReferenceInStaticContext :
 			id = IProblem.StaticMethodRequested;
 			break;
+		case ProblemReasons.NonStaticOrAlienTypeReceiver:
+			this.handle(
+					IProblem.NonStaticOrAlienTypeReceiver,
+					new String[] {
+							new String(method.declaringClass.readableName()),
+					        new String(method.selector),
+					},
+					new String[] {
+							new String(method.declaringClass.shortReadableName()),
+					        new String(method.selector),
+					},
+					(int) (messageSend.nameSourcePosition >>> 32),
+					(int) messageSend.nameSourcePosition);
+			return;
 		case ProblemReasons.ReceiverTypeNotVisible :
 			this.handle(
 				IProblem.NotVisibleType,	// cannot occur in javadoc comments
@@ -8354,6 +8368,14 @@ public void useEnumAsAnIdentifier(int sourceStart, int sourceEnd) {
 		sourceStart,
 		sourceEnd);
 }
+public void illegalUseOfUnderscoreAsAnIdentifier(int sourceStart, int sourceEnd) {
+	this.handle(
+		IProblem.IllegalUseOfUnderscoreAsAnIdentifier,
+		NoArgument,
+		NoArgument,
+		sourceStart,
+		sourceEnd);
+}
 public void varargsArgumentNeedCast(MethodBinding method, TypeBinding argumentType, InvocationSite location) {
 	int severity = this.options.getSeverity(CompilerOptions.VarargsArgumentNeedCast);
 	if (severity == ProblemSeverities.Ignore) return;
@@ -9155,9 +9177,9 @@ public void illegalModifiersForElidedType(Argument argument) {
 			argument.declarationSourceEnd);
 }
 
-public void illegalModifiersForPackage(int modifierSourceStart, int modifiersSourceEnd) {
+public void illegalModifiers(int modifierSourceStart, int modifiersSourceEnd) {
 	this.handle(
-			IProblem.IllegalModifiersForPackage,
+			IProblem.IllegalModifiers,
 			NoArgument,
 			NoArgument,
 			modifierSourceStart,
