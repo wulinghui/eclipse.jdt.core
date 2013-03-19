@@ -63,13 +63,16 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 				infCtx18.createInitialBoundSet(typeVariables); // creates initial bound set B
 				infCtx18.createInitialConstraintsForParameters(parameters);
 //				if (invocationSite.isPolyExpression()) TODO
-				if (infCtx18.solve(true)) {
+				BoundSet result = infCtx18.solve();
+				if (result != null && (infCtx18.isResolved(result) || infCtx18.hasUnprocessedConstraints(result))) {
 					infCtx18.createInitialConstraintsForTargetType(originalMethod.returnType, invocationSite.expectedType());
-					if (infCtx18.hasDelayedConstraints()) {
-						if (!infCtx18.solve(false))
+					if (infCtx18.hasUnprocessedConstraints(result)) {
+						result.purgeInstantiations();
+						result = infCtx18.solve();
+						if (result == null)
 							return null;
 					}
-					TypeBinding[] solutions = infCtx18.getSolutions(typeVariables);
+					TypeBinding[] solutions = infCtx18.getSolutions(typeVariables, result);
 					if (solutions != null) {
 						return scope.environment().createParameterizedGenericMethod(originalMethod, solutions);
 					}

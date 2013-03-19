@@ -507,6 +507,16 @@ class BoundSet {
 		return true; // no FALSE encountered
 	}
 
+	/** 18.5.2: before Invocation Type Inference purge all instantiations */
+	public void purgeInstantiations() {
+		Iterator threeIterator = this.boundsPerVariable.values().iterator();
+		while (threeIterator.hasNext()) {
+			ThreeSets three = (ThreeSets) threeIterator.next();
+			three.instantiation = null;
+		}
+		this.incorporatedBounds.clear();
+	}
+
 	/**
 	 * Helper for resolution (18.4):
 	 * Does this bound set define a direct dependency between the two given inference variables? 
