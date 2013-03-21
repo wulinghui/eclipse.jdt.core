@@ -3317,4 +3317,50 @@ public class NegativeTypeAnnotationTest extends AbstractRegressionTest {
 					"Syntax error, modifiers are not allowed here\n" + 
 					"----------\n");
 	}
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=403581,  [1.8][compiler] Compile error on varargs annotations.
+	public void test403581() {
+		this.runNegativeTest(
+				new String[] {
+					"X.java",
+					"import java.util.List;\n" +
+					"public class X {\n" +
+					"	void foo(List<String> @Marker ... ls) {}\n" +
+					"}\n" +
+					"@java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE)\n" +
+					"@interface Marker {\n" +
+					"}\n"
+				},
+				"----------\n" + 
+				"1. WARNING in X.java (at line 3)\n" + 
+				"	void foo(List<String> @Marker ... ls) {}\n" + 
+				"	                                  ^^\n" + 
+				"Type safety: Potential heap pollution via varargs parameter ls\n" + 
+				"----------\n");
+	}
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=392671, [1.8][recovery] NPE with a method with explicit this and a following incomplete parameter
+	public void test392671() {
+		this.runNegativeTest(
+				new String[] {
+					"X.java",
+					"class X {\n" +
+					"    public void foobar(X this, int, int k) {} // NPE!\n" +
+					"}\n"
+				},
+				"----------\n" + 
+				"1. ERROR in X.java (at line 1)\n" + 
+				"	class X {\n" + 
+				"	        ^\n" + 
+				"Syntax error, insert \"}\" to complete ClassBody\n" + 
+				"----------\n" + 
+				"2. ERROR in X.java (at line 2)\n" + 
+				"	public void foobar(X this, int, int k) {} // NPE!\n" + 
+				"	                           ^^^\n" + 
+				"Syntax error, insert \"... VariableDeclaratorId\" to complete FormalParameter\n" + 
+				"----------\n" + 
+				"3. ERROR in X.java (at line 3)\n" + 
+				"	}\n" + 
+				"	^\n" + 
+				"Syntax error on token \"}\", delete this token\n" + 
+				"----------\n");
+	}
 }

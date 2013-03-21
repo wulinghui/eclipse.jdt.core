@@ -28,14 +28,7 @@ public abstract class A extends java.lang.Object implements Runnable, Cloneable,
 		
 		Func idC = x   ->   x;
 
-		Func id2 = x -> {
-			if (x == null)
-			{
-				return null;
-			}
-			else
-				return x;
-		};
+		Func id2 = x -> { if (x == null) { return null; } else return x; };
 		
 		ImaginableFunction<String, Integer> f =
 			(String input) -> input.length();
