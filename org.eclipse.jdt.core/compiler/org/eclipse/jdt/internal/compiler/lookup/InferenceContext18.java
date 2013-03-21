@@ -180,7 +180,7 @@ public class InferenceContext18 {
 				if (numUninstantiated > 0 && numVars > 0) {
 					// try to instantiate this set of variables in a fresh copy of the bound set:
 					BoundSet prevBoundSet = tmpBoundSet;
-					tmpBoundSet = tmpBoundSet.copy();
+					tmpBoundSet = tmpBoundSet.copy(false/*purgeInstantiations*/);
 					InferenceVariable[] variables = (InferenceVariable[]) variableSet.toArray(new InferenceVariable[numVars]);
 					for (int j = 0; j < variables.length; j++) {
 						InferenceVariable variable = variables[j];
@@ -220,7 +220,16 @@ public class InferenceContext18 {
 		}
 		return tmpBoundSet;
 	}
-	
+
+	/** 18.5.2: before Invocation Type Inference purge all instantiations.
+	 * @return the previous (unpurged) bound set
+	 */
+	public BoundSet purgeInstantiations() {
+		BoundSet original = this.currentBounds;
+		this.currentBounds = this.currentBounds.copy(true/*purgeInstantiations*/);
+		return original;
+	}
+
 	/** 
 	 * starting with our i'th inference variable collect all variables
 	 * reachable via dependencies (regardless of relation kind).
@@ -322,10 +331,10 @@ public class InferenceContext18 {
 	static final String JLS_18_2_3_INCOMPLETE_TO_DO_DEFINE_THE_MOST_SPECIFIC_ARRAY_SUPERTYPE_OF_A_TYPE_T = "JLS 18.2.3 incomplete: \"To do: [...] define the most specific array supertype of a type T.\""; //$NON-NLS-1$
 	static final String JLS_18_2_3_INCOMPLETE_TO_DEFINE_THE_PARAMETERIZATION_OF_A_CLASS_C_FOR_A_TYPE_T = "JLS 18.2.3 incomplete: \"To do: define the parameterization of a class C for a type T\""; //$NON-NLS-1$
 	public static void missingImplementation(String msg) {
-		if (msg == JLS_18_2_3_INCOMPLETE_TO_DO_DEFINE_THE_MOST_SPECIFIC_ARRAY_SUPERTYPE_OF_A_TYPE_T)
-			return; // without this return we see 58 distinct errors in GenericTypeTest
-		if (msg == JLS_18_2_3_INCOMPLETE_TO_DEFINE_THE_PARAMETERIZATION_OF_A_CLASS_C_FOR_A_TYPE_T)
-			return; // without this return we see 53 distinct errors in GenericTypeTest
+//		if (msg == JLS_18_2_3_INCOMPLETE_TO_DO_DEFINE_THE_MOST_SPECIFIC_ARRAY_SUPERTYPE_OF_A_TYPE_T)
+//			return; // without this return we see 58 distinct errors in GenericTypeTest
+//		if (msg == JLS_18_2_3_INCOMPLETE_TO_DEFINE_THE_PARAMETERIZATION_OF_A_CLASS_C_FOR_A_TYPE_T)
+//			return; // without this return we see 53 distinct errors in GenericTypeTest
 		throw new UnsupportedOperationException(msg);
 	}
 }

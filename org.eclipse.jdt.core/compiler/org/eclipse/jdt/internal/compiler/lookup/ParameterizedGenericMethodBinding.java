@@ -67,10 +67,10 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 				if (result != null && (infCtx18.isResolved(result) || infCtx18.hasUnprocessedConstraints(result))) {
 					infCtx18.createInitialConstraintsForTargetType(originalMethod.returnType, invocationSite.expectedType());
 					if (infCtx18.hasUnprocessedConstraints(result)) {
-						result.purgeInstantiations();
+						BoundSet provisionalResult = infCtx18.purgeInstantiations();
 						result = infCtx18.solve();
 						if (result == null)
-							return null;
+							result = provisionalResult; // we prefer a type error regarding the return type over reporting no match at all
 					}
 					TypeBinding[] solutions = infCtx18.getSolutions(typeVariables, result);
 					if (solutions != null) {
