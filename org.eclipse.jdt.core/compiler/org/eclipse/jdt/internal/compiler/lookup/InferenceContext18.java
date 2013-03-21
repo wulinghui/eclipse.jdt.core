@@ -174,7 +174,7 @@ public class InferenceContext18 {
 				if (this.currentBounds.isInstantiated(this.inferenceVariables[i])) continue;
 				// find a minimal set of dependent variables:
 				Set variableSet = new HashSet();
-				int numUninstantiated = addDependencies(this.currentBounds, variableSet, i);
+				int numUninstantiated = addDependencies(tmpBoundSet, variableSet, i);
 				int numVars = variableSet.size();
 				
 				if (numUninstantiated > 0 && numVars > 0) {
@@ -325,8 +325,7 @@ public class InferenceContext18 {
 		if (msg == JLS_18_2_3_INCOMPLETE_TO_DO_DEFINE_THE_MOST_SPECIFIC_ARRAY_SUPERTYPE_OF_A_TYPE_T)
 			return; // without this return we see 58 distinct errors in GenericTypeTest
 		if (msg == JLS_18_2_3_INCOMPLETE_TO_DEFINE_THE_PARAMETERIZATION_OF_A_CLASS_C_FOR_A_TYPE_T)
-			return; // without this return we see 54 distinct errors in GenericTypeTest
+			return; // without this return we see 53 distinct errors in GenericTypeTest
 		throw new UnsupportedOperationException(msg);
 	}
-
 }
