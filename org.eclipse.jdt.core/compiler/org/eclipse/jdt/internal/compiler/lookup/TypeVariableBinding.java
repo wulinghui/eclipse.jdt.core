@@ -516,9 +516,10 @@ public class TypeVariableBinding extends ReferenceBinding {
 				return true;
 			if (this.superclass != null && this.superclass.mentionsAny(parameters, idx))
 				return true;
-			for (int j = 0; j < this.superInterfaces.length; j++) {
-				if (this.superInterfaces[j].mentionsAny(parameters, idx))
-					return true;
+			if (this.superInterfaces != null)
+				for (int j = 0; j < this.superInterfaces.length; j++) {
+					if (this.superInterfaces[j].mentionsAny(parameters, idx))
+						return true;
 			}
 			return false;
 		} finally {

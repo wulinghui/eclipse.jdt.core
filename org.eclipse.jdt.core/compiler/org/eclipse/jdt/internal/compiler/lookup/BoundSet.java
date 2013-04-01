@@ -64,13 +64,13 @@ class BoundSet {
 			}
 		}
 		// pre: this.superBounds != null
-		public TypeBinding[] lowerBounds() {
+		public TypeBinding[] lowerBounds(boolean onlyProper) {
 			TypeBinding[] boundTypes = new TypeBinding[this.superBounds.size()];
 			Iterator it = this.superBounds.iterator();
 			int i = 0;
 			while(it.hasNext()) {
 				TypeBinding boundType = ((TypeBound)it.next()).right;
-				if ((boundType).isProperType())
+				if (!onlyProper || boundType.isProperType())
 					boundTypes[i++] = boundType;
 			}
 			if (i < boundTypes.length)
@@ -78,14 +78,14 @@ class BoundSet {
 			return boundTypes;
 		}
 		// pre: this.subBounds != null
-		public TypeBinding[] upperBounds() {
+		public TypeBinding[] upperBounds(boolean onlyProper) {
 			ReferenceBinding[] rights = new ReferenceBinding[this.subBounds.size()];
 			TypeBinding simpleUpper = null;
 			Iterator it = this.subBounds.iterator();
 			int i = 0;
 			while(it.hasNext()) {
 				TypeBinding right=((TypeBound)it.next()).right;
-				if ((right).isProperType()) {
+				if (!onlyProper || right.isProperType()) {
 					if (right instanceof ReferenceBinding) {
 						rights[i++] = (ReferenceBinding) right;
 					} else {
@@ -116,7 +116,7 @@ class BoundSet {
 			Iterator bIt = someBounds.iterator();
 			while (bIt.hasNext()) {
 				TypeBound bound = (TypeBound) bIt.next();
-				if (bound.right == var || ParameterizedTypeBinding.typeParametersMentioned(var))
+				if (bound.right == var || bound.right.mentionsAny(new TypeBinding[] {var}, -1));
 					return true;
 			}
 			return false;
@@ -529,22 +529,22 @@ class BoundSet {
 	 * JLS 18.1.3:
 	 * Answer all upper bounds for the given inference variable as defined by any bounds in this set. 
 	 */
-	public TypeBinding[] upperBounds(InferenceVariable variable) {
+	public TypeBinding[] upperBounds(InferenceVariable variable, boolean onlyProper) {
 		ThreeSets three = (ThreeSets) this.boundsPerVariable.get(variable);
 		if (three == null || three.subBounds == null)
 			return Binding.NO_TYPES;
-		return three.upperBounds();
+		return three.upperBounds(onlyProper);
 	}
 	
 	/**
 	 * JLS 18.1.3:
 	 * Answer all lower bounds for the given inference variable as defined by any bounds in this set. 
 	 */
-	TypeBinding[] lowerBounds(InferenceVariable variable) {
+	TypeBinding[] lowerBounds(InferenceVariable variable, boolean onlyProper) {
 		ThreeSets three = (ThreeSets) this.boundsPerVariable.get(variable);
 		if (three == null || three.superBounds == null)
 			return Binding.NO_TYPES;
-		return three.lowerBounds();
+		return three.lowerBounds(onlyProper);
 		// bounds where 'variable' appears at the RHS are not relevant because
 		// we're only interested in bounds with a proper type, but if 'variable'
 		// appears as RHS the bound is by construction an inference variable,too.

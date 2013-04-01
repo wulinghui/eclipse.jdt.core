@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
 
 /**
@@ -47,14 +48,19 @@ public class InferenceContext18 {
 		this.invocationArguments = arguments;
 	}
 
-	public void createInitialBoundSet(TypeBinding[] typeParameters) {
+	/**
+	 * Create initial bounds from a given set of type parameters.
+	 * @return the set of inference variables created so far
+	 */
+	public TypeBinding[] createInitialBoundSet(TypeBinding[] typeParameters) {
 		// JLS8 18.1.3
-		if (this.currentBounds != null) return; // already initialized from explicit type parameters
+		if (this.currentBounds != null) return Binding.NO_TYPES; // already initialized from explicit type parameters
 		this.currentBounds = new BoundSet();
 		if (typeParameters != null) {
 			addTypeVariableSubstitutions(typeParameters);
 			this.currentBounds.addBoundsFromTypeParameters(this, typeParameters);
 		}
+		return this.inferenceVariables;
 	}
 
 	public void createInitialConstraintsForParameters(TypeBinding[] parameters) {
@@ -109,14 +115,18 @@ public class InferenceContext18 {
 		this.initialConstraints[l] = new ConstraintTypeFormula(thetaR, expectedType, ReductionResult.COMPATIBLE);
 	}
 
+	public void setInitialConstraint(ConstraintFormula constraintFormula) {
+		this.initialConstraints = new ConstraintFormula[] { constraintFormula };
+	}
+
 	public InferenceVariable createInferenceVariable(ReferenceBinding type) {
 		InferenceVariable variable;
 		if (this.inferenceVariables == null) {
-			variable = new InferenceVariable(type, 0);
+			variable = new InferenceVariable(type, 0, this.environment);
 			this.inferenceVariables = new InferenceVariable[] { variable };
 		} else {
 			int len = this.inferenceVariables.length;
-			variable = new InferenceVariable(type, len);
+			variable = new InferenceVariable(type, len, this.environment);
 			System.arraycopy(this.inferenceVariables, 0, this.inferenceVariables = new InferenceVariable[len+1], 0, len);
 			this.inferenceVariables[len] = variable;
 		}
@@ -134,7 +144,7 @@ public class InferenceContext18 {
 			this.inferenceVariables = new InferenceVariable[len2];
 		}
 		for (int i = 0; i < typeVariables.length; i++)
-			this.inferenceVariables[start+i] = new InferenceVariable(typeVariables[i], start+i);
+			this.inferenceVariables[start+i] = new InferenceVariable(typeVariables[i], start+i, this.environment);
 	}
 
 	/**
@@ -175,17 +185,17 @@ public class InferenceContext18 {
 				// find a minimal set of dependent variables:
 				Set variableSet = new HashSet();
 				int numUninstantiated = addDependencies(tmpBoundSet, variableSet, i);
-				int numVars = variableSet.size();
+				final int numVars = variableSet.size();
 				
 				if (numUninstantiated > 0 && numVars > 0) {
 					// try to instantiate this set of variables in a fresh copy of the bound set:
 					BoundSet prevBoundSet = tmpBoundSet;
 					tmpBoundSet = tmpBoundSet.copy(false/*purgeInstantiations*/);
-					InferenceVariable[] variables = (InferenceVariable[]) variableSet.toArray(new InferenceVariable[numVars]);
+					final InferenceVariable[] variables = (InferenceVariable[]) variableSet.toArray(new InferenceVariable[numVars]);
 					for (int j = 0; j < variables.length; j++) {
 						InferenceVariable variable = variables[j];
 						// try lower bounds:
-						TypeBinding[] lowerBounds = tmpBoundSet.lowerBounds(variable);
+						TypeBinding[] lowerBounds = tmpBoundSet.lowerBounds(variable, true/*onlyProper*/);
 						if (lowerBounds != Binding.NO_TYPES) {
 							TypeBinding lub = this.scope.lowerUpperBound(lowerBounds);
 							if (lub != TypeBinding.VOID && lub != null)
@@ -193,7 +203,7 @@ public class InferenceContext18 {
 							continue;
 						}
 						// try upper bounds:
-						TypeBinding[] upperBounds = tmpBoundSet.upperBounds(variable);
+						TypeBinding[] upperBounds = tmpBoundSet.upperBounds(variable, true/*onlyProper*/);
 						if (upperBounds != Binding.NO_TYPES) {
 							TypeBinding glb;
 							if (upperBounds.length == 1) {
@@ -210,11 +220,96 @@ public class InferenceContext18 {
 							tmpBoundSet.addBound(new TypeBound(variable, glb, ReductionResult.SAME));
 						}
 					}
-					if (!tmpBoundSet.incorporate(this)) {
-						tmpBoundSet = prevBoundSet;
-						// TODO: implement "second attempt" from 18.4
-						return null; // FIXME ensure all effects reverted / discarded
+					if (tmpBoundSet.incorporate(this))
+						continue;
+					tmpBoundSet = prevBoundSet;
+					final TypeVariableBinding[] zs = new TypeVariableBinding[numVars];
+					for (int j = 0; j < numVars; j++) {
+						InferenceVariable variable = variables[j];
+						TypeBinding typeParameter = variable.typeParameter;
+						int rank = 0;
+						Binding declaringElement = typeParameter;
+						if (typeParameter instanceof TypeVariableBinding) {
+							rank = ((TypeVariableBinding)typeParameter).rank;
+							declaringElement = ((TypeVariableBinding)typeParameter).declaringElement;
+						}
+						zs[j] = new TypeVariableBinding(CharOperation.concat("Z-".toCharArray(), variable.sourceName),
+														declaringElement, rank, this.environment);
 					}
+					Substitution theta = new Substitution() {
+						public LookupEnvironment environment() { 
+							return InferenceContext18.this.environment;
+						}
+						public boolean isRawSubstitution() {
+							return false;
+						}
+						public TypeBinding substitute(TypeVariableBinding typeVariable) {
+							for (int j = 0; j < numVars; j++)
+								if (variables[j] == typeVariable)
+									return zs[j];
+							return typeVariable;
+						}
+					};
+					for (int j = 0; j < numVars; j++) {
+						InferenceVariable variable = variables[j];
+						// try lower bounds:
+						TypeBinding[] lowerBounds = tmpBoundSet.lowerBounds(variable, false/*onlyProper*/);
+						if (lowerBounds != Binding.NO_TYPES) {
+							lowerBounds = Scope.substitute(theta, lowerBounds);
+							TypeBinding lub = this.scope.lowerUpperBound(lowerBounds);
+							if (lub != TypeBinding.VOID && lub != null)
+								tmpBoundSet.addBound(new TypeBound(variable, lub, ReductionResult.SUPERTYPE));
+						}
+						// try upper bounds:
+						TypeBinding[] upperBounds = tmpBoundSet.upperBounds(variable, false/*onlyProper*/);
+						if (upperBounds != Binding.NO_TYPES) {
+							for (int k = 0; k < upperBounds.length; k++)
+								upperBounds[k] = Scope.substitute(theta, upperBounds[k]);
+							TypeBinding glb;
+							if (upperBounds.length == 1) {
+								glb = upperBounds[0];
+							} else {
+								ReferenceBinding[] glbs = Scope.greaterLowerBound((ReferenceBinding[])upperBounds);
+								if (glbs == null) {
+									throw new UnsupportedOperationException("no glb for "+Arrays.asList(upperBounds));
+								} else if (glbs.length == 1) {
+									glb = glbs[0];
+									if (glb.isInterface())
+										zs[j].superInterfaces = new ReferenceBinding[] { (ReferenceBinding)glb };
+									else
+										zs[j].superclass = (ReferenceBinding)glb;
+									zs[j].firstBound = glb;
+								} else {
+									glb = new IntersectionCastTypeBinding(glbs, this.environment);
+									int classIdx = -1;
+									for (int k = 0; k < glbs.length; k++) {
+										if (!glbs[k].isInterface() && !glbs[k].isTypeVariable()) {
+											classIdx = k;
+											break;
+										}
+									}
+									if (classIdx == -1) {
+										zs[j].superInterfaces = glbs;
+										zs[j].firstBound = glbs[0];
+									} else {
+										zs[j].superclass = glbs[classIdx];
+										ReferenceBinding[] superIntefaces = new ReferenceBinding[glbs.length-1];
+										int l = 0;
+										for (int k = 0; k < glbs.length; k++) {
+											if (k != classIdx)
+												superIntefaces[l++] = glbs[k];
+										}
+										zs[j].superInterfaces = superIntefaces;
+										zs[j].firstBound = glbs[classIdx];
+									}
+								}
+							}
+						}
+						tmpBoundSet.addBound(new TypeBound(variable, zs[j], ReductionResult.SAME));
+					}
+					if (tmpBoundSet.incorporate(this))
+						continue;
+					return null;
 				}
 			}
 		}
@@ -334,7 +429,7 @@ public class InferenceContext18 {
 //		if (msg == JLS_18_2_3_INCOMPLETE_TO_DO_DEFINE_THE_MOST_SPECIFIC_ARRAY_SUPERTYPE_OF_A_TYPE_T)
 //			return; // without this return we see 58 distinct errors in GenericTypeTest
 //		if (msg == JLS_18_2_3_INCOMPLETE_TO_DEFINE_THE_PARAMETERIZATION_OF_A_CLASS_C_FOR_A_TYPE_T)
-//			return; // without this return we see 53 distinct errors in GenericTypeTest
+//			return; // without this return we see 0 distinct errors in GenericTypeTest
 		throw new UnsupportedOperationException(msg);
 	}
 }

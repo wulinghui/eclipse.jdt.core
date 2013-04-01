@@ -168,9 +168,11 @@ class ConstraintTypeFormula extends ConstraintFormula {
 					if (s.superclass() == c)
 						return TRUE;
 					ReferenceBinding[] superInterfaces = s.superInterfaces();
-					for (int i=0, l=superInterfaces.length; i<l; i++)
-						if (superInterfaces[i] == c)
-							return TRUE;
+					if (superInterfaces != null) {
+						for (int i=0, l=superInterfaces.length; i<l; i++)
+							if (superInterfaces[i] == c)
+								return TRUE;
+					}
 				}
 				return FALSE;
 			case Binding.ARRAY_TYPE:
@@ -184,6 +186,10 @@ class ConstraintTypeFormula extends ConstraintFormula {
 				if (substitutedSub == null) return FALSE;
 				TypeBinding[] subArgs = ((ParameterizedTypeBinding) substitutedSub).arguments;
 				if (superArgs == null || subArgs == null || superArgs.length != subArgs.length) {
+					if (substitutedSub.isRawType()) {
+						// FIXME: this integration is not yet sanctioned by the spec (0.6.2)
+						return inferUncheckedConversion(scope, substitutedSub, superCandidate);
+					}
 					// bail out only if our guess work produced a useless result
 					InferenceContext18.missingImplementation(InferenceContext18.JLS_18_2_3_INCOMPLETE_TO_DEFINE_THE_PARAMETERIZATION_OF_A_CLASS_C_FOR_A_TYPE_T);
 					return FALSE; // TODO
@@ -212,6 +218,38 @@ class ConstraintTypeFormula extends ConstraintFormula {
 				InferenceContext18.missingImplementation("NYI");
 		}
 		return this;// TODO
+	}
+
+	private Object inferUncheckedConversion(Scope scope, TypeBinding subCandidate, TypeBinding superCandidate) {
+		// 18.5.5
+		ReferenceBinding subOriginal = (ReferenceBinding) subCandidate.original();
+		TypeVariableBinding[] typeVariables = subOriginal.typeVariables();
+		int length = typeVariables.length;
+		TypeBinding[] typeParameters = new TypeBinding[length];
+		for (int i = 0; i < length; i++) {
+			typeParameters[i] = new WildcardBinding(subOriginal, i, null, null, Wildcard.UNBOUND, scope.environment());
+		}
+		ReferenceBinding s1 = scope.environment().createParameterizedType(subOriginal, typeParameters, subOriginal.enclosingType());
+		if (s1.isCompatibleWith(superCandidate))
+			return TRUE;
+		
+		InferenceContext18 infCtx18 = new InferenceContext18(scope, null, null);
+		typeParameters = infCtx18.createInitialBoundSet(typeVariables); // creates initial bound set B
+		ReferenceBinding s2 = scope.environment().createParameterizedType(subOriginal, typeParameters, subOriginal.enclosingType());
+		infCtx18.setInitialConstraint(new ConstraintTypeFormula(s2, superCandidate, ReductionResult.SUBTYPE));
+		BoundSet result = infCtx18.solve();
+		if (result != null && infCtx18.isResolved(result)) {
+			TypeBinding[] solutions = infCtx18.getSolutions(typeVariables, result);
+			if (solutions != null) {
+				// create new bounds
+				ConstraintFormula[] formulas = new ConstraintTypeFormula[length];
+				for (int i = 0; i < length; i++) {
+					formulas[i] = new ConstraintTypeFormula(typeParameters[i], solutions[i], ReductionResult.SAME);
+				}
+				return formulas;
+			}
+		}
+		return FALSE;
 	}
 
 	// debugging

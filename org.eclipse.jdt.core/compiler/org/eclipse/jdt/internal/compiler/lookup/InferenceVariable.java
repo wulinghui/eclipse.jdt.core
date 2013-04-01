@@ -19,20 +19,19 @@ import org.eclipse.jdt.core.compiler.CharOperation;
 /**
  * Implementation of 18.1.1 in JLS8
  */
-public class InferenceVariable extends ReferenceBinding {
+public class InferenceVariable extends TypeVariableBinding {
 
 	TypeBinding typeParameter;
-	int rank; // TODO: remove?
 	
-	public InferenceVariable(TypeBinding typeParameter, int variableRank) {
+	public InferenceVariable(TypeBinding typeParameter, int variableRank, LookupEnvironment environment) {
+		super(CharOperation.concat(typeParameter.shortReadableName(), Integer.toString(variableRank).toCharArray(), '#'), 
+				null/*declaringElement*/, variableRank, environment);
 		this.typeParameter = typeParameter;
-		this.sourceName = CharOperation.concat(typeParameter.shortReadableName(), Integer.toString(variableRank).toCharArray(), '#');
-		this.rank = variableRank;
 	}
 
-	public InferenceVariable(int expressionRank, int variableRank) {
-		this.sourceName = CharOperation.concat("expr#".toCharArray(), Integer.toString(variableRank).toCharArray()); //$NON-NLS-1$
-		this.rank = variableRank;
+	public InferenceVariable(int expressionRank, int variableRank, LookupEnvironment environment) {
+		super(CharOperation.concat("expr#".toCharArray(), Integer.toString(variableRank).toCharArray()), //$NON-NLS-1$
+				null/*declaringElement*/, variableRank, environment);
 	}
 
 	public char[] constantPoolName() {
