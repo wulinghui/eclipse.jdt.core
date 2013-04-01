@@ -28,7 +28,7 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 // Static initializer to specify tests subset using TESTS_* static variables
 // All specified tests which do not belong to the class are skipped...
 	static {
-//			TESTS_NAMES = new String[] { "testInheritedDefaultOverrides" };
+//			TESTS_NAMES = new String[] { "testSuperCall6" };
 //			TESTS_NUMBERS = new int[] { 561 };
 //			TESTS_RANGE = new int[] { 1, 2049 };
 	}
@@ -263,28 +263,6 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 				"public interface I {\n" +
 				"    default void foo() {\n" +
 				"        System.out.println(\"default\");\n" +
-				"    }\n" +
-				"}\n"
-			},
-			"default"
-			);
-	}
-
-	// class implements interface with default method. 
-	// - witness for NoSuchMethodError in synthetic method (SuperMethodAccess)
-	public void testModifiers5a() {
-		runConformTest(
-			new String[] {
-				"C.java",
-				"interface I {\n" +
-				"    public default void foo() {\n" +
-				"        System.out.println(\"default\");\n" +
-				"    }\n" +
-				"}\n" +
-				"public class C implements I {\n" +
-				"    public static void main(String[] args) {\n" +
-				"        C c = new C();\n" +
-				"        c.foo();\n" +
 				"    }\n" +
 				"}\n"
 			},
@@ -1123,7 +1101,7 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 	// - call to super of outer
 	// - target method is not a default method
 	// - attempt to use this syntax for a super-ctor call
-	public void _testSuperCall2() {
+	public void testSuperCall2() {
 		this.runNegativeTest(
 			new String[] {
 				"T.java",
@@ -1160,7 +1138,7 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 			"1. ERROR in T.java (at line 6)\n" + 
 			"	return List.super.stream(); // List is not a direct super interface\n" + 
 			"	       ^^^^^^^^^^\n" + 
-			"No enclosing instance of the type List<E> is accessible in scope\n" + 
+			"Illegal reference to super type List, cannot bypass the more specific direct super type OrderedSet\n" + 
 			"----------\n" + 
 			"2. ERROR in T.java (at line 12)\n" + 
 			"	return OrderedSet.super.stream(); // not a super interface of the direct enclosing class\n" + 
@@ -1210,7 +1188,113 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 			"OK!"
 		);
 	}
-	
+
+	// 15.12.1
+	// https://bugs.eclipse.org/404649 - [1.8][compiler] detect illegal reference to indirect or redundant super
+	public void testSuperCall4() {
+		this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"public class X implements I2, I1 {\n" +
+				"	@Override\n" +
+				"	public void print() {\n" +
+				"		I1.super.print(); // illegal attempt to skip I2.print()\n" +
+				"		System.out.print(\"!\");" +
+				"	}\n" +
+				"	public static void main(String... args) {\n" +
+				"		new X().print();\n" +
+				"	}\n" +
+				"}\n" +
+				"interface I1 {\n" +
+				"	default void print() {\n" +
+				"		System.out.print(\"O\");\n" +
+				"	}\n" +
+				"}\n" +
+				"interface I2 extends I1 {\n" +
+				"	@Override default void print() {\n" +
+				"		System.out.print(\"K\");\n" +
+				"	}\n" +
+				"}\n"
+			},
+			"----------\n" + 
+			"1. ERROR in X.java (at line 4)\n" + 
+			"	I1.super.print(); // illegal attempt to skip I2.print()\n" + 
+			"	^^^^^^^^\n" + 
+			"Illegal reference to super type I1, cannot bypass the more specific direct super type I2\n" + 
+			"----------\n"
+		);
+	}
+
+	// 15.12.1
+	// https://bugs.eclipse.org/404649 - [1.8][compiler] detect illegal reference to indirect or redundant super
+	public void testSuperCall5() {
+		this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"public class X implements I2, I1 {\n" +
+				"	@Override\n" +
+				"	public void print() {\n" +
+				"		I1.super.print(); // illegal attempt to skip I2.print()\n" +
+				"		System.out.print(\"!\");" +
+				"	}\n" +
+				"	public static void main(String... args) {\n" +
+				"		new X().print();\n" +
+				"	}\n" +
+				"}\n" +
+				"interface I1 {\n" +
+				"	default void print() {\n" +
+				"		System.out.print(\"O\");\n" +
+				"	}\n" +
+				"}\n" +
+				"interface I2 extends I1 {\n" +
+				"}\n"
+			},
+			"----------\n" + 
+			"1. ERROR in X.java (at line 4)\n" + 
+			"	I1.super.print(); // illegal attempt to skip I2.print()\n" + 
+			"	^^^^^^^^\n" + 
+			"Illegal reference to super type I1, cannot bypass the more specific direct super type I2\n" + 
+			"----------\n"
+		);
+	}
+
+	// 15.12.3
+	// https://bugs.eclipse.org/404649 - [1.8][compiler] detect illegal reference to indirect or redundant super
+	public void testSuperCall6() {
+		this.runNegativeTest(
+			new String[] {
+				"SuperOverride.java",
+				"interface I0 {\n" + 
+				"	default void foo() { System.out.println(\"I0\"); }\n" + 
+				"}\n" + 
+				"\n" + 
+				"interface IA extends I0 {}\n" + 
+				"\n" + 
+				"interface IB extends I0 {\n" + 
+				"	@Override default void foo() {\n" + 
+				"		System.out.println(\"IB\");\n" + 
+				"	}\n" + 
+				"}\n" + 
+				"interface IX extends IA, IB {\n" + 
+				"	@Override default void foo() {\n" + 
+				"		IA.super.foo(); // illegal attempt to skip IB.foo()\n" + 
+				"	}\n" + 
+				"}\n" + 
+				"public class SuperOverride implements IX {\n" + 
+				"	public static void main(String[] args) {\n" + 
+				"		new SuperOverride().foo();\n" + 
+				"	}\n" + 
+				"}\n"
+			},
+			"----------\n" + 
+			"1. ERROR in SuperOverride.java (at line 14)\n" + 
+			"	IA.super.foo(); // illegal attempt to skip IB.foo()\n" + 
+			"	^^^^^^^^^^^^^^\n" + 
+			"Illegal reference to super method foo() from type I0, cannot bypass the more specific override from type IB\n" + 
+			"----------\n"
+		);
+	}
+
 	// Bug 401235 - [1.8][compiler] 'this' reference must be allowed in default methods and local classes
 	public void testThisReference1() {
 		this.runConformTest(
@@ -1658,4 +1742,280 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 				"Cannot use super in a static context\n" + 
 				"----------\n");
 	}
+
+	// class implements interface with default method. 
+	// - synth. access needed for visibility reasons
+	// - witness for NoSuchMethodError in synthetic method (SuperMethodAccess)
+	public void testSuperAccess01() {
+		runConformTest(
+			new String[] {
+				"C.java",
+				"interface I {\n" +
+				"    public default void foo() {\n" +
+				"        System.out.println(\"default\");\n" +
+				"    }\n" +
+				"}\n" +
+				"public class C implements I {\n" +
+				"    public static void main(String[] args) {\n" +
+				"        C c = new C();\n" +
+				"        c.foo();\n" +
+				"    }\n" +
+				"}\n"
+			},
+			"default"
+			);
+	}
+
+	// class implements interface with default method. 
+	// - synth. access needed for visibility reasons
+	// - intermediate public interface
+	public void testSuperAccess02() {
+		runConformTest(
+			false,
+			new String[] {
+				"p1/C.java",
+				"package p1;\n" +
+				"public class C implements p2.J {\n" +
+				"    public static void main(String[] args) {\n" +
+				"        C c = new C();\n" +
+				"        c.foo();\n" +
+				"    }\n" +
+				"}\n",
+				"p2/J.java",
+				"package p2;\n" +
+				"interface I {\n" +
+				"    public default void foo() {\n" +
+				"        System.out.println(\"default\");\n" +
+				"    }\n" +
+				"}\n" +
+				"public interface J extends I {}\n"
+			},
+			"",
+			"default",
+			"",
+			JavacTestOptions.JavacHasABug.Javac8ProducesIllegalAccessError);
+	}
+
+	// Variant of test MethodVerifyTest.test144() from https://bugs.eclipse.org/bugs/show_bug.cgi?id=194034
+	public void testBridge01() {
+		this.runNegativeTest(
+			new String[] {
+				"PurebredCatShopImpl.java",
+				"import java.util.List;\n" +
+				"interface Pet {}\n" +
+				"interface Cat extends Pet {}\n" +
+				"interface PetShop { default List<Pet> getPets() { return null; } }\n" +
+				"interface CatShop extends PetShop {\n" +
+				"	default <V extends Pet> List<? extends Cat> getPets() { return null; }\n" +
+				"}\n" +
+				"interface PurebredCatShop extends CatShop {}\n" +
+				"class CatShopImpl implements CatShop {\n" +
+				"	@Override public List<Pet> getPets() { return null; }\n" +
+				"}\n" +
+				"class PurebredCatShopImpl extends CatShopImpl implements PurebredCatShop {}"
+			},
+			"----------\n" + 
+			"1. ERROR in PurebredCatShopImpl.java (at line 6)\n" + 
+			"	default <V extends Pet> List<? extends Cat> getPets() { return null; }\n" + 
+			"	                                            ^^^^^^^^^\n" + 
+			"Name clash: The method getPets() of type CatShop has the same erasure as getPets() of type PetShop but does not override it\n" + 
+			"----------\n" + 
+			"2. WARNING in PurebredCatShopImpl.java (at line 10)\n" + 
+			"	@Override public List<Pet> getPets() { return null; }\n" + 
+			"	                 ^^^^\n" + 
+			"Type safety: The return type List<Pet> for getPets() from the type CatShopImpl needs unchecked conversion to conform to List<? extends Cat> from the type CatShop\n" + 
+			"----------\n"
+		);
+	}
+	// yet another variant, checking that exactly one bridge method is created, so that
+	// the most specific method is dynamically invoked via all declared types.
+	public void testBridge02() {
+		this.runConformTest(
+			new String[] {
+				"PurebredCatShopImpl.java",
+				"import java.util.List;\n" +
+				"import java.util.ArrayList;\n" +
+				"interface Pet {}\n" +
+				"interface Cat extends Pet {}\n" +
+				"interface PetShop { default List<Pet> getPets() { return null; } }\n" +
+				"interface CatShop extends PetShop {\n" +
+				"	@Override default ArrayList<Pet> getPets() { return null; }\n" +
+				"}\n" +
+				"interface PurebredCatShop extends CatShop {}\n" +
+				"class CatShopImpl implements CatShop {\n" +
+				"	@Override public ArrayList<Pet> getPets() { return new ArrayList<>(); }\n" +
+				"}\n" +
+				"public class PurebredCatShopImpl extends CatShopImpl implements PurebredCatShop {\n" +
+				"	public static void main(String... args) {\n" +
+				"		PurebredCatShopImpl pcsi = new PurebredCatShopImpl();\n" +
+				"		System.out.print(pcsi.getPets().size());\n" +
+				"		CatShopImpl csi = pcsi;\n" +
+				"		System.out.print(csi.getPets().size());\n" +
+				"		CatShop cs = csi;\n" +
+				"		System.out.print(cs.getPets().size());\n" +
+				"		PetShop ps = cs;\n" +
+				"		System.out.print(ps.getPets().size());\n" +
+				"	}\n" +
+				"}\n"
+			},
+			"0000"
+		);
+	}
+	
+	// modeled after org.eclipse.jdt.core.tests.compiler.regression.AmbiguousMethodTest.test081()
+	// see https://bugs.eclipse.org/391376 - [1.8] check interaction of default methods with bridge methods and generics
+    // see https://bugs.eclipse.org/404648 - [1.8][compiler] investigate differences between compilers re AmbiguousMethodTest
+	public void _testBridge03() {
+		runConformTest(
+			new String[] {
+				"C.java",
+				"interface A<ModelType extends D, ValueType> extends\n" + 
+				"		I<ModelType, ValueType> {\n" + 
+				"\n" + 
+				"	@Override\n" + 
+				"	public default void doSet(ModelType valueGetter) {\n" + 
+				"		this.set((ValueType) valueGetter.getObject());\n" + 
+				"	}\n" + 
+				"\n" + 
+				"	@Override\n" + 
+				"	public default void set(Object object) {\n" + 
+				"		System.out.println(\"In A.set(Object)\");\n" + 
+				"	}\n" + 
+				"}\n" + 
+				"\n" + 
+				"class B implements A<E, CharSequence> {\n" + 
+				"\n" + 
+				"	public void set(CharSequence string) {\n" + 
+				"		System.out.println(\"In B.set(CharSequence)\");\n" + 
+				"	}\n" + 
+				"}\n" + 
+				"\n" + 
+				"public class C extends B {\n" + 
+				"\n" + 
+				"	static public void main(String[] args) {\n" + 
+				"		C c = new C();\n" + 
+				"		c.run();\n" + 
+				"	}\n" + 
+				"\n" + 
+				"	public void run() {\n" + 
+				"		E e = new E<String>(String.class);\n" + 
+				"		this.doSet(e);\n" + 
+				"	}\n" + 
+				"\n" + 
+				"}\n" + 
+				"\n" + 
+				"class D {\n" + 
+				"	public Object getObject() {\n" + 
+				"		return null;\n" + 
+				"	}\n" + 
+				"}\n" + 
+				"\n" + 
+				"class E<Type extends CharSequence> extends D {\n" + 
+				"\n" + 
+				"	private Class<Type> typeClass;\n" + 
+				"\n" + 
+				"	public E(Class<Type> typeClass) {\n" + 
+				"		this.typeClass = typeClass;\n" + 
+				"	}\n" + 
+				"\n" + 
+				"	@Override\n" + 
+				"	public Type getObject() {\n" + 
+				"		try {\n" + 
+				"			return (Type) typeClass.newInstance();\n" + 
+				"		} catch (Exception e) {\n" + 
+				"			throw new RuntimeException(e);\n" + 
+				"		}\n" + 
+				"	}\n" + 
+				"\n" + 
+				"}\n" + 
+				"\n" + 
+				"interface I<ModelType, ValueType> {\n" + 
+				"\n" + 
+				"	public void doSet(ModelType model);\n" + 
+				"\n" + 
+				"	public void set(ValueType value);\n" + 
+				"\n" + 
+				"}\n"
+			},
+			"In B.set(CharSequence)");
+	}
+	
+    
+    // modeled after org.eclipse.jdt.core.tests.compiler.regression.AmbiguousMethodTest.test081()
+    // see https://bugs.eclipse.org/391376 - [1.8] check interaction of default methods with bridge methods and generics
+    // see https://bugs.eclipse.org/404648 - [1.8][compiler] investigate differences between compilers re AmbiguousMethodTest
+    public void _testBridge04() {
+        runConformTest(
+            new String[] {
+                "C.java",
+                "interface A<ModelType extends D, ValueType> extends\n" + 
+                "       I<ModelType, ValueType> {\n" + 
+                "\n" + 
+                "   @Override\n" + 
+                "   public default void doSet(ModelType valueGetter) {\n" + 
+                "       this.set((ValueType) valueGetter.getObject());\n" + 
+                "   }\n" + 
+                "\n" + 
+                "   @Override\n" + 
+                "   public default void set(Object object) {\n" + 
+                "       System.out.println(\"In A.set(Object)\");\n" + 
+                "   }\n" + 
+                "}\n" + 
+                "\n" + 
+                "interface B extends A<E, CharSequence> {\n" + 
+                "\n" + 
+                "   public default void set(CharSequence string) {\n" + 
+                "       System.out.println(\"In B.set(CharSequence)\");\n" + 
+                "   }\n" + 
+                "}\n" + 
+                "\n" + 
+                "public class C implements B {\n" + 
+                "\n" + 
+                "   static public void main(String[] args) {\n" + 
+                "       C c = new C();\n" + 
+                "       c.run();\n" + 
+                "   }\n" + 
+                "\n" + 
+                "   public void run() {\n" + 
+                "       E e = new E<String>(String.class);\n" + 
+                "       this.doSet(e);\n" + 
+                "   }\n" + 
+                "\n" + 
+                "}\n" + 
+                "\n" + 
+                "class D {\n" + 
+                "   public Object getObject() {\n" + 
+                "       return null;\n" + 
+                "   }\n" + 
+                "}\n" + 
+                "\n" + 
+                "class E<Type extends CharSequence> extends D {\n" + 
+                "\n" + 
+                "   private Class<Type> typeClass;\n" + 
+                "\n" + 
+                "   public E(Class<Type> typeClass) {\n" + 
+                "       this.typeClass = typeClass;\n" + 
+                "   }\n" + 
+                "\n" + 
+                "   @Override\n" + 
+                "   public Type getObject() {\n" + 
+                "       try {\n" + 
+                "           return (Type) typeClass.newInstance();\n" + 
+                "       } catch (Exception e) {\n" + 
+                "           throw new RuntimeException(e);\n" + 
+                "       }\n" + 
+                "   }\n" + 
+                "\n" + 
+                "}\n" + 
+                "\n" + 
+                "interface I<ModelType, ValueType> {\n" + 
+                "\n" + 
+                "   public void doSet(ModelType model);\n" + 
+                "\n" + 
+                "   public void set(ValueType value);\n" + 
+                "\n" + 
+                "}\n"
+            },
+            "In B.set(CharSequence)");
+    }
 }

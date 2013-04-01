@@ -58,6 +58,14 @@ public class NaiveASTFlattener extends ASTVisitor {
 	private static final int JLS3 = AST.JLS3;
 
 	/**
+	 * Internal synonym for {@link AST#JLS4}. Use to alleviate
+	 * deprecation warnings.
+	 * @deprecated
+	 * @since 3.9 BETA_JAVA8
+	 */
+	private static final int JLS4 = AST.JLS4;
+
+	/**
 	 * The string buffer into which the serialized representation of the AST is
 	 * written.
 	 */
@@ -97,7 +105,7 @@ public class NaiveASTFlattener extends ASTVisitor {
 	 * @deprecated
 	 * @since 3.4
 	 */
-	private Type getReturnType(MethodDeclaration node) {
+	private static Type getReturnType(MethodDeclaration node) {
 		return node.getReturnType();
 	}
 
@@ -107,7 +115,7 @@ public class NaiveASTFlattener extends ASTVisitor {
 	 * @deprecated
 	 * @since 3.4
 	 */
-	private Name getSuperclass(TypeDeclaration node) {
+	private static Name getSuperclass(TypeDeclaration node) {
 		return node.getSuperclass();
 	}
 
@@ -117,8 +125,18 @@ public class NaiveASTFlattener extends ASTVisitor {
 	 * @deprecated
 	 * @since 3.4
 	 */
-	private TypeDeclaration getTypeDeclaration(TypeDeclarationStatement node) {
+	private static TypeDeclaration getTypeDeclaration(TypeDeclarationStatement node) {
 		return node.getTypeDeclaration();
+	}
+
+	/**
+	 * Internal synonym for {@link MethodDeclaration#thrownExceptions()}. Use to alleviate
+	 * deprecation warnings.
+	 * @deprecated
+	 * @since 3.9 BETA_JAVA8
+	 */
+	private static List thrownExceptions(MethodDeclaration node) {
+		return node.thrownExceptions();
 	}
 
 	void printIndent() {
@@ -983,9 +1001,9 @@ public class NaiveASTFlattener extends ASTVisitor {
 			}
 		}
 		if (node.getAST().apiLevel() < AST.JLS8) {
-			if (!node.thrownExceptions().isEmpty()) {
+			if (!thrownExceptions(node).isEmpty()) {
 				this.buffer.append(" throws ");//$NON-NLS-1$
-				for (Iterator it = node.thrownExceptions().iterator(); it.hasNext(); ) {
+				for (Iterator it = thrownExceptions(node).iterator(); it.hasNext(); ) {
 					Name n = (Name) it.next();
 					n.accept(this);
 					if (it.hasNext()) {
@@ -1542,7 +1560,7 @@ public class NaiveASTFlattener extends ASTVisitor {
 	public boolean visit(TryStatement node) {
 		printIndent();
 		this.buffer.append("try ");//$NON-NLS-1$
-		if (node.getAST().apiLevel() >= AST.JLS4) {
+		if (node.getAST().apiLevel() >= JLS4) {
 			List resources = node.resources();
 			if (!resources.isEmpty()) {
 				this.buffer.append('(');
