@@ -33,9 +33,11 @@ package org.eclipse.jdt.core.dom;
  *       ArrayType
  *       SimpleType
  *       QualifiedType
+ *       PackageQualifiedType
  *       WildcardType
  *    ParameterizedType
- *    UnionType  
+ *    UnionType
+ *    IntersectionType
  *    
  * {@link PrimitiveType}:
  *    { Annotation } <b>byte</b>
@@ -53,12 +55,16 @@ package org.eclipse.jdt.core.dom;
  *    { Annotation } TypeName
  * {@link QualifiedType}:
  *    Type <b>.</b> {Annotation} SimpleName
+ * {@link PackageQualifiedType}:
+ *    Name <b>.</b> { Annotation } SimpleName
  * {@link WildcardType}:
  *    { Annotation } <b>?</b> [ ( <b>extends</b> | <b>super</b>) Type ]
  * {@link ParameterizedType}:
  *    Type <b>&lt;</b> Type { <b>,</b> Type } <b>&gt;</b>
  * {@link UnionType}:
  *    Type <b>|</b> Type { <b>|</b> Type }
+ * {@link IntersectionType}:
+ *    Type <b>&</b> Type { <b>&</b> Type }
  * </pre>
  * </p>
  *
@@ -109,6 +115,18 @@ public abstract class Type extends ASTNode {
 	 */
 	public final boolean isArrayType() {
 		return (this instanceof ArrayType);
+	}
+
+	/**
+	 * Returns whether this type is a package qualified type
+	 * ({@link PackageQualifiedType}).
+	 *
+	 * @return <code>true</code> if this is a package qualified type, and
+	 *    <code>false</code> otherwise
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public final boolean isPackageQualifiedType() {
+		return (this instanceof PackageQualifiedType);
 	}
 
 	/**
@@ -164,6 +182,18 @@ public abstract class Type extends ASTNode {
 	}
 
 	/**
+	 * Returns whether this type is an intersection type
+	 * ({@link IntersectionType}).
+	 *
+	 * @return <code>true</code> if this is an intersection type, and
+	 * 		<code>false</code> otherwise
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public final boolean isIntersectionType() {
+		return (this instanceof IntersectionType);
+	}
+
+	/**
 	 * Returns whether this type is a wildcard type
 	 * ({@link WildcardType}).
 	 * <p>
@@ -186,7 +216,7 @@ public abstract class Type extends ASTNode {
 	 * @return <code>true</code> if this type is an instance of {@link AnnotatableType}, and
 	 * <code>false</code> otherwise
 	 * 			
-	 * @since 3.9
+	 * @since 3.9 BETA_JAVA8
 	 */
 	public boolean isAnnotatable() {
 		return (this instanceof AnnotatableType);

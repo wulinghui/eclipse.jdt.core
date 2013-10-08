@@ -5,6 +5,10 @@
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ *
  * Contributors:
  *     Stephan Herrmann - initial API and implementation
  *******************************************************************************/
@@ -40,6 +44,7 @@ import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.Modifier;
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
+import org.osgi.framework.Bundle;
 
 public class NullAnnotationModelTests extends ReconcilerTests {
 
@@ -59,7 +64,8 @@ public class NullAnnotationModelTests extends ReconcilerTests {
 
 	public void setUp() throws Exception {
 		super.setUp();
-		File bundleFile = FileLocator.getBundleFile(Platform.getBundle("org.eclipse.jdt.annotation"));
+		Bundle[] bundles = Platform.getBundles("org.eclipse.jdt.annotation", "[1.1.0,2.0.0)");
+		File bundleFile = FileLocator.getBundleFile(bundles[0]);
 		this.ANNOTATION_LIB = bundleFile.isDirectory() ? bundleFile.getPath()+"/bin" : bundleFile.getPath();
 	}
 
@@ -113,7 +119,7 @@ public class NullAnnotationModelTests extends ReconcilerTests {
 					"1. WARNING in /P/p2/C2.java (at line 8)\n" +
 					"	return arg == null ? null : arg.toString();\n" +
 					"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-					"Null type safety: The expression of type String needs unchecked conversion to conform to \'@NonNull String\'\n" +
+					"Null type safety: The expression of type 'String' needs unchecked conversion to conform to \'@NonNull String\'\n" +
 					"----------\n");
     	} finally {
     		deleteProject("P");
@@ -155,7 +161,7 @@ public class NullAnnotationModelTests extends ReconcilerTests {
 					"1. WARNING in /P/p2/C2.java (at line 8)\n" +
 					"	return arg == null ? null : arg.toString();\n" +
 					"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-					"Null type safety: The expression of type String needs unchecked conversion to conform to \'@NonNull String\'\n" +
+					"Null type safety: The expression of type 'String' needs unchecked conversion to conform to \'@NonNull String\'\n" +
 					"----------\n");
     	} finally {
     		deleteProject("P");

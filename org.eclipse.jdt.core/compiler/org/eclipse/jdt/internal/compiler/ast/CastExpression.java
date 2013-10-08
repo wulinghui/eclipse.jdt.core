@@ -17,6 +17,13 @@
  *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
  *								bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								bug 401017 - [compiler][null] casted reference to @Nullable field lacks a warning
+ *								bug 400761 - [compiler][null] null may be return as boolean without a diagnostic
+ *								Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
+ *								Bug 416307 - [1.8][compiler][null] subclass with type parameter substitution confuses null checking
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *                          Bug 415541 - [1.8][compiler] Type annotations in the body of static initializer get dropped
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -62,9 +69,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	FlowInfo result = this.expression
 		.analyseCode(currentScope, flowContext, flowInfo)
 		.unconditionalInits();
-	if ((this.expression.implicitConversion & TypeIds.UNBOXING) != 0) {
-		this.expression.checkNPE(currentScope, flowContext, flowInfo);
-	}
+	this.expression.checkNPEbyUnboxing(currentScope, flowContext, flowInfo);
 	// account for pot. CCE:
 	flowContext.recordAbruptExit();
 	return result;
@@ -74,7 +79,8 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
  * Complain if assigned expression is cast, but not actually used as such, e.g. Object o = (List) object;
  */
 public static void checkNeedForAssignedCast(BlockScope scope, TypeBinding expectedType, CastExpression rhs) {
-	if (scope.compilerOptions().getSeverity(CompilerOptions.UnnecessaryTypeCheck) == ProblemSeverities.Ignore) return;
+	CompilerOptions compilerOptions = scope.compilerOptions();
+	if (compilerOptions.getSeverity(CompilerOptions.UnnecessaryTypeCheck) == ProblemSeverities.Ignore) return;
 
 	TypeBinding castedExpressionType = rhs.expression.resolvedType;
 	//	int i = (byte) n; // cast still had side effect
@@ -82,6 +88,11 @@ public static void checkNeedForAssignedCast(BlockScope scope, TypeBinding expect
 	if (castedExpressionType == null || rhs.resolvedType.isBaseType()) return;
 	//if (castedExpressionType.id == T_null) return; // tolerate null expression cast
 	if (castedExpressionType.isCompatibleWith(expectedType, scope)) {
+		if (compilerOptions.isAnnotationBasedNullAnalysisEnabled && compilerOptions.sourceLevel >= ClassFileConstants.JDK1_8) {
+			// are null annotations compatible, too?
+			if (NullAnnotationMatching.analyse(expectedType, castedExpressionType, -1).isAnyMismatch())
+				return; // already reported unchecked cast (nullness), say no more.
+		}
 		scope.problemReporter().unnecessaryCast(rhs);
 	}
 }
@@ -252,6 +263,11 @@ public static void checkNeedForArgumentCasts(BlockScope scope, int operator, int
 	}
 }
 
+public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo) {
+	checkNPEbyUnboxing(scope, flowContext, flowInfo);
+	return this.expression.checkNPE(scope, flowContext, flowInfo);
+}
+
 private static void checkAlternateBinding(BlockScope scope, Expression receiver, TypeBinding receiverType, MethodBinding binding, Expression[] arguments, TypeBinding[] originalArgumentTypes, TypeBinding[] alternateArgumentTypes, final InvocationSite invocationSite) {
 		InvocationSite fakeInvocationSite = new InvocationSite(){
 			public TypeBinding[] genericTypeArguments() { return null; }
@@ -263,6 +279,7 @@ private static void checkAlternateBinding(BlockScope scope, Expression receiver,
 			public int sourceStart() { return 0; }
 			public int sourceEnd() { return 0; }
 			public TypeBinding expectedType() { return invocationSite.expectedType(); }
+			public boolean receiverIsImplicitThis() { return invocationSite.receiverIsImplicitThis();}
 			public InferenceContext18 inferenceContext() {
 				// FIXME Auto-generated method stub
 				return null;
@@ -305,7 +322,7 @@ private static void checkAlternateBinding(BlockScope scope, Expression receiver,
 }
 
 public boolean checkUnsafeCast(Scope scope, TypeBinding castType, TypeBinding expressionType, TypeBinding match, boolean isNarrowing) {
-	if (match == castType) {
+	if (TypeBinding.equalsEquals(match, castType)) {
 		if (!isNarrowing && match == this.resolvedType.leafComponentType()) { // do not tag as unnecessary when recursing through upper bounds
 			tagAsUnnecessaryCast(scope, castType);
 		}
@@ -419,12 +436,13 @@ public boolean checkUnsafeCast(Scope scope, TypeBinding castType, TypeBinding ex
  */
 public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
 	int pc = codeStream.position;
+	boolean annotatedCast = (this.type.bits & ASTNode.HasTypeAnnotations) != 0;
 	boolean needRuntimeCheckcast = (this.bits & ASTNode.GenerateCheckcast) != 0;
 	if (this.constant != Constant.NotAConstant) {
-		if (valueRequired || needRuntimeCheckcast) { // Added for: 1F1W9IG: IVJCOM:WINNT - Compiler omits casting check
+		if (valueRequired || needRuntimeCheckcast || annotatedCast) { // Added for: 1F1W9IG: IVJCOM:WINNT - Compiler omits casting check
 			codeStream.generateConstant(this.constant, this.implicitConversion);
-			if (needRuntimeCheckcast) {
-				codeStream.checkcast(this.resolvedType);
+			if (needRuntimeCheckcast || annotatedCast) {
+				codeStream.checkcast(this.type, this.resolvedType);
 			}
 			if (!valueRequired) {
 				// the resolveType cannot be double or long
@@ -435,8 +453,8 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean
 		return;
 	}
 	this.expression.generateCode(currentScope, codeStream, valueRequired || needRuntimeCheckcast);
-	if (needRuntimeCheckcast && this.expression.postConversionType(currentScope) != this.resolvedType.erasure()) { // no need to issue a checkcast if already done as genericCast
-		codeStream.checkcast(this.resolvedType);
+	if (annotatedCast || (needRuntimeCheckcast && this.expression.postConversionType(currentScope) != this.resolvedType.erasure())) { // no need to issue a checkcast if already done as genericCast
+		codeStream.checkcast(this.type, this.resolvedType);
 	}
 	if (valueRequired) {
 		codeStream.generateImplicitConversion(this.implicitConversion);
@@ -523,13 +541,20 @@ public TypeBinding resolveType(BlockScope scope) {
 	}
 	if (castType != null) {
 		if (expressionType != null) {
+
+			boolean nullAnnotationMismatch = NullAnnotationMatching.analyse(castType, expressionType, -1).isAnyMismatch();
+
 			boolean isLegal = checkCastTypesCompatibility(scope, castType, expressionType, this.expression);
 			if (isLegal) {
 				this.expression.computeConversion(scope, castType, expressionType);
 				if ((this.bits & ASTNode.UnsafeCast) != 0) { // unsafe cast
-					if (scope.compilerOptions().reportUnavoidableGenericTypeProblems || !this.expression.forcedToBeRaw(scope.referenceContext())) {
+					if (scope.compilerOptions().reportUnavoidableGenericTypeProblems
+							|| !(expressionType.isRawType() && this.expression.forcedToBeRaw(scope.referenceContext()))) {
 						scope.problemReporter().unsafeCast(this, scope);
 					}
+				} else if (nullAnnotationMismatch) {
+					// report null annotation issue at medium priority
+					scope.problemReporter().unsafeNullnessCast(this, scope);
 				} else {
 					if (castType.isRawType() && scope.compilerOptions().getSeverity(CompilerOptions.RawTypeReference) != ProblemSeverities.Ignore){
 						scope.problemReporter().rawTypeReference(this.type, castType);

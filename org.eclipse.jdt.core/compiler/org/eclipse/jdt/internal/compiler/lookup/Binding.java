@@ -13,6 +13,8 @@
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contribution for
  *								bug 365531 - [compiler][null] investigate alternative strategy for internally encoding nullness defaults
+ *     Jesper Steen Moller - Contributions for
+ *								Bug 412150 [1.8] [compiler] Enable reflected parameter names during annotation processing
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -55,6 +57,7 @@ public abstract class Binding {
 	public static final TypeVariableBinding[] NO_TYPE_VARIABLES = new TypeVariableBinding[0];
 	public static final AnnotationBinding[] NO_ANNOTATIONS = new AnnotationBinding[0];
 	public static final ElementValuePair[] NO_ELEMENT_VALUE_PAIRS = new ElementValuePair[0];
+	public static final char[][] NO_PARAMETER_NAMES = new char[0][];
 
 	public static final FieldBinding[] UNINITIALIZED_FIELDS = new FieldBinding[0];
 	public static final MethodBinding[] UNINITIALIZED_METHODS = new MethodBinding[0];
@@ -89,6 +92,8 @@ public abstract class Binding {
 	/**
 	 * Compute the tagbits for standard annotations. For source types, these could require
 	 * lazily resolving corresponding annotation nodes, in case of forward references.
+	 * For type use bindings, this method still returns the tagbits corresponding to the type 
+	 * declaration binding.
 	 * @see org.eclipse.jdt.internal.compiler.lookup.SourceTypeBinding#getAnnotationTagBits()
 	 */
 	public long getAnnotationTagBits() {
@@ -104,6 +109,10 @@ public abstract class Binding {
 		// empty block
 	}
 
+	public boolean isAnnotationType() {
+		return false;
+	}
+	
 	/* API
 	* Answer true if the receiver is not a problem binding
 	*/

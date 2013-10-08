@@ -11,6 +11,9 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Jesper S Moller - Contributions for
+ *							Bug 405066 - [1.8][compiler][codegen] Implement code generation infrastructure for JSR335             
+ *							Bug 406982 - [1.8][compiler] Generation of MethodParameters Attribute in classfile
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.classfmt;
 
@@ -41,12 +44,19 @@ public interface ClassFileConstants {
 	int AccEnum         = 0x4000;
 
 	/**
+	 * From classfile version 52 (compliance 1.8 up), meaning that a formal parameter is mandated
+	 * by a language specification, so all compilers for the language must emit it.
+	 */
+	int AccMandated     = 0x8000;
+
+	
+	/**
 	 * Other VM flags.
 	 */
 	int AccSuper = 0x0020;
 
 	/**
-	 * Extra flags for types and members attributes.
+	 * Extra flags for types and members attributes (not from the JVMS, should have been defined in ExtraCompilerModifiers).
 	 */
 	int AccAnnotationDefault = ASTNode.Bit18; // indicate presence of an attribute  "DefaultValue" (annotation method)
 	int AccDeprecated = ASTNode.Bit21; // indicate presence of an attribute "Deprecated"
@@ -80,6 +90,17 @@ public interface ClassFileConstants {
 	int ConstantMethodHandleFixedSize = 4;
 	int ConstantMethodTypeFixedSize = 3;
 	int ConstantInvokeDynamicFixedSize = 5;
+
+	// JVMS 4.4.8
+	int MethodHandleRefKindGetField = 1;
+	int MethodHandleRefKindGetStatic = 2;
+	int MethodHandleRefKindPutField = 3;
+	int MethodHandleRefKindPutStatic = 4;
+	int MethodHandleRefKindInvokeVirtual = 5;
+	int MethodHandleRefKindInvokeStatic = 6;
+	int MethodHandleRefKindInvokeSpecial = 7;
+	int MethodHandleRefKindNewInvokeSpecial = 8;
+	int MethodHandleRefKindInvokeInterface = 9;
 
 	int MAJOR_VERSION_1_1 = 45;
 	int MAJOR_VERSION_1_2 = 46;
@@ -133,4 +154,5 @@ public interface ClassFileConstants {
 	int ATTR_STACK_MAP_TABLE = 0x8; // Stack map table attribute
 	int ATTR_STACK_MAP = 0x10; // Stack map attribute: cldc
 	int ATTR_TYPE_ANNOTATION = 0x20; // type annotation attribute (jsr 308)
+	int ATTR_METHOD_PARAMETERS = 0x40; // method parameters attribute (jep 118)
 }

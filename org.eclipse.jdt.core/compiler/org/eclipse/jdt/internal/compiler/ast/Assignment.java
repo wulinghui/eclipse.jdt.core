@@ -27,6 +27,9 @@
  *							bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
  *							bug 331649 - [compiler][null] consider null annotations for fields
  *							bug 383368 - [compiler][null] syntactic null analysis for field references
+ *							bug 402993 - [null] Follow up of bug 401088: Missing warning about redundant null check
+ *							bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
+ *							Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -58,9 +61,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 // a field reference, a blank final field reference, a field of an enclosing instance or
 // just a local variable.
 	LocalVariableBinding local = this.lhs.localVariableBinding();
-	if ((this.expression.implicitConversion & TypeIds.UNBOXING) != 0) {
-		this.expression.checkNPE(currentScope, flowContext, flowInfo);
-	}
+	this.expression.checkNPEbyUnboxing(currentScope, flowContext, flowInfo);
 	
 	FlowInfo preInitInfo = null;
 	CompilerOptions compilerOptions = currentScope.compilerOptions();
@@ -94,7 +95,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	if (compilerOptions.isAnnotationBasedNullAnalysisEnabled) {
 		VariableBinding var = this.lhs.nullAnnotatedVariableBinding(compilerOptions.sourceLevel >= ClassFileConstants.JDK1_8);
 		if (var != null) {
-			nullStatus = checkAssignmentAgainstNullAnnotation(currentScope, flowContext, var, nullStatus, this.expression, this.expression.resolvedType);
+			nullStatus = NullAnnotationMatching.checkAssignment(currentScope, flowContext, var, nullStatus, this.expression, this.expression.resolvedType);
 			if (nullStatus == FlowInfo.NON_NULL
 					&& var instanceof FieldBinding
 					&& this.lhs instanceof Reference
@@ -109,8 +110,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	}
 	if (local != null && (local.type.tagBits & TagBits.IsBaseType) == 0) {
 		flowInfo.markNullStatus(local, nullStatus);
-		if (flowContext.initsOnFinally != null)
-			flowContext.markFinallyNullStatus(local, nullStatus);
+		flowContext.markFinallyNullStatus(local, nullStatus);
 	}
 	return flowInfo;
 }

@@ -13,6 +13,7 @@
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contribution for
  *								bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+ *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -149,6 +150,10 @@ public final class BaseTypeBinding extends TypeBinding {
 		return this.constantPoolName;
 	}
 
+	public TypeBinding clone(TypeBinding enclosingType) {
+		return new BaseTypeBinding(this.id, this.simpleName, this.constantPoolName);
+	}
+	
 	public PackageBinding getPackage() {
 
 		return null;
@@ -157,7 +162,7 @@ public final class BaseTypeBinding extends TypeBinding {
 	/* Answer true if the receiver type can be assigned to the argument type (right)
 	*/
 	public final boolean isCompatibleWith(TypeBinding right, Scope captureScope) {
-		if (this == right)
+		if (equalsEquals(this, right))
 			return true;
 		int right2left = this.id + (right.id<<4);
 		if (right2left >= 0 
@@ -167,6 +172,34 @@ public final class BaseTypeBinding extends TypeBinding {
 		return this == TypeBinding.NULL && !right.isBaseType();
 	}
 	
+	public void setTypeAnnotations(AnnotationBinding[] annotations, boolean evalNullAnnotations) {
+		super.setTypeAnnotations(annotations, false); // never set nullTagBits on base types
+	}
+
+	public TypeBinding unannotated() {
+		if (!this.hasTypeAnnotations())
+			return this;
+		switch (this.id) {
+			case TypeIds.T_boolean:
+				return TypeBinding.BOOLEAN;
+			case TypeIds.T_byte:
+				return TypeBinding.BYTE;
+			case TypeIds.T_char:
+				return TypeBinding.CHAR;
+			case TypeIds.T_double:
+				return TypeBinding.DOUBLE;
+			case TypeIds.T_float:
+				return TypeBinding.FLOAT;
+			case TypeIds.T_int:
+				return TypeBinding.INT;
+			case TypeIds.T_long:
+				return TypeBinding.LONG;
+			case TypeIds.T_short:
+				return TypeBinding.SHORT;
+			default:
+				throw new IllegalStateException();
+			}
+	}
 	/**
 	 * T_null is acting as an unchecked exception
 	 * @see org.eclipse.jdt.internal.compiler.lookup.TypeBinding#isUncheckedException(boolean)
@@ -198,6 +231,6 @@ public final class BaseTypeBinding extends TypeBinding {
 	}
 
 	public String toString() {
-		return new String(this.constantPoolName) + " (id=" + this.id + ")"; //$NON-NLS-1$ //$NON-NLS-2$
+		return this.hasTypeAnnotations() ? annotatedDebugName() : new String(readableName());
 	}
 }

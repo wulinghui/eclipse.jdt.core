@@ -11,6 +11,10 @@
  * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contribution for
+ *								bug 392384 - [1.8][compiler][null] Restore nullness info from type annotations in class files
+ *								Bug 416174 - [1.8][compiler][null] Bogus name clash error with null annotations
+ *								Bug 416176 - [1.8][compiler][null] null type annotations cause grief on type variables
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -72,6 +76,10 @@ public class RawTypeBinding extends ParameterizedTypeBinding {
 		sig.getChars(0, sigLength, uniqueKey, 0);
 		return uniqueKey;
    	}
+	
+	public TypeBinding clone(TypeBinding outerType) {
+		return new RawTypeBinding(this.actualType(), (ReferenceBinding) outerType, this.environment);
+	}
 
 	/**
 	 * @see org.eclipse.jdt.internal.compiler.lookup.ParameterizedTypeBinding#createParameterizedMethod(org.eclipse.jdt.internal.compiler.lookup.MethodBinding)
@@ -83,6 +91,10 @@ public class RawTypeBinding extends ParameterizedTypeBinding {
 		return this.environment.createParameterizedGenericMethod(originalMethod, this);
 	}
 
+	public boolean isAnnotatedTypeWithoutArguments() {
+		return false; // here rawness is the reason for not having arguments.
+	}
+
 	public int kind() {
 		return RAW_TYPE;
 	}
@@ -91,11 +103,17 @@ public class RawTypeBinding extends ParameterizedTypeBinding {
 	 * @see org.eclipse.jdt.internal.compiler.lookup.TypeBinding#debugName()
 	 */
 	public String debugName() {
-	    StringBuffer nameBuffer = new StringBuffer(10);
+		if (this.hasTypeAnnotations())
+			return annotatedDebugName();
+		StringBuffer nameBuffer = new StringBuffer(10);
 		nameBuffer.append(actualType().sourceName()).append("#RAW"); //$NON-NLS-1$
 	    return nameBuffer.toString();
 	}
-
+	public String annotatedDebugName() {
+		StringBuffer buffer = new StringBuffer(super.annotatedDebugName());
+		buffer.append("#RAW"); //$NON-NLS-1$
+		return buffer.toString();
+	}
 	/**
 	 * Ltype<param1 ... paramN>;
 	 * LY<TT;>;
@@ -130,7 +148,7 @@ public class RawTypeBinding extends ParameterizedTypeBinding {
 	}
 
     public boolean isEquivalentTo(TypeBinding otherType) {
-		if (this == otherType || erasure() == otherType)
+		if (equalsEquals(this, otherType) || equalsEquals(erasure(), otherType))
 		    return true;
 	    if (otherType == null)
 	        return false;
@@ -183,8 +201,9 @@ public class RawTypeBinding extends ParameterizedTypeBinding {
 		if (theAbstractMethod == null || !theAbstractMethod.isValidBinding())
 			return this.singleAbstractMethod = theAbstractMethod;
 		
-		ReferenceBinding rawType = (ReferenceBinding) scope.environment().convertToRawType(genericType, true);
-		MethodBinding [] choices = rawType.getMethods(theAbstractMethod.selector);
+		ReferenceBinding declaringType = (ReferenceBinding) scope.environment().convertToRawType(genericType, true);
+		declaringType = (ReferenceBinding) declaringType.findSuperTypeOriginatingFrom(theAbstractMethod.declaringClass);
+		MethodBinding [] choices = declaringType.getMethods(theAbstractMethod.selector);
 		for (int i = 0, length = choices.length; i < length; i++) {
 			MethodBinding method = choices[i];
 			if (!method.isAbstract() || method.redeclaresPublicObjectMethod(scope)) continue; // (re)skip statics, defaults, public object methods ...

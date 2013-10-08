@@ -102,7 +102,10 @@
  *									COMPILER_INHERIT_NULL_ANNOTATIONS
  *									COMPILER_PB_NONNULL_PARAMETER_ANNOTATION_DROPPED
  *									COMPILER_PB_SYNTACTIC_NULL_ANALYSIS_FOR_FIELDS
- *     Jesper S Moller  - Contributions for bug 381345 : [1.8] Take care of the Java 8 major version
+ *     Jesper S Moller   - Contributions for bug 381345 : [1.8] Take care of the Java 8 major version
+ *                       - added the following constants:
+ *									COMPILER_CODEGEN_METHOD_PARAMETERS_ATTR
+ *     
  *******************************************************************************/
 
 package org.eclipse.jdt.core;
@@ -126,7 +129,6 @@ import org.eclipse.core.runtime.Plugin;
 import org.eclipse.core.runtime.QualifiedName;
 import org.eclipse.core.runtime.SubProgressMonitor;
 import org.eclipse.core.runtime.jobs.ISchedulingRule;
-
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
@@ -140,7 +142,6 @@ import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.IWorkspaceRunnable;
 import org.eclipse.core.resources.ResourcesPlugin;
-
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.core.search.IJavaSearchConstants;
@@ -148,7 +149,6 @@ import org.eclipse.jdt.core.search.IJavaSearchScope;
 import org.eclipse.jdt.core.search.SearchEngine;
 import org.eclipse.jdt.core.search.SearchPattern;
 import org.eclipse.jdt.core.search.TypeNameRequestor;
-
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
@@ -273,6 +273,19 @@ public final class JavaCore extends Plugin {
 	 * @category CompilerOptionID
 	 */
 	public static final String COMPILER_CODEGEN_UNUSED_LOCAL = PLUGIN_ID + ".compiler.codegen.unusedLocal"; //$NON-NLS-1$
+	/**
+	 * Compiler option ID: Generating Method Parameters  Attribute.
+	 * <p>When generated, this attribute will enable parameter names to be accessed from reflection libraries, annotation processing,
+	 * code weaving, and in the debugger, from platform target level 1.8 and later.</p>
+	 * <dl>
+	 * <dt>Option id:</dt><dd><code>"org.eclipse.jdt.core.compiler.codegen.methodParameters"</code></dd>
+	 * <dt>Possible values:</dt><dd><code>{ "generate", "do not generate" }</code></dd>
+	 * <dt>Default:</dt><dd><code>"do not generate"</code></dd>
+	 * </dl>
+	 * @since 3.9 BETA_JAVA8
+	 * @category CompilerOptionID
+	 */
+	public static final String COMPILER_CODEGEN_METHOD_PARAMETERS_ATTR = PLUGIN_ID + ".compiler.codegen.methodParameters"; //$NON-NLS-1$
 	/**
 	 * Compiler option ID: Defining Target Java Platform.
 	 * <p>For binary compatibility reason, .class files can be tagged to with certain VM versions and later.</p>
@@ -2649,7 +2662,7 @@ public final class JavaCore extends Plugin {
 	public static final String VERSION_1_7 = "1.7"; //$NON-NLS-1$
 	/**
 	 * Configurable option value: {@value}.
-	 * @since 3.9
+	 * @since 3.9 BETA_JAVA8
 	 * @category OptionValue
 	 */
 	public static final String VERSION_1_8 = "1.8"; //$NON-NLS-1$
@@ -4065,6 +4078,21 @@ public final class JavaCore extends Plugin {
 				// Creation of external folder project failed. Log it and continue;
 				Util.log(jme, "Error while processing external folders"); //$NON-NLS-1$
 			}
+
+			// ensure external jars are refreshed (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=93668)
+			// before search is initialized (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=405051)
+			final JavaModel model = manager.getJavaModel();
+			try {
+				if (monitor != null)
+					monitor.subTask(Messages.javamodel_refreshing_external_jars);
+				model.refreshExternalArchives(
+					null/*refresh all projects*/,
+					monitor == null ? null : new SubProgressMonitor(monitor, 1) // 1% of the time is spent in jar refresh
+				);
+			} catch (JavaModelException e) {
+				// refreshing failed: ignore
+			}
+
 			// initialize delta state
 			if (monitor != null)
 				monitor.subTask(Messages.javamodel_initializing_delta_state);
@@ -4119,7 +4147,6 @@ public final class JavaCore extends Plugin {
 			} catch (CoreException e) {
 				// could not read version number: consider it is new
 			}
-			final JavaModel model = manager.getJavaModel();
 			String newVersionNumber = Byte.toString(State.VERSION);
 			if (!newVersionNumber.equals(versionNumber)) {
 				// build state version number has changed: touch every projects to force a rebuild
@@ -4153,19 +4180,6 @@ public final class JavaCore extends Plugin {
 					Util.log(e, "Could not persist build state version number"); //$NON-NLS-1$
 				}
 			}
-
-			// ensure external jars are refreshed (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=93668)
-			try {
-				if (monitor != null)
-					monitor.subTask(Messages.javamodel_refreshing_external_jars);
-				model.refreshExternalArchives(
-					null/*refresh all projects*/,
-					monitor == null ? null : new SubProgressMonitor(monitor, 1) // 1% of the time is spent in jar refresh
-				);
-			} catch (JavaModelException e) {
-				// refreshing failed: ignore
-			}
-
 		} finally {
 			if (monitor != null) monitor.done();
 		}
@@ -4285,7 +4299,7 @@ public final class JavaCore extends Plugin {
 	 * <p>
 	 * The rule kind is one of {@link IAccessRule#K_ACCESSIBLE}, {@link IAccessRule#K_DISCOURAGED},
 	 * or {@link IAccessRule#K_NON_ACCESSIBLE}, optionally combined with {@link IAccessRule#IGNORE_IF_BETTER},
-	 * e..g. <code>IAccessRule.K_NON_ACCESSIBLE | IAccessRule.IGNORE_IF_BETTER</code>.
+	 * e.g. <code>IAccessRule.K_NON_ACCESSIBLE | IAccessRule.IGNORE_IF_BETTER</code>.
 	 * </p>
 	 *
 	 * @param filePattern the file pattern this access rule should match
@@ -4294,6 +4308,8 @@ public final class JavaCore extends Plugin {
 	 *                     {@link IAccessRule#IGNORE_IF_BETTER}
 	 * @return a new access rule
 	 * @since 3.1
+	 * 
+	 * @see IClasspathEntry#getExclusionPatterns()
 	 */
 	public static IAccessRule newAccessRule(IPath filePattern, int kind) {
 		return new ClasspathAccessRule(filePattern, kind);

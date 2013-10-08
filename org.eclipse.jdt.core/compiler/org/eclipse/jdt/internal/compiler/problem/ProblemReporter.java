@@ -32,14 +32,26 @@
  *								bug 388739 - [1.8][compiler] consider default methods when detecting whether a class needs to be declared abstract
  *								bug 331649 - [compiler][null] consider null annotations for fields
  *								bug 382789 - [compiler][null] warn when syntactically-nonnull expression is compared against null
+ *								bug 376590 - Private fields with @Inject are ignored by unused field validation
+ *								bug 400761 - [compiler][null] null may be return as boolean without a diagnostic
  *								bug 402028 - [1.8][compiler] null analysis for reference expressions 
  *								bug 401796 - [1.8][compiler] don't treat default methods as overriding an independent inherited abstract method
  *								bug 404649 - [1.8][compiler] detect illegal reference to indirect or redundant super
+ *								bug 392384 - [1.8][compiler][null] Restore nullness info from type annotations in class files
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
+ *								Bug 415291 - [1.8][null] differentiate type incompatibilities due to null annotations
+ *								Bug 415850 - [1.8] Ensure RunJDTCoreTests can cope with null annotations enabled
+ *								Bug 414380 - [compiler][internal] QualifiedNameReference#indexOfFirstFieldBinding does not point to the first field
+ *								Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
+ *								Bug 416307 - [1.8][compiler][null] subclass with type parameter substitution confuses null checking
  *      Jesper S Moller <jesper@selskabet.org> -  Contributions for
  *								bug 382701 - [1.8][compiler] Implement semantic analysis of Lambda expressions & Reference expression
  *								bug 382721 - [1.8][compiler] Effectively final variables needs special treatment
  *								bug 384567 - [1.5][compiler] Compiler accepts illegal modifiers on package declaration
- *******************************************************************************/
+ *								bug 412153 - [1.8][compiler] Check validity of annotations which may be repeatable
+ *								bug 412151 - [1.8][compiler] Check repeating annotation's collection type
+ ********************************************************************************/
 package org.eclipse.jdt.internal.compiler.problem;
 
 import java.io.CharConversionException;
@@ -96,6 +108,7 @@ import org.eclipse.jdt.internal.compiler.ast.MemberValuePair;
 import org.eclipse.jdt.internal.compiler.ast.MessageSend;
 import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.NameReference;
+import org.eclipse.jdt.internal.compiler.ast.NullAnnotationMatching;
 import org.eclipse.jdt.internal.compiler.ast.NullLiteral;
 import org.eclipse.jdt.internal.compiler.ast.ParameterizedQualifiedTypeReference;
 import org.eclipse.jdt.internal.compiler.ast.ParameterizedSingleTypeReference;
@@ -123,6 +136,7 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
+import org.eclipse.jdt.internal.compiler.lookup.CaptureBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
@@ -325,12 +339,16 @@ public static int getIrritant(int problemID) {
 
 		case IProblem.NullLocalVariableReference:
 		case IProblem.NullableFieldReference:
+		case IProblem.NullExpressionReference:
+		case IProblem.NullUnboxing:
 			return CompilerOptions.NullReference;
 
 		case IProblem.PotentialNullLocalVariableReference:
 		case IProblem.PotentialNullMessageSendReference:
 		case IProblem.ArrayReferencePotentialNullReference:
 		case IProblem.DereferencingNullableExpression:
+		case IProblem.PotentialNullExpressionReference:
+		case IProblem.PotentialNullUnboxing:
 			return CompilerOptions.PotentialNullReference;
 
 		case IProblem.RedundantLocalVariableNullAssignment:
@@ -347,6 +365,9 @@ public static int getIrritant(int problemID) {
 		case IProblem.NonNullMessageSendComparisonYieldsFalse:
 		case IProblem.RedundantNullCheckOnNonNullSpecdField:
 		case IProblem.NonNullSpecdFieldComparisonYieldsFalse:
+		case IProblem.RedundantNullCheckAgainstNonNullType:
+		case IProblem.RedundantNullCheckOnField:
+		case IProblem.FieldComparisonYieldsFalse:
 			return CompilerOptions.RedundantNullCheck;
 
 		case IProblem.RequiredNonNullButProvidedNull:
@@ -359,6 +380,8 @@ public static int getIrritant(int problemID) {
 		case IProblem.ConflictingNullAnnotations:
 		case IProblem.ConflictingInheritedNullAnnotations:
 		case IProblem.NullityMismatchingTypeAnnotation:
+		case IProblem.NullityMismatchingTypeAnnotationSuperHint:
+		case IProblem.NullityMismatchTypeArgument:
 		case IProblem.UninitializedNonNullField:
 		case IProblem.UninitializedNonNullFieldHintMissingDefault:
 		case IProblem.ReferenceExpressionParameterMismatchPromisedNullable:
@@ -371,9 +394,11 @@ public static int getIrritant(int problemID) {
 		case IProblem.RequiredNonNullButProvidedPotentialNull:
 			return CompilerOptions.NullAnnotationInferenceConflict;
 		case IProblem.RequiredNonNullButProvidedUnknown:
-		case IProblem.NullityMismatchingTypeAnnotationUnchecked:
+		case IProblem.NullityUncheckedTypeAnnotationDetail:
+		case IProblem.NullityUncheckedTypeAnnotationDetailSuperHint:
 		case IProblem.ReferenceExpressionParameterRequiredNonnullUnchecked:
 		case IProblem.ReferenceExpressionReturnNullRedefUnchecked:
+		case IProblem.UnsafeNullnessCast:
 			return CompilerOptions.NullUncheckedConversion;
 		case IProblem.RedundantNullAnnotation:
 		case IProblem.RedundantNullDefaultAnnotation:
@@ -537,7 +562,7 @@ public static int getIrritant(int problemID) {
 			
 		case IProblem.UnusedTypeParameter:
 			return CompilerOptions.UnusedTypeParameter;
-	}
+}
 	return 0;
 }
 /**
@@ -1087,6 +1112,16 @@ public void bytecodeExceeds64KLimit(AbstractMethodDeclaration location) {
 			location.sourceEnd);
 	}
 }
+public void bytecodeExceeds64KLimit(LambdaExpression location) {
+	MethodBinding method = location.binding;
+		this.handle(
+			IProblem.BytecodeExceeds64KLimit,
+			new String[] {new String(method.selector), typesAsString(method, false)},
+			new String[] {new String(method.selector), typesAsString(method, true)},
+			ProblemSeverities.Error | ProblemSeverities.Abort | ProblemSeverities.Fatal,
+			location.sourceStart,
+			location.sourceEnd);
+}
 public void bytecodeExceeds64KLimit(TypeDeclaration location) {
 	this.handle(
 		IProblem.BytecodeExceeds64KLimitForClinit,
@@ -1563,6 +1598,13 @@ public void defaultMethodOverridesObjectMethod(MethodBinding currentMethod) {
 		sourceStart, sourceEnd);
 }
 
+public void defaultModifierIllegallySpecified(int sourceStart, int sourceEnd) {
+	this.handle(
+		IProblem.IllegalDefaultModifierSpecification,
+		NoArgument, NoArgument,
+		sourceStart, sourceEnd);
+}
+
 public void deprecatedField(FieldBinding field, ASTNode location) {
 	int severity = computeSeverity(IProblem.UsingDeprecatedField);
 	if (severity == ProblemSeverities.Ignore) return;
@@ -1669,9 +1711,9 @@ public void multiCatchNotBelow17(ASTNode node) {
 			node.sourceStart,
 			node.sourceEnd);
 }
-public void duplicateAnnotation(Annotation annotation) {
+public void duplicateAnnotation(Annotation annotation, long sourceLevel) {
 	this.handle(
-		IProblem.DuplicateAnnotation,
+		sourceLevel >= ClassFileConstants.JDK1_8 ? IProblem.DuplicateAnnotationNotMarkedRepeatable : IProblem.DuplicateAnnotation,
 		new String[] {new String(annotation.resolvedType.readableName())},
 		new String[] {new String(annotation.resolvedType.shortReadableName())},
 		annotation.sourceStart,
@@ -1803,7 +1845,7 @@ public void duplicateInitializationOfFinalLocal(LocalVariableBinding local, ASTN
 		nodeSourceStart(local, location),
 		nodeSourceEnd(local, location));
 }
-public void duplicateMethodInType(SourceTypeBinding type, AbstractMethodDeclaration methodDecl, boolean equalParameters, int severity) {
+public void duplicateMethodInType(AbstractMethodDeclaration methodDecl, boolean equalParameters, int severity) {
     MethodBinding method = methodDecl.binding;
     if (equalParameters) {
 		this.handle(
@@ -1820,23 +1862,16 @@ public void duplicateMethodInType(SourceTypeBinding type, AbstractMethodDeclarat
 			methodDecl.sourceStart,
 			methodDecl.sourceEnd);
     } else {
-        int length = method.parameters.length;
-        TypeBinding[] erasures = new TypeBinding[length];
-        for (int i = 0; i < length; i++)  {
-            erasures[i] = method.parameters[i].erasure();
-        }
 		this.handle(
 			IProblem.DuplicateMethodErasure,
 			new String[] {
 		        new String(methodDecl.selector),
 				new String(method.declaringClass.readableName()),
-				typesAsString(method, false),
-				typesAsString(method, erasures, false) } ,
+				typesAsString(method, false)},
 			new String[] {
 				new String(methodDecl.selector),
 				new String(method.declaringClass.shortReadableName()),
-				typesAsString(method, true),
-				typesAsString(method, erasures, true) },
+				typesAsString(method, true)},
 			severity,
 			methodDecl.sourceStart,
 			methodDecl.sourceEnd);
@@ -2426,6 +2461,15 @@ public void illegalAbstractModifierCombinationForMethod(ReferenceBinding type, A
 		methodDecl.sourceStart,
 		methodDecl.sourceEnd);
 }
+public void illegalAbstractModifierCombinationForMethod(AbstractMethodDeclaration methodDecl) {
+	String[] arguments = new String[] {new String(methodDecl.selector)};
+	this.handle(
+		IProblem.IllegalStrictfpForAbstractInterfaceMethod,
+		arguments,
+		arguments,
+		methodDecl.sourceStart,
+		methodDecl.sourceEnd);
+}
 public void illegalAccessFromTypeVariable(TypeVariableBinding variable, ASTNode location) {
 	if ((location.bits & ASTNode.InsideJavadoc)!= 0) {
 		javadocInvalidReference(location.sourceStart, location.sourceEnd);
@@ -2552,6 +2596,16 @@ public void illegalModifierCombinationFinalVolatileForField(ReferenceBinding typ
 		fieldDecl.sourceStart,
 		fieldDecl.sourceEnd);
 }
+public void illegalModifierCombinationForInterfaceMethod(AbstractMethodDeclaration methodDecl) {
+	String[] arguments = new String[] {new String(methodDecl.selector)};
+	this.handle(
+		IProblem.IllegalModifierCombinationForInterfaceMethod,
+		arguments,
+		arguments,
+		methodDecl.sourceStart,
+		methodDecl.sourceEnd);
+}
+
 public void illegalModifierForAnnotationField(FieldDeclaration fieldDecl) {
 	String name = new String(fieldDecl.name);
 	this.handle(
@@ -2669,12 +2723,12 @@ public void illegalModifierForInterfaceField(FieldDeclaration fieldDecl) {
 		fieldDecl.sourceStart,
 		fieldDecl.sourceEnd);
 }
-public void illegalModifierForInterfaceMethod(AbstractMethodDeclaration methodDecl, boolean isDefaultMethod) {
+public void illegalModifierForInterfaceMethod(AbstractMethodDeclaration methodDecl, boolean isJDK18orGreater) {
 	// cannot include parameter types since they are not resolved yet
 	// and the error message would be too long
 	this.handle(
-		isDefaultMethod 
-			? IProblem.IllegalModifierForInterfaceDefaultMethod 
+		isJDK18orGreater 
+			? IProblem.IllegalModifierForInterfaceMethod18 
 			: IProblem.IllegalModifierForInterfaceMethod,
 		new String[] {
 			new String(methodDecl.selector)
@@ -3937,6 +3991,13 @@ public void invalidMethod(MessageSend messageSend, MethodBinding method) {
 					String parameterTypeNames = typesAsString(problemMethod.parameters, false);
 					String closestParameterTypeShortNames = typesAsString(shownMethod, true);
 					String parameterTypeShortNames = typesAsString(problemMethod.parameters, true);
+					if (closestParameterTypeNames.equals(parameterTypeNames)) {
+						// include null annotations, maybe they show the difference:
+						closestParameterTypeNames = typesAsString(shownMethod, false, true);
+						parameterTypeNames = typesAsString(problemMethod.parameters, false, true);
+						closestParameterTypeShortNames = typesAsString(shownMethod, true, true);
+						parameterTypeShortNames = typesAsString(problemMethod.parameters, true, true);
+					}
 					if (closestParameterTypeShortNames.equals(parameterTypeShortNames)) {
 						closestParameterTypeShortNames = closestParameterTypeNames;
 						parameterTypeShortNames = parameterTypeNames;
@@ -5481,8 +5542,19 @@ public boolean expressionNonNullComparison(Expression expr, boolean checkForNull
 	Binding binding = null;
 	String[] arguments = null;
 	int start = 0, end = 0;
-
 	Expression location = expr;
+
+	if (expr.resolvedType != null) {
+		long tagBits = expr.resolvedType.tagBits & TagBits.AnnotationNullMASK;
+		if (tagBits == TagBits.AnnotationNonNull) {
+			problemId = IProblem.RedundantNullCheckAgainstNonNullType;
+			arguments = new String[] { String.valueOf(expr.resolvedType.nullAnnotatedReadableName(this.options, true)) };
+			start = nodeSourceStart(location);
+			end = nodeSourceEnd(location);
+			handle(problemId, arguments, arguments, start, end);
+			return true;
+		}
+	}
 	// unwrap uninteresting nodes:
 	while (true) {
 		if (expr instanceof Assignment)
@@ -5514,6 +5586,12 @@ public boolean expressionNonNullComparison(Expression expr, boolean checkForNull
 			char[][] nonNullName = this.options.nonNullAnnotationName;
 			arguments = new String[] { new String(field.name), 
 									   new String(nonNullName[nonNullName.length-1]) };
+		} else {
+			// signaling redundancy based on syntactic analysis:
+			problemId = checkForNull
+					? IProblem.FieldComparisonYieldsFalse
+					: IProblem.RedundantNullCheckOnField;
+			arguments = new String[] { String.valueOf(field.name)};
 		}
 		binding = field;
 		start = nodeSourceStart(binding, location);
@@ -5557,7 +5635,36 @@ public boolean expressionNonNullComparison(Expression expr, boolean checkForNull
 	this.handle(problemId, arguments, arguments, start, end);
 	return true;
 }
+public void nullAnnotationUnsupportedLocation(Annotation annotation) {
+	String[] arguments = new String[] {
+		String.valueOf(annotation.resolvedType.readableName())
+	};
+	String[] shortArguments = new String[] {
+		String.valueOf(annotation.resolvedType.shortReadableName())
+	};
+	handle(IProblem.NullAnnotationUnsupportedLocation,
+		arguments, shortArguments, annotation.sourceStart, annotation.sourceEnd);
+}
+public void nullAnnotationUnsupportedLocation(TypeReference type) {
+	int sourceEnd = type.sourceEnd;
+	if (type instanceof ParameterizedSingleTypeReference) {
+		ParameterizedSingleTypeReference typeReference = (ParameterizedSingleTypeReference) type;
+		TypeReference[] typeArguments = typeReference.typeArguments;
+		if (typeArguments[typeArguments.length - 1].sourceEnd > typeReference.sourceEnd) {
+			sourceEnd = retrieveClosingAngleBracketPosition(typeReference.sourceEnd);
+		} else {
+			sourceEnd = type.sourceEnd;
+		}
+	} else if (type instanceof ParameterizedQualifiedTypeReference) {
+		ParameterizedQualifiedTypeReference typeReference = (ParameterizedQualifiedTypeReference) type;
+		sourceEnd = retrieveClosingAngleBracketPosition(typeReference.sourceEnd);
+	} else {
+		sourceEnd = type.sourceEnd;
+	}
 
+	handle(IProblem.NullAnnotationUnsupportedLocationAtType,
+		NoArgument, NoArgument, type.sourceStart, sourceEnd);
+}
 public void localVariableNullInstanceof(LocalVariableBinding local, ASTNode location) {
 	int severity = computeSeverity(IProblem.NullLocalVariableInstanceofYieldsFalse);
 	if (severity == ProblemSeverities.Ignore) return;
@@ -5572,6 +5679,10 @@ public void localVariableNullInstanceof(LocalVariableBinding local, ASTNode loca
 }
 
 public void localVariableNullReference(LocalVariableBinding local, ASTNode location) {
+	if (location instanceof Expression && (((Expression)location).implicitConversion & TypeIds.UNBOXING) != 0) {
+		nullUnboxing(location, local.type);
+		return;
+	}
 	int severity = computeSeverity(IProblem.NullLocalVariableReference);
 	if (severity == ProblemSeverities.Ignore) return;
 	String[] arguments = new String[] {new String(local.name)  };
@@ -5585,6 +5696,14 @@ public void localVariableNullReference(LocalVariableBinding local, ASTNode locat
 }
 
 public void localVariablePotentialNullReference(LocalVariableBinding local, ASTNode location) {
+	if (location instanceof Expression && (((Expression)location).implicitConversion & TypeIds.UNBOXING) != 0) {
+		potentialNullUnboxing(location, local.type);
+		return;
+	}
+	if ((local.type.tagBits & TagBits.AnnotationNullable) != 0 && location instanceof Expression) {
+		dereferencingNullableExpression((Expression) location);
+		return;
+	}
 	int severity = computeSeverity(IProblem.PotentialNullLocalVariableReference);
 	if (severity == ProblemSeverities.Ignore) return;
 	String[] arguments = new String[] {new String(local.name)};
@@ -5596,17 +5715,25 @@ public void localVariablePotentialNullReference(LocalVariableBinding local, ASTN
 		nodeSourceStart(local, location),
 		nodeSourceEnd(local, location));
 }
-
-public void nullableFieldDereference(VariableBinding variable, long position) {
-	String[] arguments = new String[] {new String(variable.name)};
+public void potentialNullUnboxing(ASTNode expression, TypeBinding boxType) {
+	String[] arguments = new String[] { String.valueOf(boxType.readableName()) };
+	String[] argumentsShort = new String[] { String.valueOf(boxType.shortReadableName()) };
+	this.handle(IProblem.PotentialNullUnboxing, arguments, argumentsShort, expression.sourceStart, expression.sourceEnd);
+}
+public void nullUnboxing(ASTNode expression, TypeBinding boxType) {
+	String[] arguments = new String[] { String.valueOf(boxType.readableName()) };
+	String[] argumentsShort = new String[] { String.valueOf(boxType.shortReadableName()) };
+	this.handle(IProblem.NullUnboxing, arguments, argumentsShort, expression.sourceStart, expression.sourceEnd);
+}
+public void nullableFieldDereference(FieldBinding variable, long position) {
 	char[][] nullableName = this.options.nullableAnnotationName;
-		arguments = new String[] {new String(variable.name), new String(nullableName[nullableName.length-1])};
+	String[] arguments = new String[] {new String(variable.name), new String(nullableName[nullableName.length-1])};
 	this.handle(
 		IProblem.NullableFieldReference,
 		arguments,
 		arguments,
 		(int)(position >>> 32),
-		(int)(position));
+		(int)position);
 }
 
 public void localVariableRedundantCheckOnNonNull(LocalVariableBinding local, ASTNode location) {
@@ -6085,6 +6212,14 @@ public void noAdditionalBoundAfterTypeVariable(TypeReference boundReference) {
 		boundReference.sourceStart,
 		boundReference.sourceEnd);
 }
+private int nodeSourceEnd(ASTNode node) {
+	if (node instanceof Reference) {
+		Binding field = ((Reference) node).lastFieldBinding();
+		if (field != null)
+			return nodeSourceEnd(field, node);
+	}
+	return node.sourceEnd;
+}
 private int nodeSourceEnd(Binding field, ASTNode node) {
 	return nodeSourceEnd(field, node, 0);
 }
@@ -6140,6 +6275,14 @@ private int nodeSourceEnd(Binding field, ASTNode node, int index) {
 		}
 	}
 	return node.sourceEnd;
+}
+private int nodeSourceStart(ASTNode node) {
+	if (node instanceof Reference) {
+		Binding field = ((Reference) node).lastFieldBinding();
+		if (field != null)
+			return nodeSourceStart(field, node);
+	}
+	return node.sourceStart;
 }
 private int nodeSourceStart(Binding field, ASTNode node) {
 	return nodeSourceStart(field, node, 0);
@@ -6919,6 +7062,81 @@ public void referenceMustBeArrayTypeAt(TypeBinding arrayType, ArrayReference arr
 		arrayRef.sourceStart,
 		arrayRef.sourceEnd);
 }
+public void repeatedAnnotationWithContainer(Annotation annotation, Annotation container) {
+	this.handle(
+		IProblem.RepeatedAnnotationWithContainerAnnotation,
+		new String[] {new String(annotation.resolvedType.readableName()), new String(container.resolvedType.readableName())},
+		new String[] {new String(annotation.resolvedType.shortReadableName()), new String(container.resolvedType.shortReadableName())},
+		annotation.sourceStart,
+		annotation.sourceEnd);
+}
+public void containingAnnotationMustHaveValue(ASTNode markerNode, ReferenceBinding containerAnnotationType) {
+	this.handle(
+		IProblem.ContainingAnnotationMustHaveValue,
+		new String[] {new String(containerAnnotationType.readableName())},
+		new String[] {new String(containerAnnotationType.shortReadableName())},
+		markerNode.sourceStart,
+		markerNode.sourceEnd);
+}
+public void containingAnnotationHasWrongValueType(ASTNode markerNode, ReferenceBinding containerAnnotationType, ReferenceBinding annotationType, TypeBinding returnType) {
+	this.handle(
+		IProblem.ContainingAnnotationHasWrongValueType,
+		new String[] {new String(containerAnnotationType.readableName()), new String(annotationType.readableName()), new String(returnType.readableName())},
+		new String[] {new String(containerAnnotationType.shortReadableName()), new String(annotationType.shortReadableName()), new String(returnType.shortReadableName())},
+		markerNode.sourceStart,
+		markerNode.sourceEnd);
+}
+public void containingAnnotationHasNonDefaultMembers(ASTNode markerNode, ReferenceBinding containerAnnotationType, char[] selector) {
+	this.handle(
+		IProblem.ContainingAnnotationHasNonDefaultMembers,
+		new String[] {new String(containerAnnotationType.readableName()), new String(selector)},
+		new String[] {new String(containerAnnotationType.shortReadableName()), new String(selector)},
+		markerNode.sourceStart,
+		markerNode.sourceEnd);
+}
+public void containingAnnotationHasShorterRetention(ASTNode markerNode, ReferenceBinding annotationType, String annotationRetention, ReferenceBinding containerAnnotationType, String containerRetention) {
+	this.handle(
+		IProblem.ContainingAnnotationHasShorterRetention,
+		new String[] {new String(annotationType.readableName()), annotationRetention, new String(containerAnnotationType.readableName()), containerRetention},
+		new String[] {new String(annotationType.shortReadableName()), annotationRetention, new String(containerAnnotationType.shortReadableName()), containerRetention},
+		markerNode.sourceStart,
+		markerNode.sourceEnd);
+}
+public void repeatableAnnotationHasTargets(ASTNode markerNode, ReferenceBinding annotationType, ReferenceBinding containerAnnotationType) {
+	this.handle(
+		IProblem.RepeatableAnnotationHasTargets,
+		new String[] {new String(annotationType.readableName()), new String(containerAnnotationType.readableName())},
+		new String[] {new String(annotationType.shortReadableName()), new String(containerAnnotationType.shortReadableName())},
+		markerNode.sourceStart,
+		markerNode.sourceEnd);
+}
+public void repeatableAnnotationTargetMismatch(ASTNode markerNode, ReferenceBinding annotationType, ReferenceBinding containerAnnotationType, String unmetTargets) {
+	this.handle(
+		IProblem.RepeatableAnnotationTargetMismatch,
+		new String[] {new String(annotationType.readableName()), new String(containerAnnotationType.readableName()), unmetTargets},
+		new String[] {new String(annotationType.shortReadableName()), new String(containerAnnotationType.shortReadableName()), unmetTargets},
+		markerNode.sourceStart,
+		markerNode.sourceEnd);
+}
+
+public void repeatableAnnotationIsDocumented(ASTNode markerNode, ReferenceBinding annotationType, ReferenceBinding containerAnnotationType) {
+	this.handle(
+		IProblem.RepeatableAnnotationIsDocumented,
+		new String[] {new String(annotationType.readableName()), new String(containerAnnotationType.readableName())},
+		new String[] {new String(annotationType.shortReadableName()), new String(containerAnnotationType.shortReadableName())},
+		markerNode.sourceStart,
+		markerNode.sourceEnd);
+}
+
+public void repeatableAnnotationIsInherited(ASTNode markerNode, ReferenceBinding annotationType, ReferenceBinding containerAnnotationType) {
+	this.handle(
+		IProblem.RepeatableAnnotationIsInherited,
+		new String[] {new String(annotationType.readableName()), new String(containerAnnotationType.readableName())},
+		new String[] {new String(annotationType.shortReadableName()), new String(containerAnnotationType.shortReadableName())},
+		markerNode.sourceStart,
+		markerNode.sourceEnd);
+}
+
 public void reset() {
 	this.positionScanner = null;
 }
@@ -7473,13 +7691,23 @@ public void typeMismatchError(TypeBinding actualType, TypeBinding expectedType, 
 	}
 	char[] actualShortReadableName = actualType.shortReadableName();
 	char[] expectedShortReadableName = expectedType.shortReadableName();
+	char[] actualReadableName = actualType.readableName();
+	char[] expectedReadableName = expectedType.readableName();
 	if (CharOperation.equals(actualShortReadableName, expectedShortReadableName)) {
-		actualShortReadableName = actualType.readableName();
-		expectedShortReadableName = expectedType.readableName();
+		if (CharOperation.equals(actualReadableName, expectedReadableName)) {
+			// if full type names are equal, assume the incompatibility is due to mismatching null annotations:
+			actualReadableName = actualType.nullAnnotatedReadableName(this.options, false);
+			expectedReadableName = expectedType.nullAnnotatedReadableName(this.options, false);
+			actualShortReadableName = actualType.nullAnnotatedReadableName(this.options, true);
+			expectedShortReadableName = expectedType.nullAnnotatedReadableName(this.options, true);
+		} else {
+			actualShortReadableName = actualReadableName;
+			expectedShortReadableName = expectedReadableName;
+		}
 	}
 	this.handle(
 		IProblem.TypeMismatch,
-		new String[] {new String(actualType.readableName()), new String(expectedType.readableName())},
+		new String[] {new String(actualReadableName), new String(expectedReadableName)},
 		new String[] {new String(actualShortReadableName), new String(expectedShortReadableName)},
 		location.sourceStart,
 		location.sourceEnd);
@@ -7506,6 +7734,12 @@ private String typesAsString(MethodBinding methodBinding, boolean makeShort) {
 	return typesAsString(methodBinding, methodBinding.parameters, makeShort);
 }
 private String typesAsString(MethodBinding methodBinding, TypeBinding[] parameters, boolean makeShort) {
+	return typesAsString(methodBinding, parameters, makeShort, false);
+}
+private String typesAsString(MethodBinding methodBinding, boolean makeShort, boolean showNullAnnotations) {
+	return typesAsString(methodBinding, methodBinding.parameters, makeShort, showNullAnnotations);
+}
+private String typesAsString(MethodBinding methodBinding, TypeBinding[] parameters, boolean makeShort, boolean showNullAnnotations) {
 	if (methodBinding.isPolymorphic()) {
 		// get the original polymorphicMethod method
 		TypeBinding[] types = methodBinding.original().parameters;
@@ -7519,7 +7753,10 @@ private String typesAsString(MethodBinding methodBinding, TypeBinding[] paramete
 			if (isVarargType) {
 				type = ((ArrayBinding)type).elementsType();
 			}
-			buffer.append(new String(makeShort ? type.shortReadableName() : type.readableName()));
+			if (showNullAnnotations)
+				buffer.append(new String(type.nullAnnotatedReadableName(this.options, makeShort)));
+			else
+				buffer.append(new String(makeShort ? type.shortReadableName() : type.readableName()));
 			if (isVarargType) {
 				buffer.append("..."); //$NON-NLS-1$
 			}
@@ -7536,7 +7773,10 @@ private String typesAsString(MethodBinding methodBinding, TypeBinding[] paramete
 		if (isVarargType) {
 			type = ((ArrayBinding)type).elementsType();
 		}
-		buffer.append(new String(makeShort ? type.shortReadableName() : type.readableName()));
+		if (showNullAnnotations)
+			buffer.append(new String(type.nullAnnotatedReadableName(this.options, makeShort)));
+		else
+			buffer.append(new String(makeShort ? type.shortReadableName() : type.readableName()));
 		if (isVarargType) {
 			buffer.append("..."); //$NON-NLS-1$
 		}
@@ -7544,13 +7784,19 @@ private String typesAsString(MethodBinding methodBinding, TypeBinding[] paramete
 	return buffer.toString();
 }
 private String typesAsString(TypeBinding[] types, boolean makeShort) {
+	return typesAsString(types, makeShort, false);
+}
+private String typesAsString(TypeBinding[] types, boolean makeShort, boolean showNullAnnotations) {
 	StringBuffer buffer = new StringBuffer(10);
 	for (int i = 0, length = types.length; i < length; i++) {
 		if (i != 0) {
 			buffer.append(", "); //$NON-NLS-1$
 		}
 		TypeBinding type = types[i];
-		buffer.append(new String(makeShort ? type.shortReadableName() : type.readableName()));
+		if (showNullAnnotations)
+			buffer.append(new String(type.nullAnnotatedReadableName(this.options, makeShort)));
+		else
+			buffer.append(new String(makeShort ? type.shortReadableName() : type.readableName()));
 	}
 	return buffer.toString();
 }
@@ -7887,6 +8133,22 @@ public void unsafeCast(CastExpression castExpression, Scope scope) {
 		castExpression.sourceStart,
 		castExpression.sourceEnd);
 }
+public void unsafeNullnessCast(CastExpression castExpression, Scope scope) {
+	TypeBinding castedExpressionType = castExpression.expression.resolvedType;
+	TypeBinding castExpressionResolvedType = castExpression.resolvedType;
+	this.handle(
+		IProblem.UnsafeNullnessCast,
+		new String[]{
+			new String(castedExpressionType.nullAnnotatedReadableName(this.options, false)),
+			new String(castExpressionResolvedType.nullAnnotatedReadableName(this.options, false))
+		},
+		new String[]{
+			new String(castedExpressionType.nullAnnotatedReadableName(this.options, true)),
+			new String(castExpressionResolvedType.nullAnnotatedReadableName(this.options, true))
+		},
+		castExpression.sourceStart,
+		castExpression.sourceEnd);
+}
 public void unsafeGenericArrayForVarargs(TypeBinding leafComponentType, ASTNode location) {
 	int severity = computeSeverity(IProblem.UnsafeGenericArrayForVarargs);
 	if (severity == ProblemSeverities.Ignore) return;
@@ -8164,7 +8426,7 @@ public void unusedPrivateConstructor(ConstructorDeclaration constructorDecl) {
 	int severity = computeSeverity(IProblem.UnusedPrivateConstructor);
 	if (severity == ProblemSeverities.Ignore) return;
 	
-	if (excludeDueToAnnotation(constructorDecl.annotations)) return;
+	if (excludeDueToAnnotation(constructorDecl.annotations, IProblem.UnusedPrivateConstructor)) return;
 	
 	MethodBinding constructor = constructorDecl.binding;
 	this.handle(
@@ -8211,7 +8473,7 @@ public void unusedPrivateField(FieldDeclaration fieldDecl) {
 			}
 		}
 	}
-	if (excludeDueToAnnotation(fieldDecl.annotations)) return;
+	if (excludeDueToAnnotation(fieldDecl.annotations, IProblem.UnusedPrivateField)) return;
 	this.handle(
 			IProblem.UnusedPrivateField,
 		new String[] {
@@ -8265,7 +8527,7 @@ public void unusedPrivateMethod(AbstractMethodDeclaration methodDecl) {
 			&& CharOperation.equals(method.selector, TypeConstants.WRITEREPLACE)) {
 		return;
 	}
-	if (excludeDueToAnnotation(methodDecl.annotations)) return;
+	if (excludeDueToAnnotation(methodDecl.annotations, IProblem.UnusedPrivateMethod)) return;
 	
 	this.handle(
 			IProblem.UnusedPrivateMethod,
@@ -8287,9 +8549,10 @@ public void unusedPrivateMethod(AbstractMethodDeclaration methodDecl) {
 /**
  * Returns true if a private member should not be warned as unused if
  * annotated with a non-standard annotation.
- * https://bugs.eclipse.org/bugs/show_bug.cgi?id=365437
+ * https://bugs.eclipse.org/365437
+ * https://bugs.eclipse.org/376590
  */
-private boolean excludeDueToAnnotation(Annotation[] annotations) {
+private boolean excludeDueToAnnotation(Annotation[] annotations, int problemId) {
 	int annotationsLen = 0;
 	if (annotations != null) {
 		annotationsLen = annotations.length;
@@ -8308,6 +8571,11 @@ private boolean excludeDueToAnnotation(Annotation[] annotations) {
 				case TypeIds.T_ConfiguredAnnotationNullable:
 				case TypeIds.T_ConfiguredAnnotationNonNullByDefault:
 					break;
+				case TypeIds.T_JavaxInjectInject:
+				case TypeIds.T_ComGoogleInjectInject:
+					if (problemId != IProblem.UnusedPrivateField)
+						return true; // @Inject on method/ctor does constitute a relevant use, just on fields it doesn't
+					break;
 				default:
 					// non-standard annotation found, don't warn
 					return true;
@@ -8319,7 +8587,7 @@ private boolean excludeDueToAnnotation(Annotation[] annotations) {
 public void unusedPrivateType(TypeDeclaration typeDecl) {
 	int severity = computeSeverity(IProblem.UnusedPrivateType);
 	if (severity == ProblemSeverities.Ignore) return;
-	if (excludeDueToAnnotation(typeDecl.annotations)) return;
+	if (excludeDueToAnnotation(typeDecl.annotations, IProblem.UnusedPrivateType)) return;
 	ReferenceBinding type = typeDecl.binding;
 	this.handle(
 			IProblem.UnusedPrivateType,
@@ -8698,8 +8966,14 @@ public void explicitlyClosedAutoCloseable(FakedTrackingVariable trackVar) {
 
 public void nullityMismatch(Expression expression, TypeBinding providedType, TypeBinding requiredType, int nullStatus, char[][] annotationName) {
 	if ((nullStatus & FlowInfo.NULL) != 0) {
-		nullityMismatchIsNull(expression, requiredType, annotationName);
+		nullityMismatchIsNull(expression, requiredType);
 		return;
+	}
+	if (expression instanceof MessageSend) {
+		if ((((MessageSend) expression).binding.tagBits & TagBits.AnnotationNullable) != 0) {
+			nullityMismatchSpecdNullable(expression, requiredType, this.options.nonNullAnnotationName);
+			return;
+		}
 	}
 	if ((nullStatus & FlowInfo.POTENTIALLY_NULL) != 0) {
 		VariableBinding var = expression.localVariableBinding();
@@ -8713,15 +8987,23 @@ public void nullityMismatch(Expression expression, TypeBinding providedType, Typ
 		nullityMismatchPotentiallyNull(expression, requiredType, annotationName);
 		return;
 	}
-	nullityMismatchIsUnknown(expression, providedType, requiredType, annotationName);
+	if (this.options.sourceLevel < ClassFileConstants.JDK1_8)
+		nullityMismatchIsUnknown(expression, providedType, requiredType, annotationName);
+	else
+		nullityMismatchingTypeAnnotation(expression, providedType, requiredType, NullAnnotationMatching.NULL_ANNOTATIONS_UNCHECKED);
 }
-public void nullityMismatchIsNull(Expression expression, TypeBinding requiredType, char[][] annotationName) {
+public void nullityMismatchIsNull(Expression expression, TypeBinding requiredType) {
+	if (requiredType instanceof CaptureBinding) {
+		CaptureBinding capture = (CaptureBinding) requiredType;
+		if (capture.wildcard != null)
+			requiredType = capture.wildcard;
+	}
 	int problemId = IProblem.RequiredNonNullButProvidedNull;
 	String[] arguments = new String[] {
-			annotatedTypeName(requiredType, annotationName)
+			annotatedTypeName(requiredType, this.options.nonNullAnnotationName)
 	};
 	String[] argumentsShort = new String[] {
-			shortAnnotatedTypeName(requiredType, annotationName)
+			shortAnnotatedTypeName(requiredType, this.options.nonNullAnnotationName)
 	};
 	this.handle(problemId, arguments, argumentsShort, expression.sourceStart, expression.sourceEnd);
 }
@@ -8842,7 +9124,7 @@ public void illegalReturnRedefinition(AbstractMethodDeclaration abstractMethodDe
 		sourceStart,
 		methodDecl.returnType.sourceEnd);
 }
-public void parameterLackingNullableAnnotation(ReferenceExpression location, MethodBinding descriptorMethod, int idx,
+public void parameterLackingNullableAnnotation(ReferenceExpression location, MethodBinding descriptorMethod, int idx, int paramOffset,
 				char[][] providedAnnotationName, char/*@Nullable*/[][] requiredAnnotationName, TypeBinding requiredType) {
 	StringBuffer requiredPrefix = new StringBuffer(); 
 	StringBuffer requiredShortPrefix = new StringBuffer(); 
@@ -8850,7 +9132,7 @@ public void parameterLackingNullableAnnotation(ReferenceExpression location, Met
 		requiredPrefix.append('@').append(CharOperation.toString(requiredAnnotationName)).append(' ');
 		requiredShortPrefix.append('@').append(requiredAnnotationName[requiredAnnotationName.length-1]).append(' ');
 	}
-	TypeBinding provided = descriptorMethod.parameters[idx];
+	TypeBinding provided = descriptorMethod.parameters[idx+paramOffset];
 	StringBuffer methodSignature = new StringBuffer();
 	methodSignature
 		.append(descriptorMethod.declaringClass.readableName())
@@ -8946,6 +9228,22 @@ public void messageSendRedundantCheckOnNonNull(MethodBinding method, ASTNode loc
 		location.sourceStart,
 		location.sourceEnd);
 }
+public void expressionNullReference(ASTNode location) {
+	this.handle(
+		IProblem.NullExpressionReference,
+		NoArgument,
+		NoArgument,
+		location.sourceStart,
+		location.sourceEnd);
+}
+public void expressionPotentialNullReference(ASTNode location) {
+	this.handle(
+		IProblem.PotentialNullExpressionReference,
+		NoArgument,
+		NoArgument,
+		location.sourceStart,
+		location.sourceEnd);
+}
 
 public void cannotImplementIncompatibleNullness(MethodBinding currentMethod, MethodBinding inheritedMethod) {
 	int sourceStart = 0, sourceEnd = 0;
@@ -9029,6 +9327,17 @@ public void contradictoryNullAnnotations(Annotation annotation) {
 	this.handle(IProblem.ContradictoryNullAnnotations, arguments, shortArguments, annotation.sourceStart, annotation.sourceEnd);
 }
 
+public void contradictoryNullAnnotationsOnBounds(Annotation annotation, long previousTagBit) {
+	char[][] annotationName = previousTagBit == TagBits.AnnotationNonNull ? this.options.nonNullAnnotationName : this.options.nullableAnnotationName;
+	String[] arguments = {
+		new String(CharOperation.concatWith(annotationName, '.')),
+	};
+	String[] shortArguments = {
+		new String(annotationName[annotationName.length-1]),
+	};
+	this.handle(IProblem.ContradictoryNullAnnotationsOnBound, arguments, shortArguments, annotation.sourceStart, annotation.sourceEnd);
+}
+
 // conflict default <-> inherited
 public void conflictingNullAnnotations(MethodBinding currentMethod, ASTNode location, MethodBinding inheritedMethod)
 {
@@ -9067,37 +9376,49 @@ public void conflictingInheritedNullAnnotations(ASTNode location, boolean previo
 	this.handle(IProblem.ConflictingInheritedNullAnnotations, arguments, shortArguments, location.sourceStart, location.sourceEnd);
 }
 
-public void illegalAnnotationForBaseType(TypeReference type, Annotation[] annotations, char[] annotationName, long nullAnnotationTagBit)
+public void illegalAnnotationForBaseType(TypeReference type, Annotation[] annotations, long nullAnnotationTagBit)
 {
 	int typeId = (nullAnnotationTagBit == TagBits.AnnotationNullable) 
 			? TypeIds.T_ConfiguredAnnotationNullable : TypeIds.T_ConfiguredAnnotationNonNull;
-	String[] args = new String[] { new String(annotationName), new String(type.getLastToken()) };
+	char[][] annotationNames = (nullAnnotationTagBit == TagBits.AnnotationNonNull)
+			? this.options.nonNullAnnotationName
+			: this.options.nullableAnnotationName;
+	String[] args = new String[] { new String(annotationNames[annotationNames.length-1]), new String(type.getLastToken()) };
 	Annotation annotation = findAnnotation(annotations, typeId);
 	int start = annotation != null ? annotation.sourceStart : type.sourceStart;
+	int end = annotation != null ? annotation.sourceEnd : type.sourceEnd;
 	this.handle(IProblem.IllegalAnnotationForBaseType,
 			args,
 			args,
 			start,
-			type.sourceEnd);
+			end);
+}
+
+public void illegalAnnotationForBaseType(Annotation annotation, TypeBinding type)
+{
+	String[] args = new String[] {
+		new String(annotation.resolvedType.shortReadableName()),
+		new String(type.readableName())
+	};
+	this.handle(IProblem.IllegalAnnotationForBaseType,
+			args,
+			args,
+			annotation.sourceStart,
+			annotation.sourceEnd);
 }
 
 private String annotatedTypeName(TypeBinding type, char[][] annotationName) {
+	if ((type.tagBits & TagBits.AnnotationNullMASK) != 0)
+		return String.valueOf(type.nullAnnotatedReadableName(this.options, false));
 	int dims = 0;
-	if (type instanceof ArrayBinding && ((ArrayBinding)type).nullTagBitsPerDimension != null) {
-		dims = type.dimensions();
-		type = type.leafComponentType();
-	}
 	char[] typeName = type.readableName();
 	char[] annotationDisplayName = CharOperation.concatWith(annotationName, '.');
 	return internalAnnotatedTypeName(annotationDisplayName, typeName, dims);
 }
 private String shortAnnotatedTypeName(TypeBinding type, char[][] annotationName) {
+	if ((type.tagBits & TagBits.AnnotationNullMASK) != 0)
+		return String.valueOf(type.nullAnnotatedReadableName(this.options, true));
 	int dims = 0;
-	if (type instanceof ArrayBinding && ((ArrayBinding)type).nullTagBitsPerDimension != null) {
-		// if type has annotations on dimensions show the annotation on the outer most dimension:
-		dims = type.dimensions();
-		type = type.leafComponentType();
-	}
 	char[] typeName = type.shortReadableName();
 	char[] annotationDisplayName = annotationName[annotationName.length-1];
 	return internalAnnotatedTypeName(annotationDisplayName, typeName, dims);
@@ -9192,33 +9513,76 @@ public void arrayReferencePotentialNullReference(ArrayReference arrayReference) 
 	this.handle(IProblem.ArrayReferencePotentialNullReference, NoArgument, NoArgument, arrayReference.sourceStart, arrayReference.sourceEnd);
 	
 }
-public void nullityMismatchingTypeAnnotation(Expression expression, TypeBinding providedType, TypeBinding requiredType, 
-		boolean uncheckedConversion, LookupEnvironment env) 
+public void nullityMismatchingTypeAnnotation(Expression expression, TypeBinding providedType, TypeBinding requiredType, NullAnnotationMatching status) 
 {
-	String[] arguments = new String[] {
-		String.valueOf(requiredType.nullAnnotatedReadableName(env, false)),
-		String.valueOf(providedType.nullAnnotatedReadableName(env, false))
+	if (providedType.id == TypeIds.T_null) {
+		nullityMismatchIsNull(expression, requiredType);
+		return;
+	}
+	String[] arguments ;
+	String[] shortArguments;
+		
+	int problemId = 0;
+	if (status.superTypeHint != null) {
+		problemId = (status.isUnchecked()
+			? IProblem.NullityUncheckedTypeAnnotationDetailSuperHint
+			: IProblem.NullityMismatchingTypeAnnotationSuperHint);
+		arguments      = new String[] { null, null, status.superTypeHintName(this.options, false) };
+		shortArguments = new String[] { null, null, status.superTypeHintName(this.options, true) };
+	} else {
+		problemId = (status.isUnchecked()
+			? IProblem.NullityUncheckedTypeAnnotationDetail
+			: IProblem.NullityMismatchingTypeAnnotation);
+		arguments      = new String[2];
+		shortArguments = new String[2];
+	}
+	arguments[0] = String.valueOf(requiredType.nullAnnotatedReadableName(this.options, false));
+	arguments[1] = String.valueOf(providedType.nullAnnotatedReadableName(this.options, false));
+	shortArguments[0] = String.valueOf(requiredType.nullAnnotatedReadableName(this.options, true));
+	shortArguments[1] = String.valueOf(providedType.nullAnnotatedReadableName(this.options, true));
+	this.handle(problemId, arguments, shortArguments, expression.sourceStart, expression.sourceEnd);
+}
+
+public void nullityMismatchTypeArgument(TypeBinding typeVariable, TypeBinding typeArgument, ASTNode location) {
+	long tagBits = typeVariable.tagBits & TagBits.AnnotationNullMASK;
+	char[][] annotationName = tagBits == TagBits.AnnotationNonNull ? this.options.nonNullAnnotationName : this.options.nullableAnnotationName;
+	String[] arguments = {
+		String.valueOf(typeVariable.readableName()),
+		String.valueOf(CharOperation.concatWith(annotationName, '.')),
+		String.valueOf(typeArgument.nullAnnotatedReadableName(this.options, false))
 	};
-	String[] shortArguments = new String[] {
-		String.valueOf(requiredType.nullAnnotatedReadableName(env, true)),
-		String.valueOf(providedType.nullAnnotatedReadableName(env, true))
+	String[] shortArguments = {
+		String.valueOf(typeVariable.shortReadableName()),
+		String.valueOf(annotationName[annotationName.length-1]),
+		String.valueOf(typeArgument.nullAnnotatedReadableName(this.options, true))
 	};
 	this.handle(
-			uncheckedConversion ? IProblem.NullityMismatchingTypeAnnotationUnchecked : IProblem.NullityMismatchingTypeAnnotation,
-			arguments, shortArguments, expression.sourceStart, expression.sourceEnd);
+			IProblem.NullityMismatchTypeArgument, 
+			arguments, 
+			shortArguments, 
+			location.sourceStart, 
+			location.sourceEnd);
 }
-public void dereferencingNullableExpression(Expression expression, LookupEnvironment env) {
+
+public void dereferencingNullableExpression(Expression expression) {
 	if (expression instanceof MessageSend) {
 		MessageSend send = (MessageSend) expression;
 		messageSendPotentialNullReference(send.binding, send);
 		return;
 	}
-	char[][] nullableName = env.getNullableAnnotationName();
+	char[][] nullableName = this.options.nullableAnnotationName;
 	char[] nullableShort = nullableName[nullableName.length-1];
 	String[] arguments = { String.valueOf(nullableShort) };
 	// TODO(stephan): more sophisticated handling for various kinds of expressions
-	this.handle(IProblem.DereferencingNullableExpression, arguments, arguments, expression.sourceStart, expression.sourceEnd);
-	
+	int start = nodeSourceStart(expression);
+	int end = nodeSourceEnd(expression);
+	this.handle(IProblem.DereferencingNullableExpression, arguments, arguments, start, end);
+}
+public void dereferencingNullableExpression(long positions, LookupEnvironment env) {
+	char[][] nullableName = env.getNullableAnnotationName();
+	char[] nullableShort = nullableName[nullableName.length-1];
+	String[] arguments = { String.valueOf(nullableShort) };
+	this.handle(IProblem.DereferencingNullableExpression, arguments, arguments, (int)(positions>>>32), (int)(positions&0xFFFF));
 }
 public void onlyReferenceTypesInIntersectionCast(TypeReference typeReference) {
 	this.handle(
@@ -9468,7 +9832,7 @@ public void illegalSuperAccess(TypeBinding superType, TypeBinding directSuperTyp
 			location.sourceStart,
 			location.sourceEnd);
 }
-public void illegalSuperCallBypassingOverride(ASTNode location, MethodBinding targetMethod, ReferenceBinding overrider) {
+public void illegalSuperCallBypassingOverride(InvocationSite location, MethodBinding targetMethod, ReferenceBinding overrider) {
 	this.handle(IProblem.SuperCallCannotBypassOverride,
 			new String[] { 	String.valueOf(targetMethod.readableName()),
 							String.valueOf(targetMethod.declaringClass.readableName()),
@@ -9476,7 +9840,15 @@ public void illegalSuperCallBypassingOverride(ASTNode location, MethodBinding ta
 			new String[] { 	String.valueOf(targetMethod.shortReadableName()),
 							String.valueOf(targetMethod.declaringClass.shortReadableName()),
 							String.valueOf(overrider.shortReadableName()) },
-			location.sourceStart,
-			location.sourceEnd);
+			location.sourceStart(),
+			location.sourceEnd());
+}
+public void disallowedTargetForContainerAnnotation(Annotation annotation, TypeBinding containerAnnotationType) {
+	this.handle(
+		IProblem.DisallowedTargetForContainerAnnotation,
+		new String[] {new String(annotation.resolvedType.readableName()), new String(containerAnnotationType.readableName())},
+		new String[] {new String(annotation.resolvedType.shortReadableName()), new String(containerAnnotationType.shortReadableName())},
+		annotation.sourceStart,
+		annotation.sourceEnd);
 }
 }

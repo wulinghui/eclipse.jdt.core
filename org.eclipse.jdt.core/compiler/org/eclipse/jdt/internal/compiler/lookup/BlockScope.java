@@ -1,9 +1,13 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
+ * 
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -17,6 +21,9 @@
  *								bug 379784 - [compiler] "Method can be static" is not getting reported
  *								bug 394768 - [compiler][resource] Incorrect resource leak warning when creating stream in conditional
  *								bug 404649 - [1.8][compiler] detect illegal reference to indirect or redundant super
+ *     Jesper S Moller <jesper@selskabet.org> - Contributions for
+ *								bug 378674 - "The method can be declared as static" is wrong
+ *     Keigo Imai - Contribution for  bug 388903 - Cannot extend inner class as an anonymous class when it extends the outer class
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -86,6 +93,20 @@ public final void addAnonymousType(TypeDeclaration anonymousType, ReferenceBindi
 	anonymousClassScope.buildAnonymousTypeBinding(
 		enclosingSourceType(),
 		superBinding);
+	
+	/* Tag any enclosing lambdas as instance capturing. Strictly speaking they need not be, unless the local/anonymous type references enclosing instance state.
+	   but the types themselves track enclosing types regardless of whether the state is accessed or not. This creates a mismatch in expectations in code generation
+	   time, if we choose to make the lambda method static. To keep things simple and avoid a messy rollback, we force the lambda to be an instance method under 
+	   this situation. However if per source, the lambda occurs in a static context, we would generate a static synthetic method.
+	*/
+	MethodScope methodScope = methodScope();
+	while (methodScope != null && methodScope.referenceContext instanceof LambdaExpression) {
+		LambdaExpression lambda = (LambdaExpression) methodScope.referenceContext;
+		if (!lambda.scope.isStatic) {
+			lambda.shouldCaptureInstance = true;
+		}
+		methodScope = methodScope.enclosingMethodScope();
+	}
 }
 
 /* Create the class scope & binding for the local type.
@@ -94,6 +115,16 @@ public final void addLocalType(TypeDeclaration localType) {
 	ClassScope localTypeScope = new ClassScope(this, localType);
 	addSubscope(localTypeScope);
 	localTypeScope.buildLocalTypeBinding(enclosingSourceType());
+	
+	// See comment in addAnonymousType.
+	MethodScope methodScope = methodScope();
+	while (methodScope != null && methodScope.referenceContext instanceof LambdaExpression) {
+		LambdaExpression lambda = (LambdaExpression) methodScope.referenceContext;
+		if (!lambda.scope.isStatic) {
+			lambda.shouldCaptureInstance = true;
+		}
+		methodScope = methodScope.enclosingMethodScope();
+	}
 }
 
 /* Insert a local variable into a given scope, updating its position
@@ -138,6 +169,8 @@ public final boolean allowBlankFinalFieldAssignment(FieldBinding binding) {
 
 	MethodScope methodScope = methodScope();
 	if (methodScope.isStatic != binding.isStatic())
+		return false;
+	if (methodScope.isLambdaScope()) 
 		return false;
 	return methodScope.isInsideInitializer() // inside initializer
 			|| ((AbstractMethodDeclaration) methodScope.referenceContext).isInitializationMethod(); // inside constructor or clinit
@@ -268,6 +301,26 @@ public void emulateOuterAccess(LocalVariableBinding outerLocalVariable) {
 	BlockScope outerVariableScope = outerLocalVariable.declaringScope;
 	if (outerVariableScope == null)
 		return; // no need to further emulate as already inserted (val$this$0)
+	
+	int depth = 0;
+	Scope scope = this;
+	while (outerVariableScope != scope) {
+		switch(scope.kind) {
+			case CLASS_SCOPE:
+				depth++;
+				break;
+			case METHOD_SCOPE: 
+				if (scope.isLambdaScope()) {
+					LambdaExpression lambdaExpression = (LambdaExpression) scope.referenceContext();
+					lambdaExpression.addSyntheticArgument(outerLocalVariable);
+				}
+				break;
+		}
+		scope = scope.parent;
+	}
+	if (depth == 0) 
+		return;
+	
 	MethodScope currentMethodScope = methodScope();
 	if (outerVariableScope.methodScope() != currentMethodScope) {
 		NestedTypeBinding currentType = (NestedTypeBinding) enclosingSourceType();
@@ -551,6 +604,8 @@ public Binding getBinding(char[][] compoundName, int mask, InvocationSite invoca
 				field.declaringClass,
 				CharOperation.concatWith(CharOperation.subarray(compoundName, 0, currentIndex), '.'),
 				ProblemReasons.NonStaticReferenceInStaticContext);
+		// Since a qualified reference must be for a static member, it won't affect static-ness of the enclosing method, 
+		// so we don't have to call resetEnclosingMethodStaticFlag() in this case
 		return binding;
 	}
 	if ((mask & Binding.TYPE) != 0 && (binding instanceof ReferenceBinding)) {
@@ -699,6 +754,13 @@ public VariableBinding[] getEmulationPath(LocalVariableBinding outerLocalVariabl
 		return new VariableBinding[] { outerLocalVariable };
 		// implicit this is good enough
 	}
+	if (currentMethodScope.isLambdaScope()) {
+		LambdaExpression lambda = (LambdaExpression) currentMethodScope.referenceContext;
+		SyntheticArgumentBinding syntheticArgument;
+		if ((syntheticArgument = lambda.getSyntheticArgument(outerLocalVariable)) != null) {
+			return new VariableBinding[] { syntheticArgument };
+		}
+	}
 	// use synthetic constructor arguments if possible
 	if (currentMethodScope.isInsideInitializerOrConstructor()
 		&& (sourceType.isNestedType())) {
@@ -750,10 +812,13 @@ public Object[] getEmulationPath(ReferenceBinding targetEnclosingType, boolean o
 	// use synthetic constructor arguments if possible
 	if (insideConstructor) {
 		SyntheticArgumentBinding syntheticArg;
-		if ((syntheticArg = ((NestedTypeBinding) sourceType).getSyntheticArgument(targetEnclosingType, onlyExactMatch)) != null) {
+		if ((syntheticArg = ((NestedTypeBinding) sourceType).getSyntheticArgument(targetEnclosingType, onlyExactMatch, currentMethodScope.isConstructorCall)) != null) {
+			boolean isAnonymousAndHasEnclosing = sourceType.isAnonymousType()
+				&& sourceType.scope.referenceContext.allocation.enclosingInstance != null;
 			// reject allocation and super constructor call
 			if (denyEnclosingArgInConstructorCall
 					&& currentMethodScope.isConstructorCall
+					&& !isAnonymousAndHasEnclosing
 					&& (sourceType == targetEnclosingType || (!onlyExactMatch && sourceType.findSuperTypeOriginatingFrom(targetEnclosingType) != null))) {
 				return BlockScope.NoEnclosingInstanceInConstructorCall;
 			}
@@ -769,7 +834,7 @@ public Object[] getEmulationPath(ReferenceBinding targetEnclosingType, boolean o
 		ReferenceBinding enclosingType = sourceType.enclosingType();
 		if (enclosingType.isNestedType()) {
 			NestedTypeBinding nestedEnclosingType = (NestedTypeBinding) enclosingType;
-			SyntheticArgumentBinding enclosingArgument = nestedEnclosingType.getSyntheticArgument(nestedEnclosingType.enclosingType(), onlyExactMatch);
+			SyntheticArgumentBinding enclosingArgument = nestedEnclosingType.getSyntheticArgument(nestedEnclosingType.enclosingType(), onlyExactMatch, currentMethodScope.isConstructorCall);
 			if (enclosingArgument != null) {
 				FieldBinding syntheticField = sourceType.getSyntheticField(enclosingArgument);
 				if (syntheticField != null) {
@@ -791,7 +856,7 @@ public Object[] getEmulationPath(ReferenceBinding targetEnclosingType, boolean o
 	Object[] path = new Object[2]; // probably at least 2 of them
 	ReferenceBinding currentType = sourceType.enclosingType();
 	if (insideConstructor) {
-		path[0] = ((NestedTypeBinding) sourceType).getSyntheticArgument(currentType, onlyExactMatch);
+		path[0] = ((NestedTypeBinding) sourceType).getSyntheticArgument(currentType, onlyExactMatch, currentMethodScope.isConstructorCall);
 	} else {
 		if (currentMethodScope.isConstructorCall){
 			return BlockScope.NoEnclosingInstanceInConstructorCall;
@@ -876,6 +941,8 @@ public final boolean needBlankFinalFieldInitializationCheck(FieldBinding binding
 	while (methodScope != null) {
 		if (methodScope.isStatic != isStatic)
 			return false;
+		if (methodScope.isLambdaScope())
+			return false;
 		if (!methodScope.isInsideInitializer() // inside initializer
 				&& !((AbstractMethodDeclaration) methodScope.referenceContext).isInitializationMethod()) { // inside constructor or clinit
 			return false; // found some non-initializer context
@@ -959,57 +1026,6 @@ public String toString(int tab) {
 		if (this.subscopes[i] instanceof BlockScope)
 			s += ((BlockScope) this.subscopes[i]).toString(tab + 1) + "\n"; //$NON-NLS-1$
 	return s;
-}
-// https://bugs.eclipse.org/bugs/show_bug.cgi?id=318682
-/**
- * This method is used to reset the CanBeStatic the enclosing method of the current block
- */
-public void resetEnclosingMethodStaticFlag() {
-	MethodScope methodScope = methodScope();
-	if (methodScope != null) {
-		if (methodScope.referenceContext instanceof MethodDeclaration) {
-			MethodDeclaration methodDeclaration = (MethodDeclaration) methodScope.referenceContext;
-			methodDeclaration.bits &= ~ASTNode.CanBeStatic;
-		} else if (methodScope.referenceContext instanceof TypeDeclaration) {
-			// anonymous type, find enclosing method
-			methodScope = methodScope.enclosingMethodScope();
-			if (methodScope != null && methodScope.referenceContext instanceof MethodDeclaration) {
-				MethodDeclaration methodDeclaration = (MethodDeclaration) methodScope.referenceContext;
-				methodDeclaration.bits &= ~ASTNode.CanBeStatic;
-			}
-		}
-	}
-}
-
-// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
-/**
- * This method is used to reset the CanBeStatic on all enclosing methods until the method 
- * belonging to the enclosingInstanceType
- * @param enclosingInstanceType type of which an enclosing instance is required in the code.
- */
-public void resetDeclaringClassMethodStaticFlag(TypeBinding enclosingInstanceType) {
-	MethodScope methodScope = methodScope();
-	if (methodScope != null && methodScope.referenceContext instanceof TypeDeclaration) {
-		if (!methodScope.enclosingReceiverType().isCompatibleWith(enclosingInstanceType)) { // unless invoking a method of the local type ...
-			// anonymous type, find enclosing method
-			methodScope = methodScope.enclosingMethodScope();
-		}
-	}
-	while (methodScope != null && methodScope.referenceContext instanceof MethodDeclaration) {
-		MethodDeclaration methodDeclaration = (MethodDeclaration) methodScope.referenceContext;
-		methodDeclaration.bits &= ~ASTNode.CanBeStatic;
-		ClassScope enclosingClassScope = methodScope.enclosingClassScope();
-		if (enclosingClassScope != null) {
-			TypeDeclaration type = enclosingClassScope.referenceContext;
-			if (type != null && type.binding != null && enclosingInstanceType != null
-					&& !type.binding.isCompatibleWith(enclosingInstanceType.original()))
-			{
-				methodScope = enclosingClassScope.enclosingMethodScope();
-				continue;
-			}
-		}
-		break;
-	}
 }
 
 private List trackingVariables; // can be null if no resources are tracked
@@ -1188,8 +1204,25 @@ public void correlateTrackingVarsIfElse(FlowInfo thenFlowInfo, FlowInfo elseFlow
 	if (this.parent instanceof BlockScope)
 		((BlockScope) this.parent).correlateTrackingVarsIfElse(thenFlowInfo, elseFlowInfo);
 }
+
 /** 15.12.3 (Java 8) "Compile-Time Step 3: Is the Chosen Method Appropriate?" */
-public boolean checkAppropriate(MethodBinding compileTimeDeclaration, MethodBinding otherMethod, MessageSend location) {
+public void checkAppropriateMethodAgainstSupers(char[] selector, MethodBinding compileTimeMethod,
+		TypeBinding[] parameters, InvocationSite site)
+{
+	ReferenceBinding enclosingType = enclosingReceiverType();
+	MethodBinding otherMethod = getMethod(enclosingType.superclass(), selector, parameters, site);
+	if (checkAppropriate(compileTimeMethod, otherMethod, site)) {
+		ReferenceBinding[] superInterfaces = enclosingType.superInterfaces();
+		if (superInterfaces != null) {
+			for (int i = 0; i < superInterfaces.length; i++) {
+				otherMethod = getMethod(superInterfaces[i], selector, parameters, site);
+				if (!checkAppropriate(compileTimeMethod, otherMethod, site))
+					break;
+			}
+		}
+	}
+}
+private boolean checkAppropriate(MethodBinding compileTimeDeclaration, MethodBinding otherMethod, InvocationSite location) {
 	if (otherMethod == null || !otherMethod.isValidBinding() || otherMethod == compileTimeDeclaration)
 		return true;
 	if (MethodVerifier.doesMethodOverride(otherMethod, compileTimeDeclaration, this.environment())) {

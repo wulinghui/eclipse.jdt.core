@@ -1,12 +1,18 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *         bug 407191 - [1.8] Binary access support for type annotations
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.env;
 
@@ -23,6 +29,13 @@ public interface IBinaryType extends IGenericType {
  */
 
 IBinaryAnnotation[] getAnnotations();
+
+/**
+ * Answer the runtime visible and invisible type annotations for this type or null if none.
+ */
+
+IBinaryTypeAnnotation[] getTypeAnnotations();
+
 /**
  * Answer the enclosing method (including method selector and method descriptor), or
  * null if none.

@@ -88,6 +88,7 @@ public class CompletionParser extends AssistParser {
 	protected static final int K_INSIDE_FOR_CONDITIONAL = COMPLETION_PARSER + 40;
 	// added for https://bugs.eclipse.org/bugs/show_bug.cgi?id=261534
 	protected static final int K_BETWEEN_INSTANCEOF_AND_RPAREN = COMPLETION_PARSER + 41;
+	protected static final int K_INSIDE_IMPORT_STATEMENT = COMPLETION_PARSER + 43;
 
 
 	public final static char[] FAKE_TYPE_NAME = new char[]{' '};
@@ -169,6 +170,7 @@ public class CompletionParser extends AssistParser {
 
 	private boolean storeSourceEnds;
 	public HashtableOfObjectToInt sourceEnds;
+	private boolean inReferenceExpression;
 
 public CompletionParser(ProblemReporter problemReporter, boolean storeExtraSourceEnds) {
 	super(problemReporter);
@@ -1986,7 +1988,6 @@ private void classHeaderExtendsOrImplements(boolean isInterface) {
 							this.identifierStack[ptr],
 							this.identifierPositionStack[ptr],
 							keywords);
-						completionOnKeyword.canCompleteEmptyToken = true;
 						type.superclass = completionOnKeyword;
 						type.superclass.bits |= ASTNode.IsSuperType;
 						this.assistNode = completionOnKeyword;
@@ -1998,7 +1999,6 @@ private void classHeaderExtendsOrImplements(boolean isInterface) {
 							this.identifierStack[ptr],
 							this.identifierPositionStack[ptr],
 							Keywords.EXTENDS);
-						completionOnKeyword.canCompleteEmptyToken = true;
 						type.superInterfaces = new TypeReference[]{completionOnKeyword};
 						type.superInterfaces[0].bits |= ASTNode.IsSuperType;
 						this.assistNode = completionOnKeyword;
@@ -2663,18 +2663,13 @@ protected void consumeFormalParameter(boolean isVarArgs) {
 		int firstDimensions = this.intStack[this.intPtr--];
 		TypeReference type = getTypeReference(firstDimensions);
 		
-		final int typeDimensions = firstDimensions + extendedDimensions + (isVarArgs ? 1 : 0);
-		if (typeDimensions != firstDimensions) {
-			// jsr308 type annotations management
-			Annotation [][] annotationsOnFirstDimensions = firstDimensions == 0 ? null : type.getAnnotationsOnDimensions();
-			Annotation [][] annotationsOnAllDimensions = annotationsOnFirstDimensions;
-			if (annotationsOnExtendedDimensions != null) {
-				annotationsOnAllDimensions = getMergedAnnotationsOnDimensions(firstDimensions, annotationsOnFirstDimensions, extendedDimensions, annotationsOnExtendedDimensions);
+		if (isVarArgs || extendedDimensions != 0) {
+			if (isVarArgs) {
+				type = augmentTypeWithAdditionalDimensions(type, 1, varArgsAnnotations != null ? new Annotation[][] { varArgsAnnotations } : null, true);	
 			}
-			if (varArgsAnnotations != null) {
-				annotationsOnAllDimensions = getMergedAnnotationsOnDimensions(firstDimensions + extendedDimensions, annotationsOnAllDimensions, 1, new Annotation[][]{varArgsAnnotations});
+			if (extendedDimensions != 0) { // combination illegal.
+				type = augmentTypeWithAdditionalDimensions(type, extendedDimensions, annotationsOnExtendedDimensions, false);
 			}
-			type = copyDims(type, typeDimensions, annotationsOnAllDimensions);
 			type.sourceEnd = type.isParameterizedTypeReference() ? this.endStatementPosition : this.endPosition;
 		}
 		if (isVarArgs) {
@@ -3172,6 +3167,9 @@ protected void consumeAnnotationName() {
 		return;
 	}
 
+	if (isInImportStatement()) {
+		return;
+	}
 	MarkerAnnotation markerAnnotation = null;
 	int length = this.identifierLengthStack[this.identifierLengthPtr];
 	TypeReference typeReference;
@@ -3294,11 +3292,11 @@ protected void consumeMethodHeader() {
 	super.consumeMethodHeader();
 	pushOnElementStack(K_BLOCK_DELIMITER);
 }
-protected void consumeMethodDeclaration(boolean isNotAbstract) {
+protected void consumeMethodDeclaration(boolean isNotAbstract, boolean isDefaultMethod) {
 	if (!isNotAbstract) {
 		popElement(K_BLOCK_DELIMITER);
 	}
-	super.consumeMethodDeclaration(isNotAbstract);
+	super.consumeMethodDeclaration(isNotAbstract, isDefaultMethod);
 }
 protected void consumeModifiers() {
 	super.consumeModifiers();
@@ -3496,6 +3494,9 @@ protected void consumeToken(int token) {
 			&& isIndirectlyInsideFieldInitialization()) {
 		this.scanner.eofPosition = this.cursorLocation < Integer.MAX_VALUE ? this.cursorLocation+1 : this.cursorLocation;
 	}
+	if (token == TokenNameimport) {
+		pushOnElementStack(K_INSIDE_IMPORT_STATEMENT);
+	}
 
 	// if in a method or if in a field initializer
 	if (isInsideMethod() || isInsideFieldInitialization() || isInsideAttributeValue()) {
@@ -3519,7 +3520,12 @@ protected void consumeToken(int token) {
 						break;
 				}
 				break;
+			case TokenNameCOLON_COLON:
+				this.inReferenceExpression = true;
+				break;
 			case TokenNameIdentifier:
+				if (this.inReferenceExpression)
+					break;
 				if (previous == TokenNameDOT) { // e.g. foo().[fred]()
 					if (this.invocationType != SUPER_RECEIVER // e.g. not super.[fred]()
 						&& this.invocationType != NAME_RECEIVER // e.g. not bar.[fred]()
@@ -3544,6 +3550,8 @@ protected void consumeToken(int token) {
 				}
 				break;
 			case TokenNamenew:
+				if (this.inReferenceExpression)
+					break;
 				pushOnElementStack(K_BETWEEN_NEW_AND_LEFT_BRACKET);
 				this.qualifier = this.expressionPtr; // NB: even if there is no qualification, set it to the expression ptr so that the number of arguments are correctly computed
 				if (previous == TokenNameDOT) { // e.g. fred().[new] X()
@@ -3966,6 +3974,10 @@ protected void consumeToken(int token) {
 		}
 	}
 }
+protected void consumeIdentifierOrNew(boolean newForm) {
+	this.inReferenceExpression = false;
+	super.consumeIdentifierOrNew(newForm);
+}
 protected void consumeOnlySynchronized() {
 	super.consumeOnlySynchronized();
 	this.hasUnusedModifiers = false;
@@ -4025,6 +4037,10 @@ protected void consumeTypeImportOnDemandDeclarationName() {
 	super.consumeTypeImportOnDemandDeclarationName();
 	this.pendingAnnotation = null; // the pending annotation cannot be attached to next nodes
 }
+protected void consumeImportDeclaration() {
+	super.consumeImportDeclaration();
+	popElement(K_INSIDE_IMPORT_STATEMENT);
+}
 protected void consumeTypeParameters() {
 	super.consumeTypeParameters();
 	popElement(K_BINARY_OPERATOR);
@@ -4050,7 +4066,6 @@ protected void consumeTypeParameterHeader() {
 		this.identifierStack[this.identifierPtr],
 		this.identifierPositionStack[this.identifierPtr],
 		Keywords.EXTENDS);
-	keyword.canCompleteEmptyToken = true;
 	typeParameter.type = keyword;
 
 	this.identifierPtr--;
@@ -4127,7 +4142,6 @@ protected void consumeWildcard() {
 		this.identifierStack[this.identifierPtr],
 		this.identifierPositionStack[this.identifierPtr],
 		new char[][]{Keywords.EXTENDS, Keywords.SUPER} );
-	keyword.canCompleteEmptyToken = true;
 	wildcard.kind = Wildcard.EXTENDS;
 	wildcard.bound = keyword;
 
@@ -4490,21 +4504,11 @@ protected StringLiteral createStringLiteral(char[] token, int start, int end, in
 	}
 	return super.createStringLiteral(token, start, end, lineNumber);
 }
-protected TypeReference copyDims(TypeReference typeRef, int dim) {
+protected TypeReference augmentTypeWithAdditionalDimensions(TypeReference typeRef, int additionalDimensions, Annotation[][] additionalAnnotations, boolean isVarargs) {
 	if (this.assistNode == typeRef) {
 		return typeRef;
 	}
-	TypeReference result = super.copyDims(typeRef, dim);
-	if (this.assistNodeParent == typeRef) {
-		this.assistNodeParent = result;
-	}
-	return result;
-}
-protected TypeReference copyDims(TypeReference typeRef, int dim, Annotation[][] annotationsOnDimensions) {
-	if (this.assistNode == typeRef) {
-		return typeRef;
-	}
-	TypeReference result = super.copyDims(typeRef, dim, annotationsOnDimensions);
+	TypeReference result = super.augmentTypeWithAdditionalDimensions(typeRef, additionalDimensions, additionalAnnotations, isVarargs);
 	if (this.assistNodeParent == typeRef) {
 		this.assistNodeParent = result;
 	}
@@ -5131,5 +5135,15 @@ protected boolean isInsideArrayInitializer(){
 		return true;
 	}
 	return false;	
+}
+protected boolean isInImportStatement() {
+	int i = this.elementPtr;
+	while (i > -1) {
+		if (this.elementKindStack[i] == K_INSIDE_IMPORT_STATEMENT) {
+			return true;
+		}
+		i--;
+	}
+	return false;
 }
 }

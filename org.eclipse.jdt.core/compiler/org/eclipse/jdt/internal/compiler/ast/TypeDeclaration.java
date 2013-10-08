@@ -14,6 +14,9 @@
  *     Stephan Herrmann - Contributions for
  *								Bug 360328 - [compiler][null] detect null problems in nested code (local class inside a loop)
  *								Bug 388630 - @NonNull diagnostics at line 0
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								Bug 416176 - [1.8][compiler][null] null type annotations cause grief on type variables
+ *     Keigo Imai - Contribution for  bug 388903 - Cannot extend inner class as an anonymous class when it extends the outer class
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -422,6 +425,7 @@ public MethodBinding createDefaultConstructorWithBinding(MethodBinding inherited
 		System.arraycopy(inheritedConstructorBinding.parameterNonNullness, 0, 
 				constructor.binding.parameterNonNullness = new Boolean[len], 0, len);
 	}
+	// TODO(stephan): do argument types already carry sufficient info about type annotations?
 
 	constructor.scope = new MethodScope(this.scope, constructor, true);
 	constructor.bindArguments();
@@ -796,7 +800,7 @@ public void manageEnclosingInstanceAccessIfNecessary(BlockScope currentScope, Fl
 			if (enclosing.isNestedType()) {
 				NestedTypeBinding nestedEnclosing = (NestedTypeBinding)enclosing;
 //					if (nestedEnclosing.findSuperTypeErasingTo(nestedEnclosing.enclosingType()) == null) { // only if not inheriting
-					SyntheticArgumentBinding syntheticEnclosingInstanceArgument = nestedEnclosing.getSyntheticArgument(nestedEnclosing.enclosingType(), true);
+					SyntheticArgumentBinding syntheticEnclosingInstanceArgument = nestedEnclosing.getSyntheticArgument(nestedEnclosing.enclosingType(), true, false);
 					if (syntheticEnclosingInstanceArgument != null) {
 						nestedType.addSyntheticArgumentAndField(syntheticEnclosingInstanceArgument);
 					}
@@ -1015,6 +1019,18 @@ public void resolve() {
 				this.scope.problemReporter().notAFunctionalInterface(this);
 			}
 		}
+		if (this.scope.compilerOptions().sourceLevel >= ClassFileConstants.JDK1_8) {
+			if ((annotationTagBits & TagBits.AnnotationNullMASK) != 0) {
+				for (int i = 0; i < this.annotations.length; i++) {
+					ReferenceBinding annotationType = this.annotations[i].getCompilerAnnotation().getAnnotationType();
+					if (annotationType != null) {
+						if (annotationType.id == TypeIds.T_ConfiguredAnnotationNonNull
+								|| annotationType.id == TypeIds.T_ConfiguredAnnotationNullable)
+						this.scope.problemReporter().nullAnnotationUnsupportedLocation(this.annotations[i]);
+					}
+				}
+			}
+		}
 
 		if ((this.bits & ASTNode.UndocumentedEmptyBlock) != 0) {
 			this.scope.problemReporter().undocumentedEmptyBlock(this.bodyStart-1, this.bodyEnd);
@@ -1087,11 +1103,6 @@ public void resolve() {
 		boolean hasEnumConstants = false;
 		FieldDeclaration[] enumConstantsWithoutBody = null;
 
-		if (this.typeParameters != null) {
-			for (int i = 0, count = this.typeParameters.length; i < count; i++) {
-				this.typeParameters[i].resolve(this.scope);
-			}
-		}
 		if (this.memberTypes != null) {
 			for (int i = 0, count = this.memberTypes.length; i < count; i++) {
 				this.memberTypes[i].resolve(this.scope);

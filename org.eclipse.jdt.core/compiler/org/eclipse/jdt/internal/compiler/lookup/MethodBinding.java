@@ -18,6 +18,10 @@
  *								bug 365662 - [compiler][null] warn on contradictory and redundant null annotations
  *								bug 365531 - [compiler][null] investigate alternative strategy for internally encoding nullness defaults
  *								bug 388281 - [compiler][null] inheritance of null annotations as an option
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
+ *     Jesper Steen Moller - Contributions for
+ *								Bug 412150 [1.8] [compiler] Enable reflected parameter names during annotation processing
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -28,7 +32,7 @@ import org.eclipse.jdt.internal.compiler.ClassFile;
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
 import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.Argument;
-import org.eclipse.jdt.internal.compiler.ast.MessageSend;
+import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.ConstantPool;
@@ -49,6 +53,9 @@ public class MethodBinding extends Binding {
 
 	/** Store nullness information from annotation (incl. applicable default). */
 	public Boolean[] parameterNonNullness;  // TRUE means @NonNull declared, FALSE means @Nullable declared, null means nothing declared
+
+	/** Store parameter names from MethodParameters attribute (incl. applicable default). */
+	public char[][] parameterNames = Binding.NO_PARAMETER_NAMES;
 
 protected MethodBinding() {
 	// for creating problem or synthetic method
@@ -93,7 +100,7 @@ public final boolean areParameterErasuresEqual(MethodBinding method) {
 		return false;
 
 	for (int i = 0; i < length; i++)
-		if (this.parameters[i] != args[i] && this.parameters[i].erasure() != args[i].erasure())
+		if (TypeBinding.notEquals(this.parameters[i], args[i]) && TypeBinding.notEquals(this.parameters[i].erasure(), args[i].erasure()))
 			return false;
 	return true;
 }
@@ -140,7 +147,7 @@ public final boolean areParametersEqual(MethodBinding method) {
 		return false;
 
 	for (int i = 0; i < length; i++)
-		if (this.parameters[i] != args[i])
+		if (TypeBinding.notEquals(this.parameters[i], args[i]))
 			return false;
 	return true;
 }
@@ -259,12 +266,11 @@ public final boolean canBeSeenBy(TypeBinding receiverType, InvocationSite invoca
 	SourceTypeBinding invocationType = scope.enclosingSourceType();
 	if (this.declaringClass.isInterface() && isStatic()) {
 		// Static interface methods can be explicitly invoked only through the type reference of the declaring interface or implicitly in the interface itself.
-		if (scope.compilerOptions().sourceLevel < ClassFileConstants.JDK1_8 || !(invocationSite instanceof MessageSend))
+		if (scope.compilerOptions().sourceLevel < ClassFileConstants.JDK1_8)
 			return false;
-		MessageSend messageSend = (MessageSend) invocationSite;
-		if (messageSend.isTypeAccess() && receiverType == this.declaringClass)
+		if (invocationSite.isTypeAccess() && TypeBinding.equalsEquals(receiverType, this.declaringClass))
 			return true;
-		if (messageSend.receiver.isImplicitThis() && invocationType == this.declaringClass)
+		if (invocationSite.receiverIsImplicitThis() && TypeBinding.equalsEquals(invocationType, this.declaringClass))
 			return true;
 		return false;
 	}
@@ -272,7 +278,7 @@ public final boolean canBeSeenBy(TypeBinding receiverType, InvocationSite invoca
 	if (isPublic()) return true;
 	
 
-	if (invocationType == this.declaringClass && invocationType == receiverType) return true;
+	if (TypeBinding.equalsEquals(invocationType, this.declaringClass) && TypeBinding.equalsEquals(invocationType, receiverType)) return true;
 
 	if (invocationType == null) // static import call
 		return !isPrivate() && scope.getCurrentPackage() == this.declaringClass.fPackage;
@@ -283,7 +289,7 @@ public final boolean canBeSeenBy(TypeBinding receiverType, InvocationSite invoca
 		//    AND the receiverType is the invocationType or its subclass
 		//    OR the method is a static method accessed directly through a type
 		//    OR previous assertions are true for one of the enclosing type
-		if (invocationType == this.declaringClass) return true;
+		if (TypeBinding.equalsEquals(invocationType, this.declaringClass)) return true;
 		if (invocationType.fPackage == this.declaringClass.fPackage) return true;
 
 		ReferenceBinding currentType = invocationType;
@@ -301,7 +307,7 @@ public final boolean canBeSeenBy(TypeBinding receiverType, InvocationSite invoca
 					if (depth > 0) invocationSite.setDepth(depth);
 					return true; // see 1FMEPDL - return invocationSite.isTypeAccess();
 				}
-				if (currentType == receiverErasure || receiverErasure.findSuperTypeOriginatingFrom(currentType) != null) {
+				if (TypeBinding.equalsEquals(currentType, receiverErasure) || receiverErasure.findSuperTypeOriginatingFrom(currentType) != null) {
 					if (depth > 0) invocationSite.setDepth(depth);
 					return true;
 				}
@@ -316,7 +322,7 @@ public final boolean canBeSeenBy(TypeBinding receiverType, InvocationSite invoca
 		// answer true if the receiverType is the declaringClass
 		// AND the invocationType and the declaringClass have a common enclosingType
 		receiverCheck: {
-			if (receiverType != this.declaringClass) {
+			if (TypeBinding.notEquals(receiverType, this.declaringClass)) {
 				// special tolerance for type variable direct bounds, but only if compliance <= 1.6, see: https://bugs.eclipse.org/bugs/show_bug.cgi?id=334622
 				if (scope.compilerOptions().complianceLevel <= ClassFileConstants.JDK1_6 && receiverType.isTypeVariable() && ((TypeVariableBinding) receiverType).isErasureBoundTo(this.declaringClass.erasure()))
 					break receiverCheck;
@@ -324,7 +330,7 @@ public final boolean canBeSeenBy(TypeBinding receiverType, InvocationSite invoca
 			}
 		}
 
-		if (invocationType != this.declaringClass) {
+		if (TypeBinding.notEquals(invocationType, this.declaringClass)) {
 			ReferenceBinding outerInvocationType = invocationType;
 			ReferenceBinding temp = outerInvocationType.enclosingType();
 			while (temp != null) {
@@ -338,7 +344,7 @@ public final boolean canBeSeenBy(TypeBinding receiverType, InvocationSite invoca
 				outerDeclaringClass = temp;
 				temp = temp.enclosingType();
 			}
-			if (outerInvocationType != outerDeclaringClass) return false;
+			if (TypeBinding.notEquals(outerInvocationType, outerDeclaringClass)) return false;
 		}
 		return true;
 	}
@@ -354,9 +360,9 @@ public final boolean canBeSeenBy(TypeBinding receiverType, InvocationSite invoca
 	ReferenceBinding currentType = (ReferenceBinding) (receiverType);
 	do {
 		if (currentType.isCapture()) { // https://bugs.eclipse.org/bugs/show_bug.cgi?id=285002
-			if (originalDeclaringClass == currentType.erasure().original()) return true;
+			if (TypeBinding.equalsEquals(originalDeclaringClass, currentType.erasure().original())) return true;
 		} else {
-			if (originalDeclaringClass == currentType.original()) return true;
+			if (TypeBinding.equalsEquals(originalDeclaringClass, currentType.original())) return true;
 		}
 		PackageBinding currentPackage = currentType.fPackage;
 		// package could be null for wildcards/intersection types, ignore and recurse in superclass
@@ -494,10 +500,41 @@ protected void fillInDefaultNonNullness(AbstractMethodDeclaration sourceMethod) 
 		this.tagBits |= TagBits.HasParameterAnnotations;
 	if (   this.returnType != null
 		&& !this.returnType.isBaseType()
-		&& (this.tagBits & (TagBits.AnnotationNonNull|TagBits.AnnotationNullable)) == 0)
+		&& (this.tagBits & TagBits.AnnotationNullMASK) == 0)
 	{
 		this.tagBits |= TagBits.AnnotationNonNull;
 	} else if (sourceMethod != null && (this.tagBits & TagBits.AnnotationNonNull) != 0) {
+		sourceMethod.scope.problemReporter().nullAnnotationIsRedundant(sourceMethod, -1/*signifies method return*/);
+	}
+}
+
+protected void fillInDefaultNonNullness18(AbstractMethodDeclaration sourceMethod, LookupEnvironment env) {
+	boolean added = false;
+	int length = this.parameters.length;
+	for (int i = 0; i < length; i++) {
+		TypeBinding parameter = this.parameters[i];
+		if (parameter.isBaseType())
+			continue;
+		long existing = parameter.tagBits & TagBits.AnnotationNullMASK;
+		if (existing == 0L) {
+			added = true;
+			if (!parameter.isBaseType()) {
+				this.parameters[i] = env.createAnnotatedType(parameter, new AnnotationBinding[]{env.getNonNullAnnotation()});
+				if (sourceMethod != null)
+					sourceMethod.arguments[i].binding.type = this.parameters[i];
+			}
+		} else if (sourceMethod != null && (parameter.tagBits & TagBits.AnnotationNonNull) != 0) {
+			sourceMethod.scope.problemReporter().nullAnnotationIsRedundant(sourceMethod, i);
+		}
+	}
+	if (added)
+		this.tagBits |= TagBits.HasParameterAnnotations;
+	if (   this.returnType != null
+		&& !this.returnType.isBaseType()
+		&& (this.returnType.tagBits & TagBits.AnnotationNullMASK) == 0)
+	{
+		this.returnType = env.createAnnotatedType(this.returnType, new AnnotationBinding[]{env.getNonNullAnnotation()});
+	} else if (sourceMethod != null && (this.returnType.tagBits & TagBits.AnnotationNonNull) != 0) {
 		sourceMethod.scope.problemReporter().nullAnnotationIsRedundant(sourceMethod, -1/*signifies method return*/);
 	}
 }
@@ -1130,12 +1167,15 @@ public AbstractMethodDeclaration sourceMethod() {
 		return null;
 	}
 
-	AbstractMethodDeclaration[] methods = sourceType.scope.referenceContext.methods;
+	AbstractMethodDeclaration[] methods = sourceType.scope != null ? sourceType.scope.referenceContext.methods : null;
 	if (methods != null) {
 		for (int i = methods.length; --i >= 0;)
 			if (this == methods[i].binding)
 				return methods[i];
 	}
+	return null;
+}
+public LambdaExpression sourceLambda() {
 	return null;
 }
 public final int sourceStart() {

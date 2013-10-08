@@ -17,6 +17,11 @@
  *								bug 392862 - [1.8][compiler][null] Evaluate null annotations on array types
  *								bug 331649 - [compiler][null] consider null annotations for fields
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								bug 400761 - [compiler][null] null may be return as boolean without a diagnostic
+ *								bug 402993 - [null] Follow up of bug 401088: Missing warning about redundant null check
+ *								bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -257,7 +262,7 @@ public final boolean checkCastTypesCompatibility(Scope scope, TypeBinding castTy
 	boolean use17specifics = scope.compilerOptions().sourceLevel >= ClassFileConstants.JDK1_7;
 	if (castType.isBaseType()) {
 		if (expressionType.isBaseType()) {
-			if (expressionType == castType) {
+			if (TypeBinding.equalsEquals(expressionType, castType)) {
 				if (expression != null) {
 					this.constant = expression.constant; //use the same constant
 				}
@@ -312,7 +317,7 @@ public final boolean checkCastTypesCompatibility(Scope scope, TypeBinding castTy
 			return false;
 
 		case Binding.ARRAY_TYPE :
-			if (castType == expressionType) {
+			if (TypeBinding.equalsEquals(castType, expressionType)) {
 				tagAsUnnecessaryCast(scope, castType);
 				return true; // identity conversion
 			}
@@ -558,19 +563,19 @@ public final boolean checkCastTypesCompatibility(Scope scope, TypeBinding castTy
  * @return could this expression be checked by the current implementation?
  */
 public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo) {
+	boolean isNullable = false;
 	if (this.resolvedType != null) {
+		// 1. priority: @NonNull
 		if ((this.resolvedType.tagBits & TagBits.AnnotationNonNull) != 0) {
 			return true; // no danger
 		} else if ((this.resolvedType.tagBits & TagBits.AnnotationNullable) != 0) {
-			scope.problemReporter().dereferencingNullableExpression(this, scope.environment());
-			return true; // danger is definite.
-			// stopping analysis at this point requires that the above error is not suppressable
-			// unless suppressing all null warnings (otherwise we'd miss a stronger warning below).
+			isNullable = true;
 		}
 	}
 	LocalVariableBinding local = localVariableBinding();
 	if (local != null &&
 			(local.type.tagBits & TagBits.IsBaseType) == 0) {
+		// 2. priority: local with flow analysis (via the FlowContext)
 		if ((this.bits & ASTNode.IsNonNull) == 0) {
 			flowContext.recordUsingNullReference(scope, local, this,
 					FlowContext.MAY_NULL, flowInfo);
@@ -581,12 +586,25 @@ public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flow
 		}
 		flowInfo.markAsComparedEqualToNonNull(local);
 			// from thereon it is set
-		if (flowContext.initsOnFinally != null) {
-			flowContext.markFinallyNullStatus(local, FlowInfo.NON_NULL);
-		}
+		flowContext.markFinallyNullStatus(local, FlowInfo.NON_NULL);
+		return true;
+	} else if (isNullable) {
+		// 3. priority: @Nullable without a local
+		scope.problemReporter().dereferencingNullableExpression(this);
 		return true;
 	}
 	return false; // not checked
+}
+
+/** If this expression requires unboxing check if that operation can throw NPE. */
+protected void checkNPEbyUnboxing(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo) {
+	int status;
+	if ((this.implicitConversion & UNBOXING) != 0
+			&& (this.bits & ASTNode.IsNonNull) == 0
+			&& (status = nullStatus(flowInfo, flowContext)) != FlowInfo.NON_NULL)
+	{
+		flowContext.recordUnboxing(scope, this, status, flowInfo);
+	}
 }
 
 public boolean checkUnsafeCast(Scope scope, TypeBinding castType, TypeBinding expressionType, TypeBinding match, boolean isNarrowing) {
@@ -636,7 +654,7 @@ public void computeConversion(Scope scope, TypeBinding runtimeType, TypeBinding 
 		return;
 	}
 	int compileTimeTypeID, runtimeTypeID;
-	if ((compileTimeTypeID = compileTimeType.id) == TypeIds.NoId) { // e.g. ? extends String  ==> String (103227)
+	if ((compileTimeTypeID = compileTimeType.id) >= TypeIds.T_LastWellKnownTypeId) { // e.g. ? extends String  ==> String (103227); >= TypeIds.T_LastWellKnownTypeId implies TypeIds.NoId
 		compileTimeTypeID = compileTimeType.erasure().id == TypeIds.T_JavaLangString ? TypeIds.T_JavaLangString : TypeIds.T_JavaLangObject;
 	}
 	switch (runtimeTypeID = runtimeType.id) {

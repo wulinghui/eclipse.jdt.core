@@ -1,10 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann <stephan@cs.tu-berlin.de> - Contributions for 
@@ -15,6 +19,9 @@
  *     						Bug 358903 - Filter practically unimportant resource leak warnings
  *							Bug 395977 - [compiler][resource] Resource leak warning behavior possibly incorrect for anonymous inner class
  *							Bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+ *							Bug 416176 - [1.8][compiler][null] null type annotations cause grief on type variables
+ *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *                          Bug 415821 - [1.8][compiler] CLASS_EXTENDS target type annotation missing for anonymous classes
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -67,33 +74,35 @@ public class ClassScope extends Scope {
 		}
 		anonymousType.typeBits |= inheritedBits;
 		if (supertype.isInterface()) {
-			anonymousType.superclass = getJavaLangObject();
-			anonymousType.superInterfaces = new ReferenceBinding[] { supertype };
+			anonymousType.setSuperClass(getJavaLangObject());
+			anonymousType.setSuperInterfaces(new ReferenceBinding[] { supertype });
 			TypeReference typeReference = this.referenceContext.allocation.type;
 			if (typeReference != null) {
+				this.referenceContext.superInterfaces = new TypeReference[] { typeReference };
 				if ((supertype.tagBits & TagBits.HasDirectWildcard) != 0) {
 					problemReporter().superTypeCannotUseWildcard(anonymousType, typeReference, supertype);
 					anonymousType.tagBits |= TagBits.HierarchyHasProblems;
-					anonymousType.superInterfaces = Binding.NO_SUPERINTERFACES;
+					anonymousType.setSuperInterfaces(Binding.NO_SUPERINTERFACES);
 				}
 			}
 		} else {
-			anonymousType.superclass = supertype;
-			anonymousType.superInterfaces = Binding.NO_SUPERINTERFACES;
+			anonymousType.setSuperClass(supertype);
+			anonymousType.setSuperInterfaces(Binding.NO_SUPERINTERFACES);
 			TypeReference typeReference = this.referenceContext.allocation.type;
 			if (typeReference != null) { // no check for enum constant body
+				this.referenceContext.superclass = typeReference;
 				if (supertype.erasure().id == TypeIds.T_JavaLangEnum) {
 					problemReporter().cannotExtendEnum(anonymousType, typeReference, supertype);
 					anonymousType.tagBits |= TagBits.HierarchyHasProblems;
-					anonymousType.superclass = getJavaLangObject();
+					anonymousType.setSuperClass(getJavaLangObject());
 				} else if (supertype.isFinal()) {
 					problemReporter().anonymousClassCannotExtendFinalClass(typeReference, supertype);
 					anonymousType.tagBits |= TagBits.HierarchyHasProblems;
-					anonymousType.superclass = getJavaLangObject();
+					anonymousType.setSuperClass(getJavaLangObject());
 				} else if ((supertype.tagBits & TagBits.HasDirectWildcard) != 0) {
 					problemReporter().superTypeCannotUseWildcard(anonymousType, typeReference, supertype);
 					anonymousType.tagBits |= TagBits.HierarchyHasProblems;
-					anonymousType.superclass = getJavaLangObject();
+					anonymousType.setSuperClass(getJavaLangObject());
 				}
 			}
 		}
@@ -231,7 +240,7 @@ public class ClassScope extends Scope {
 			if (count != size)
 				System.arraycopy(memberTypeBindings, 0, memberTypeBindings = new ReferenceBinding[count], 0, count);
 		}
-		localType.memberTypes = memberTypeBindings;
+		localType.setMemberTypes(memberTypeBindings);
 		return localType;
 	}
 
@@ -292,7 +301,7 @@ public class ClassScope extends Scope {
 			if (count != length)
 				System.arraycopy(memberTypeBindings, 0, memberTypeBindings = new ReferenceBinding[count], 0, count);
 		}
-		sourceType.memberTypes = memberTypeBindings;
+		sourceType.setMemberTypes(memberTypeBindings);
 	}
 
 	void buildMethods() {
@@ -411,17 +420,21 @@ public class ClassScope extends Scope {
 		TypeParameter[] typeParameters = this.referenceContext.typeParameters;
 		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=324850, If they exist at all, process type parameters irrespective of source level.
 		if (typeParameters == null || typeParameters.length == 0) {
-		    sourceType.typeVariables = Binding.NO_TYPE_VARIABLES;
+		    sourceType.setTypeVariables(Binding.NO_TYPE_VARIABLES);
 		    return;
 		}
-		sourceType.typeVariables = Binding.NO_TYPE_VARIABLES; // safety
+		sourceType.setTypeVariables(Binding.NO_TYPE_VARIABLES); // safety
 
 		if (sourceType.id == TypeIds.T_JavaLangObject) { // handle the case of redefining java.lang.Object up front
 			problemReporter().objectCannotBeGeneric(this.referenceContext);
 			return;
 		}
-		sourceType.typeVariables = createTypeVariables(typeParameters, sourceType);
+		sourceType.setTypeVariables(createTypeVariables(typeParameters, sourceType));
 		sourceType.modifiers |= ExtraCompilerModifiers.AccGenericSignature;
+	}
+
+	void resolveTypeParameter(TypeParameter typeParameter) {
+		typeParameter.resolve(this);
 	}
 
 	private void checkAndSetModifiers() {
@@ -895,8 +908,8 @@ public class ClassScope extends Scope {
 	private boolean connectSuperclass() {
 		SourceTypeBinding sourceType = this.referenceContext.binding;
 		if (sourceType.id == TypeIds.T_JavaLangObject) { // handle the case of redefining java.lang.Object up front
-			sourceType.superclass = null;
-			sourceType.superInterfaces = Binding.NO_SUPERINTERFACES;
+			sourceType.setSuperClass(null);
+			sourceType.setSuperInterfaces(Binding.NO_SUPERINTERFACES);
 			if (!sourceType.isClass())
 				problemReporter().objectMustBeClass(sourceType);
 			if (this.referenceContext.superclass != null || (this.referenceContext.superInterfaces != null && this.referenceContext.superInterfaces.length > 0))
@@ -906,7 +919,7 @@ public class ClassScope extends Scope {
 		if (this.referenceContext.superclass == null) {
 			if (sourceType.isEnum() && compilerOptions().sourceLevel >= ClassFileConstants.JDK1_5) // do not connect if source < 1.5 as enum already got flagged as syntax error
 				return connectEnumSuperclass();
-			sourceType.superclass = getJavaLangObject();
+			sourceType.setSuperClass(getJavaLangObject());
 			return !detectHierarchyCycle(sourceType, sourceType.superclass, null);
 		}
 		TypeReference superclassRef = this.referenceContext.superclass;
@@ -922,12 +935,12 @@ public class ClassScope extends Scope {
 				problemReporter().cannotExtendEnum(sourceType, superclassRef, superclass);
 			} else if ((superclass.tagBits & TagBits.HierarchyHasProblems) != 0
 					|| !superclassRef.resolvedType.isValidBinding()) {
-				sourceType.superclass = superclass;
+				sourceType.setSuperClass(superclass);
 				sourceType.tagBits |= TagBits.HierarchyHasProblems; // propagate if missing supertype
 				return superclassRef.resolvedType.isValidBinding(); // reported some error against the source type ?
 			} else {
 				// only want to reach here when no errors are reported
-				sourceType.superclass = superclass;
+				sourceType.setSuperClass(superclass);
 				sourceType.typeBits |= (superclass.typeBits & TypeIds.InheritableBits);
 				// further analysis against white lists for the unlikely case we are compiling java.io.*:
 				if ((sourceType.typeBits & (TypeIds.BitAutoCloseable|TypeIds.BitCloseable)) != 0)
@@ -936,7 +949,7 @@ public class ClassScope extends Scope {
 			}
 		}
 		sourceType.tagBits |= TagBits.HierarchyHasProblems;
-		sourceType.superclass = getJavaLangObject();
+		sourceType.setSuperClass(getJavaLangObject());
 		if ((sourceType.superclass.tagBits & TagBits.BeginHierarchyCheck) == 0)
 			detectHierarchyCycle(sourceType, sourceType.superclass, null);
 		return false; // reported some error against the source type
@@ -950,7 +963,7 @@ public class ClassScope extends Scope {
 		ReferenceBinding rootEnumType = getJavaLangEnum();
 		if ((rootEnumType.tagBits & TagBits.HasMissingType) != 0) {
 			sourceType.tagBits |= TagBits.HierarchyHasProblems; // mark missing supertpye
-			sourceType.superclass = rootEnumType;
+			sourceType.setSuperClass(rootEnumType);
 			return false;
 		}
 		boolean foundCycle = detectHierarchyCycle(sourceType, rootEnumType, null);
@@ -971,7 +984,7 @@ public class ClassScope extends Scope {
 			} ,
 			null);
 		sourceType.tagBits |= (superType.tagBits & TagBits.HierarchyHasProblems); // propagate if missing supertpye
-		sourceType.superclass = superType;
+		sourceType.setSuperClass(superType);
 		// bound check (in case of bogus definition of Enum type)
 		if (refTypeVariables[0].boundCheck(superType, sourceType, this) != TypeConstants.OK) {
 			problemReporter().typeMismatchError(rootEnumType, refTypeVariables[0], sourceType, null);
@@ -991,12 +1004,12 @@ public class ClassScope extends Scope {
 	*/
 	private boolean connectSuperInterfaces() {
 		SourceTypeBinding sourceType = this.referenceContext.binding;
-		sourceType.superInterfaces = Binding.NO_SUPERINTERFACES;
+		sourceType.setSuperInterfaces(Binding.NO_SUPERINTERFACES);
 		if (this.referenceContext.superInterfaces == null) {
 			if (sourceType.isAnnotationType() && compilerOptions().sourceLevel >= ClassFileConstants.JDK1_5) { // do not connect if source < 1.5 as annotation already got flagged as syntax error) {
 				ReferenceBinding annotationType = getJavaLangAnnotationAnnotation();
 				boolean foundCycle = detectHierarchyCycle(sourceType, annotationType, null);
-				sourceType.superInterfaces = new ReferenceBinding[] { annotationType };
+				sourceType.setSuperInterfaces(new ReferenceBinding[] { annotationType });
 				return !foundCycle;
 			}
 			return true;
@@ -1054,7 +1067,7 @@ public class ClassScope extends Scope {
 		if (count > 0) {
 			if (count != length)
 				System.arraycopy(interfaceBindings, 0, interfaceBindings = new ReferenceBinding[count], 0, count);
-			sourceType.superInterfaces = interfaceBindings;
+			sourceType.setSuperInterfaces(interfaceBindings);
 		}
 		return noProblems;
 	}
@@ -1248,7 +1261,7 @@ public class ClassScope extends Scope {
 			return superType;
 		} catch (AbortCompilation e) {
 			SourceTypeBinding sourceType = this.referenceContext.binding;
-			if (sourceType.superInterfaces == null)  sourceType.superInterfaces = Binding.NO_SUPERINTERFACES; // be more resilient for hierarchies (144976)
+			if (sourceType.superInterfaces == null)  sourceType.setSuperInterfaces(Binding.NO_SUPERINTERFACES); // be more resilient for hierarchies (144976)
 			e.updateContext(typeReference, referenceCompilationUnit().compilationResult);
 			throw e;
 		} finally {

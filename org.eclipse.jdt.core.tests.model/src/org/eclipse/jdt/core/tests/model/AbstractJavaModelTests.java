@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -401,7 +401,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 
 	}
 	protected void addExternalLibrary(IJavaProject javaProject, String jarPath, String[] pathAndContents, String[] nonJavaResources, String compliance) throws Exception {
-		String[] claspath = get15LibraryIfNeeded(compliance);
+		String[] claspath = getJCL15PlusLibraryIfNeeded(compliance);
 		org.eclipse.jdt.core.tests.util.Util.createJar(pathAndContents, nonJavaResources, jarPath, claspath, compliance);
 		addLibraryEntry(javaProject, new Path(jarPath), true/*exported*/);
 	}
@@ -460,7 +460,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 		IProject project = javaProject.getProject();
 		String projectLocation = project.getLocation().toOSString();
 		String jarPath = projectLocation + File.separator + jarName;
-		String[] claspath = get15LibraryIfNeeded(compliance);
+		String[] claspath = getJCL15PlusLibraryIfNeeded(compliance);
 		org.eclipse.jdt.core.tests.util.Util.createJar(pathAndContents, nonJavaResources, jarPath, claspath, compliance, options);
 		if (pathAndContents != null && pathAndContents.length != 0) {
 			String sourceZipPath = projectLocation + File.separator + sourceZipName;
@@ -1183,6 +1183,27 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			}
 		}
 	}
+	protected IFile createFile(String path, InputStream content) throws CoreException {
+		IFile file = getFile(path);
+		file.create(content, true, null);
+		try {
+			content.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return file;
+	}
+
+	protected IFile createFile(String path, byte[] content) throws CoreException {
+		return createFile(path, new ByteArrayInputStream(content));
+	}
+
+	protected IFile createFile(String path, String content) throws CoreException {
+		return createFile(path, content.getBytes());
+	}
+	protected IFolder createFolder(String path) throws CoreException {
+		return createFolder(new Path(path));
+	}
 	protected IFolder createFolder(IPath path) throws CoreException {
 		final IFolder folder = getWorkspaceRoot().getFolder(path);
 		getWorkspace().run(new IWorkspaceRunnable() {
@@ -1648,6 +1669,12 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 					options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_1_5);
 					options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_1_5);
 					javaProject.setOptions(options);
+				} else if ("1.6".equals(compliance)) {
+					Map options = new HashMap();
+					options.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_1_6);
+					options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_1_6);
+					options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_1_6);
+					javaProject.setOptions(options);
 				} else if ("1.7".equals(compliance)) {
 					Map options = new HashMap();
 					options.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_1_7);
@@ -1808,8 +1835,13 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 			assertTrue("Did not find sibling", found);
 		}
 	}
-	protected String[] get15LibraryIfNeeded(String compliance) throws JavaModelException, IOException {
-		if (compliance.charAt(compliance.length()-1) >= '5' && (AbstractCompilerTest.getPossibleComplianceLevels() & AbstractCompilerTest.F_1_5) == 0) {
+	protected String[] getJCL15PlusLibraryIfNeeded(String compliance) throws JavaModelException, IOException {
+		if (compliance.charAt(compliance.length()-1) >= '8' && (AbstractCompilerTest.getPossibleComplianceLevels() & AbstractCompilerTest.F_1_8) != 0) {
+			// ensure that the JCL 18 lib is setup (i.e. that the jclMin18.jar is copied)
+			setUpJCLClasspathVariables("1.8");
+			return new String[] {getExternalJCLPathString("1.8")};
+		}
+		if (compliance.charAt(compliance.length()-1) >= '5' && (AbstractCompilerTest.getPossibleComplianceLevels() & AbstractCompilerTest.F_1_5) != 0) {
 			// ensure that the JCL 15 lib is setup (i.e. that the jclMin15.jar is copied)
 			setUpJCLClasspathVariables("1.5");
 			return new String[] {getExternalJCLPathString("1.5")};
@@ -2767,6 +2799,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	}
 	public void setUpSuite() throws Exception {
 		super.setUpSuite();
+
 		// ensure autobuilding is turned off
 		IWorkspaceDescription description = getWorkspace().getDescription();
 		if (description.isAutoBuilding()) {
@@ -2776,7 +2809,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	}
 	protected void setUp () throws Exception {
 		super.setUp();
-		System.setProperty("jdt.bug.367669", "non-null");
+
 		if (NameLookup.VERBOSE || BasicSearchEngine.VERBOSE || JavaModelManager.VERBOSE) {
 			System.out.println("--------------------------------------------------------------------------------");
 			System.out.println("Running test "+getName()+"...");

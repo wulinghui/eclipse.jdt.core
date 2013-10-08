@@ -15,6 +15,17 @@
  *								bug 349326 - [1.7] new warning for missing try-with-resources
  *								bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
  *								bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+ *								bug 392384 - [1.8][compiler][null] Restore nullness info from type annotations in class files
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								Bug 415291 - [1.8][null] differentiate type incompatibilities due to null annotations
+ *								Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
+ *								Bug 412076 - [compiler] @NonNullByDefault doesn't work for varargs parameter when in generic interface
+ *								Bug 403216 - [1.8][null] TypeReference#captureTypeAnnotations treats type annotations as type argument annotations
+ *								Bug 415850 - [1.8] Ensure RunJDTCoreTests can cope with null annotations enabled
+ *								Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
+ *								Bug 416175 - [1.8][compiler][null] NPE with a code snippet that used null annotations on wildcards
+ *								Bug 416174 - [1.8][compiler][null] Bogus name clash error with null annotations
+ *								Bug 416176 - [1.8][compiler][null] null type annotations cause grief on type variables
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -23,6 +34,7 @@ import java.util.List;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 /**
  * A parameterized type encapsulates a type with type arguments,
@@ -43,22 +55,19 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 	public ParameterizedTypeBinding(ReferenceBinding type, TypeBinding[] arguments,  ReferenceBinding enclosingType, LookupEnvironment environment){
 		this.environment = environment;
 		this.enclosingType = enclosingType; // never unresolved, never lazy per construction
-//		if (enclosingType != null && enclosingType.isGenericType()) {
-//			RuntimeException e = new RuntimeException("PARAM TYPE with GENERIC ENCLOSING");
-//			e.printStackTrace();
-//			throw e;
-//		}
-//		if (!(type instanceof UnresolvedReferenceBinding) && type.typeVariables() == Binding.NO_TYPE_VARIABLES) {
-//			System.out.println();
-//		}
 		initialize(type, arguments);
 		if (type instanceof UnresolvedReferenceBinding)
 			((UnresolvedReferenceBinding) type).addWrapper(this, environment);
 		if (arguments != null) {
-			for (int i = 0, l = arguments.length; i < l; i++)
+			for (int i = 0, l = arguments.length; i < l; i++) {
 				if (arguments[i] instanceof UnresolvedReferenceBinding)
 					((UnresolvedReferenceBinding) arguments[i]).addWrapper(this, environment);
+				if (arguments[i].hasNullTypeAnnotations())
+					this.tagBits |= TagBits.HasNullTypeAnnotation;
+			}
 		}
+		if (enclosingType != null && enclosingType.hasNullTypeAnnotations())
+			this.tagBits |= TagBits.HasNullTypeAnnotation;
 		this.tagBits |=  TagBits.HasUnresolvedTypeVariables; // cleared in resolve()
 	}
 
@@ -121,7 +130,7 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 				capturedArguments[i] = argument;
 			}
 		}
-		ParameterizedTypeBinding capturedParameterizedType = this.environment.createParameterizedType(this.type, capturedArguments, enclosingType());
+		ParameterizedTypeBinding capturedParameterizedType = this.environment.createParameterizedType(this.type, capturedArguments, enclosingType(), this.typeAnnotations);
 		for (int i = 0; i < length; i++) {
 			TypeBinding argument = capturedArguments[i];
 			if (argument.isCapture()) {
@@ -314,32 +323,27 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 	public char[] constantPoolName() {
 		return this.type.constantPoolName(); // erasure
 	}
+	
+	public TypeBinding clone(TypeBinding outerType) {
+		return new ParameterizedTypeBinding(this.type, this.arguments, (ReferenceBinding) outerType, this.environment);
+	}
 
 	public ParameterizedMethodBinding createParameterizedMethod(MethodBinding originalMethod) {
 		return new ParameterizedMethodBinding(this, originalMethod);
 	}
-
 	/**
 	 * @see org.eclipse.jdt.internal.compiler.lookup.TypeBinding#debugName()
 	 */
 	public String debugName() {
-	    StringBuffer nameBuffer = new StringBuffer(10);
-	    if (this.environment.globalOptions.isAnnotationBasedNullAnalysisEnabled) {
-	    	// restore applied null annotation from tagBits:
-		    if ((this.tagBits & TagBits.AnnotationNonNull) != 0) {
-		    	char[][] nonNullAnnotationName = environment().getNonNullAnnotationName();
-				nameBuffer.append('@').append(nonNullAnnotationName[nonNullAnnotationName.length-1]).append(' ');
-		    } else if ((this.tagBits & TagBits.AnnotationNullable) != 0) {
-		    	char[][] nullableAnnotationName = environment().getNullableAnnotationName();
-				nameBuffer.append('@').append(nullableAnnotationName[nullableAnnotationName.length-1]).append(' ');
-		    }
-	    }
+	    if (this.hasTypeAnnotations())
+	    	return annotatedDebugName();
+		StringBuffer nameBuffer = new StringBuffer(10);	
 	    if (this.type instanceof UnresolvedReferenceBinding) {
 	    	nameBuffer.append(this.type);
 	    } else {
 			nameBuffer.append(this.type.sourceName());
 	    }
-		if (this.arguments != null && this.arguments.length > 0) { // empty arguments array happens when PTB has been created just to capture type annotations
+		if (this.arguments != null && this.arguments.length > 0) {
 			nameBuffer.append('<');
 		    for (int i = 0, length = this.arguments.length; i < length; i++) {
 		        if (i > 0) nameBuffer.append(',');
@@ -348,6 +352,19 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 		    nameBuffer.append('>');
 		}
 	    return nameBuffer.toString();
+	}
+	
+	public String annotatedDebugName() {
+		StringBuffer nameBuffer = new StringBuffer(super.annotatedDebugName());
+		if (this.arguments != null && this.arguments.length > 0) {
+			nameBuffer.append('<');
+			for (int i = 0, length = this.arguments.length; i < length; i++) {
+				if (i > 0) nameBuffer.append(',');
+				nameBuffer.append(this.arguments[i].annotatedDebugName());
+			}
+			nameBuffer.append('>');
+		}
+		return nameBuffer.toString();
 	}
 
 	/**
@@ -418,6 +435,9 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 	 */
 	public char[] genericTypeSignature() {
 		if (this.genericTypeSignature == null) {
+			if (isAnnotatedTypeWithoutArguments())
+				return this.genericTypeSignature = this.type.genericTypeSignature();
+
 			if ((this.modifiers & ExtraCompilerModifiers.AccGenericSignature) == 0) {
 		    	this.genericTypeSignature = this.type.signature();
 			} else {
@@ -701,7 +721,9 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 				this.tagBits |= someArgument.tagBits & (TagBits.HasTypeVariable | TagBits.HasMissingType | TagBits.ContainsNestedTypeReferences);
 			}
 		}
-		this.tagBits |= someType.tagBits & (TagBits.IsLocalType| TagBits.IsMemberType | TagBits.IsNestedType | TagBits.HasMissingType | TagBits.ContainsNestedTypeReferences | TagBits.AnnotationNullMASK);
+		this.tagBits |= someType.tagBits & (TagBits.IsLocalType| TagBits.IsMemberType | TagBits.IsNestedType | TagBits.ContainsNestedTypeReferences
+				 | TagBits.HasMissingType | TagBits.AnnotationNullMASK
+				 | TagBits.AnnotationNonNullByDefault | TagBits.AnnotationNullUnspecifiedByDefault);
 		this.tagBits &= ~(TagBits.AreFieldsComplete|TagBits.AreMethodsComplete);
 	}
 
@@ -714,7 +736,7 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 	}
 
 	public boolean isEquivalentTo(TypeBinding otherType) {
-		if (this == otherType)
+		if (equalsEquals(this, otherType))
 		    return true;
 	    if (otherType == null)
 	        return false;
@@ -726,7 +748,7 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 
 	    	case Binding.PARAMETERIZED_TYPE :
 	            ParameterizedTypeBinding otherParamType = (ParameterizedTypeBinding) otherType;
-	            if (this.type != otherParamType.type)
+	            if (TypeBinding.notEquals(this.type, otherParamType.type)) 
 	                return false;
 	            if (!isStatic()) { // static member types do not compare their enclosing
 	            	ReferenceBinding enclosing = enclosingType();
@@ -734,7 +756,7 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 	            		ReferenceBinding otherEnclosing = otherParamType.enclosingType();
 	            		if (otherEnclosing == null) return false;
 	            		if ((otherEnclosing.tagBits & TagBits.HasDirectWildcard) == 0) {
-							if (enclosing != otherEnclosing) return false;
+							if (TypeBinding.notEquals(enclosing, otherEnclosing)) return false;
 	            		} else {
 	            			if (!enclosing.isEquivalentTo(otherParamType.enclosingType())) return false;
 	            		}
@@ -805,6 +827,18 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 	 */
 	public boolean isRawSubstitution() {
 		return isRawType();
+	}
+
+	public boolean isAnnotatedTypeWithoutArguments() {
+		if (this.arguments != null || !hasNullTypeAnnotations())
+			return false;
+		if (this.enclosingType != null && this.enclosingType instanceof ParameterizedTypeBinding)
+			return this.enclosingType.isAnnotatedTypeWithoutArguments();
+		return true;
+	}
+
+	public TypeBinding unannotated() {
+		return this.hasTypeAnnotations() ? this.environment.getUnannotatedType(this) : this;
 	}
 
 	public int kind() {
@@ -991,6 +1025,82 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 	}
 
 	/**
+	 * @see org.eclipse.jdt.internal.compiler.lookup.TypeBinding#nullAnnotatedReadableName(CompilerOptions,boolean)
+	 */
+	public char[] nullAnnotatedReadableName(CompilerOptions options, boolean shortNames) {
+		if (shortNames)
+			return nullAnnotatedShortReadableName(options);
+		return nullAnnotatedReadableName(options);
+	}
+
+	char[] nullAnnotatedReadableName(CompilerOptions options) {
+	    StringBuffer nameBuffer = new StringBuffer(10);
+		if (isMemberType()) {
+			nameBuffer.append(enclosingType().nullAnnotatedReadableName(options, false));
+			nameBuffer.append('.');
+			appendNullAnnotation(nameBuffer, options);
+			nameBuffer.append(this.sourceName);
+		} else if (this.type.compoundName != null) {
+			int i;
+			int l=this.type.compoundName.length;
+			for (i=0; i<l-1; i++) {
+				nameBuffer.append(this.type.compoundName[i]);
+				nameBuffer.append('.');
+			}
+		    appendNullAnnotation(nameBuffer, options);
+			nameBuffer.append(this.type.compoundName[i]);
+		} else {
+			// case of TypeVariableBinding with nullAnnotationTagBits:
+			appendNullAnnotation(nameBuffer, options);
+			if (this.type.sourceName != null)
+				nameBuffer.append(this.type.sourceName);
+			else // WildcardBinding, CaptureBinding have no sourceName
+				nameBuffer.append(this.type.readableName());
+		}
+		if (this.arguments != null && this.arguments.length > 0) { // empty arguments array happens when PTB has been created just to capture type annotations
+			nameBuffer.append('<');
+		    for (int i = 0, length = this.arguments.length; i < length; i++) {
+		        if (i > 0) nameBuffer.append(',');
+		        nameBuffer.append(this.arguments[i].nullAnnotatedReadableName(options, false));
+		    }
+		    nameBuffer.append('>');
+		}
+		int nameLength = nameBuffer.length();
+		char[] readableName = new char[nameLength];
+		nameBuffer.getChars(0, nameLength, readableName, 0);
+	    return readableName;
+	}
+
+	char[] nullAnnotatedShortReadableName(CompilerOptions options) {
+	    StringBuffer nameBuffer = new StringBuffer(10);
+		if (isMemberType()) {
+			nameBuffer.append(enclosingType().nullAnnotatedReadableName(options, true));
+			nameBuffer.append('.');
+			appendNullAnnotation(nameBuffer, options);
+			nameBuffer.append(this.sourceName);
+		} else {
+			appendNullAnnotation(nameBuffer, options);
+			if (this.type.sourceName != null)
+				nameBuffer.append(this.type.sourceName);
+			else // WildcardBinding, CaptureBinding have no sourceName
+				nameBuffer.append(this.type.shortReadableName());
+		}
+		if (this.arguments != null && this.arguments.length > 0) { // empty arguments array happens when PTB has been created just to capture type annotations
+			nameBuffer.append('<');
+		    for (int i = 0, length = this.arguments.length; i < length; i++) {
+		        if (i > 0) nameBuffer.append(',');
+		        nameBuffer.append(this.arguments[i].nullAnnotatedReadableName(options, true));
+		    }
+		    nameBuffer.append('>');
+		}
+		int nameLength = nameBuffer.length();
+		char[] shortReadableName = new char[nameLength];
+		nameBuffer.getChars(0, nameLength, shortReadableName, 0);
+	    return shortReadableName;
+	}
+
+
+	/**
 	 * @see org.eclipse.jdt.internal.compiler.lookup.TypeBinding#signature()
 	 */
 	public char[] signature() {
@@ -1017,15 +1127,16 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 			TypeVariableBinding[] typeVariables = currentType.type.typeVariables();
 			int length = typeVariables.length;
 			// check this variable can be substituted given parameterized type
-			if (originalVariable.rank < length && typeVariables[originalVariable.rank] == originalVariable) {
+			if (originalVariable.rank < length && TypeBinding.equalsEquals(typeVariables[originalVariable.rank], originalVariable)) {
 			    // lazy init, since cannot do so during binding creation if during supertype connection
 			    if (currentType.arguments == null)
 					currentType.initializeArguments(); // only for raw types
 			    if (currentType.arguments != null) {
 			    	 if (currentType.arguments.length == 0) { // diamond type
 					    	return originalVariable;
-					    }
-			    	 return currentType.arguments[originalVariable.rank];
+					 }
+			    	 TypeBinding substitute = currentType.arguments[originalVariable.rank];
+			    	 return originalVariable.hasTypeAnnotations() ? this.environment.createAnnotatedType(substitute, originalVariable.getTypeAnnotations()) : substitute;
 			    }	
 			}
 			// recurse on enclosing type, as it may hold more substitutions to perform
@@ -1103,8 +1214,11 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 	 * @see java.lang.Object#toString()
 	 */
 	public String toString() {
-	    StringBuffer buffer = new StringBuffer(30);
-	    if (this.type instanceof UnresolvedReferenceBinding) {
+		if (this.hasTypeAnnotations()) {
+			return annotatedDebugName();
+		}
+		StringBuffer buffer = new StringBuffer(30);
+		if (this.type instanceof UnresolvedReferenceBinding) {
 	    	buffer.append(debugName());
 	    } else {
 			if (isDeprecated()) buffer.append("deprecated "); //$NON-NLS-1$
@@ -1186,6 +1300,10 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 		return Binding.NO_TYPE_VARIABLES;
 	}
 	
+	public TypeBinding[] typeArguments() {
+		return this.arguments;
+	}
+	
 	public FieldBinding[] unResolvedFields() {
 		return this.fields;
 	}
@@ -1229,8 +1347,9 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 			if (typeParameters[i].boundCheck(null, types[i], scope) != TypeConstants.OK)
 				return this.singleAbstractMethod = new ProblemMethodBinding(TypeConstants.ANONYMOUS_METHOD, null, ProblemReasons.NotAWellFormedParameterizedType);
 		}
-		ParameterizedTypeBinding parameterizedType = scope.environment().createParameterizedType(genericType, types, genericType.enclosingType());
-		MethodBinding [] choices = parameterizedType.getMethods(theAbstractMethod.selector);
+		ReferenceBinding declaringType = scope.environment().createParameterizedType(genericType, types, genericType.enclosingType());
+		declaringType = (ReferenceBinding) declaringType.findSuperTypeOriginatingFrom(theAbstractMethod.declaringClass);
+		MethodBinding [] choices = declaringType.getMethods(theAbstractMethod.selector);
 		for (int i = 0, length = choices.length; i < length; i++) {
 			MethodBinding method = choices[i];
 			if (!method.isAbstract() || method.redeclaresPublicObjectMethod(scope)) continue; // (re)skip statics, defaults, public object methods ...

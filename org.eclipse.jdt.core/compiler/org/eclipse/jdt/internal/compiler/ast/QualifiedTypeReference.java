@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,8 +11,6 @@
  * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann - Contribution for
- *								bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -34,20 +32,14 @@ public class QualifiedTypeReference extends TypeReference {
 		this.sourceEnd = (int)(this.sourcePositions[this.sourcePositions.length-1] & 0x00000000FFFFFFFFL ) ;
 	}
 
-	public TypeReference copyDims(int dim){
-		//return a type reference copy of me with some dimensions
-		//warning : the new type ref has a null binding
-		return new ArrayQualifiedTypeReference(this.tokens, dim, this.sourcePositions);
-	}
-	
-	public TypeReference copyDims(int dim, Annotation[][] annotationsOnDimensions) {
-		//return a type reference copy of me with some dimensions
-		//warning : the new type ref has a null binding
-		ArrayQualifiedTypeReference arrayQualifiedTypeReference = new ArrayQualifiedTypeReference(this.tokens, dim, annotationsOnDimensions, this.sourcePositions);
+	public TypeReference augmentTypeWithAdditionalDimensions(int additionalDimensions, Annotation[][] additionalAnnotations, boolean isVarargs) {
+		int totalDimensions = this.dimensions() + additionalDimensions;
+		Annotation [][] allAnnotations = getMergedAnnotationsOnDimensions(additionalDimensions, additionalAnnotations);
+		ArrayQualifiedTypeReference arrayQualifiedTypeReference = new ArrayQualifiedTypeReference(this.tokens, totalDimensions, allAnnotations, this.sourcePositions);
+		arrayQualifiedTypeReference.annotations = this.annotations;
 		arrayQualifiedTypeReference.bits |= (this.bits & ASTNode.HasTypeAnnotations);
-		if (annotationsOnDimensions != null) {
-			arrayQualifiedTypeReference.bits |= ASTNode.HasTypeAnnotations;
-		}
+		if (!isVarargs)
+			arrayQualifiedTypeReference.extendedDimensions = additionalDimensions;
 		return arrayQualifiedTypeReference;
 	}
 
@@ -55,12 +47,9 @@ public class QualifiedTypeReference extends TypeReference {
 		LookupEnvironment env = scope.environment();
 		try {
 			env.missingClassFileLocation = this;
-			ReferenceBinding previousType = null;
 			if (this.resolvedType == null) {
 				this.resolvedType = scope.getType(this.tokens[tokenIndex], packageBinding);
 			} else {
-				if (this.resolvedType instanceof ReferenceBinding)
-					previousType = (ReferenceBinding) this.resolvedType;
 				this.resolvedType = scope.getMemberType(this.tokens[tokenIndex], (ReferenceBinding) this.resolvedType);
 				if (!this.resolvedType.isValidBinding()) {
 					this.resolvedType = new ProblemReferenceBinding(
@@ -68,9 +57,6 @@ public class QualifiedTypeReference extends TypeReference {
 						(ReferenceBinding)this.resolvedType.closestMatch(),
 						this.resolvedType.problemId());
 				}
-			}
-			if (this.annotations != null && this.annotations[tokenIndex] != null) {
-				this.resolvedType = captureTypeAnnotations(scope, previousType, this.resolvedType, this.annotations[tokenIndex]);
 			}
 			return this.resolvedType;
 		} catch (AbortCompilation e) {
@@ -99,14 +85,11 @@ public class QualifiedTypeReference extends TypeReference {
 		}
 	}
 
-	protected void rejectAnnotationsOnStaticMemberQualififer(Scope scope, ReferenceBinding currentType, int tokenIndex) {
+	protected static void rejectAnnotationsOnStaticMemberQualififer(Scope scope, ReferenceBinding currentType, Annotation[] qualifierAnnot) {
 		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=385137
-		if (this.annotations != null && currentType.isMemberType() && currentType.isStatic()) {
-			Annotation[] qualifierAnnot = this.annotations[tokenIndex - 1];
-			if (qualifierAnnot != null) {
-				scope.problemReporter().illegalTypeAnnotationsInStaticMemberAccess(qualifierAnnot[0],
-						qualifierAnnot[qualifierAnnot.length - 1]);
-			}
+		if (currentType.isMemberType() && currentType.isStatic() && qualifierAnnot != null && qualifierAnnot.length > 0) {
+			scope.problemReporter().illegalTypeAnnotationsInStaticMemberAccess(qualifierAnnot[0],
+					qualifierAnnot[qualifierAnnot.length - 1]);
 		}
 	}
 
@@ -145,7 +128,9 @@ public class QualifiedTypeReference extends TypeReference {
 					return null;
 			ReferenceBinding currentType = (ReferenceBinding) this.resolvedType;
 			if (qualifiedType != null) {
-				rejectAnnotationsOnStaticMemberQualififer(scope, currentType, i);
+				if (this.annotations != null) {
+					rejectAnnotationsOnStaticMemberQualififer(scope, currentType, this.annotations[i-1]);
+				}
 				ReferenceBinding enclosingType = currentType.enclosingType();
 				if (enclosingType != null && enclosingType.erasure() != qualifiedType.erasure()) {
 					qualifiedType = enclosingType; // inherited member type, leave it associated with its enclosing rather than subtype

@@ -26,6 +26,7 @@ import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.dom.*;
+import org.eclipse.jdt.core.dom.Modifier.ModifierKeyword;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
 import org.eclipse.jdt.core.formatter.DefaultCodeFormatterConstants;
@@ -110,7 +111,7 @@ public class ASTRewritingMethodDeclTest extends ASTRewritingTest {
 				listRewrite.remove(extraDimension, null);
 			}
 			for (int i= 0; i < extraDimensions; i++) {
-				listRewrite.insertLast(methodDecl.getAST().newExtraDimension(), null);
+				listRewrite.insertFirst(methodDecl.getAST().newExtraDimension(), null);
 			}
 		}
 	}
@@ -992,7 +993,7 @@ public class ASTRewritingMethodDeclTest extends ASTRewritingTest {
 			List thrownExceptions= getThrownExceptions(methodDecl);
 			assertTrue("must be 0 thrown exceptions", thrownExceptions.size() == 0);
 
-			Name newThrownException= ast.newSimpleName("InterruptedException");
+			ASTNode newThrownException= createNewExceptionType(ast, "InterruptedException");
 			rewrite.getListRewrite(methodDecl, getMethodThrownExceptionsProperty(ast)).insertFirst(newThrownException, null);
 
 		}
@@ -1014,7 +1015,7 @@ public class ASTRewritingMethodDeclTest extends ASTRewritingTest {
 			assertTrue("must be 1 thrown exceptions", thrownExceptions.size() == 1);
 
 			ASTNode firstException= (ASTNode) thrownExceptions.get(0);
-			Name newThrownException= ast.newSimpleName("InterruptedException");
+			ASTNode newThrownException= createNewExceptionType(ast, "InterruptedException");
 			rewrite.getListRewrite(methodDecl, getMethodThrownExceptionsProperty(ast)).insertBefore(newThrownException, firstException, null);
 		}
 		{ // insert after last param & insert after first exception & add synchronized, static
@@ -1034,7 +1035,7 @@ public class ASTRewritingMethodDeclTest extends ASTRewritingTest {
 			assertTrue("must be 1 thrown exceptions", thrownExceptions.size() == 1);
 
 			ASTNode firstException= (ASTNode) thrownExceptions.get(0);
-			Name newThrownException= ast.newSimpleName("InterruptedException");
+			ASTNode newThrownException= createNewExceptionType(ast, "InterruptedException");
 			rewrite.getListRewrite(methodDecl, getMethodThrownExceptionsProperty(ast)).insertAfter(newThrownException, firstException, null);
 
 		}
@@ -1056,7 +1057,7 @@ public class ASTRewritingMethodDeclTest extends ASTRewritingTest {
 			assertTrue("must be 2 thrown exceptions", thrownExceptions.size() == 2);
 
 			ASTNode firstException= (ASTNode) thrownExceptions.get(0);
-			Name newThrownException= ast.newSimpleName("InterruptedException");
+			ASTNode newThrownException= createNewExceptionType(ast, "InterruptedException");
 			rewrite.getListRewrite(methodDecl, getMethodThrownExceptionsProperty(ast)).insertAfter(newThrownException, firstException, null);
 		}
 		{ // insert 2 params after first & replace the second exception and insert new after
@@ -1076,10 +1077,10 @@ public class ASTRewritingMethodDeclTest extends ASTRewritingTest {
 			List thrownExceptions= getThrownExceptions(methodDecl);
 			assertTrue("must be 2 thrown exceptions", thrownExceptions.size() == 2);
 
-			Name newThrownException1= ast.newSimpleName("InterruptedException");
+			ASTNode newThrownException1= createNewExceptionType(ast, "InterruptedException");
 			rewrite.getListRewrite(methodDecl, getMethodThrownExceptionsProperty(ast)).insertLast(newThrownException1, null);
 
-			Name newThrownException2= ast.newSimpleName("ArrayStoreException");
+			ASTNode newThrownException2= createNewExceptionType(ast, "ArrayStoreException");
 			rewrite.replace((ASTNode) thrownExceptions.get(1), newThrownException2, null);
 		}
 		{ // insert 2 params after last & remove the last exception and insert new after
@@ -1102,7 +1103,7 @@ public class ASTRewritingMethodDeclTest extends ASTRewritingTest {
 			ASTNode lastException= (ASTNode) thrownExceptions.get(2);
 			rewrite.remove(lastException, null);
 
-			Name newThrownException= ast.newSimpleName("InterruptedException");
+			ASTNode newThrownException= createNewExceptionType(ast, "InterruptedException");
 			rewrite.getListRewrite(methodDecl, getMethodThrownExceptionsProperty(ast)).insertBefore(newThrownException, lastException, null);
 		}
 		{ // insert at first and last position & remove 2nd, add after 2nd, remove 3rd
@@ -1125,7 +1126,7 @@ public class ASTRewritingMethodDeclTest extends ASTRewritingTest {
 			rewrite.remove(secondException, null);
 			rewrite.remove(lastException, null);
 
-			Name newThrownException= ast.newSimpleName("InterruptedException");
+			ASTNode newThrownException= createNewExceptionType(ast, "InterruptedException");
 			rewrite.getListRewrite(methodDecl, getMethodThrownExceptionsProperty(ast)).insertAfter(newThrownException, secondException, null);
 
 		}
@@ -3584,5 +3585,167 @@ public class ASTRewritingMethodDeclTest extends ASTRewritingTest {
 		buf.append("}\n");
 		assertEqualString(preview, buf.toString());
 	}
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=403985
+	public void testBug403985_since_8() throws Exception {
+		String contents =
+			"public interface X {\n" +
+			"	static void foo(){}\n" +
+			"	public default void foo(int i){}\n" +
+			"	public default int foo2(int i) { return 0;}\n" +
+			"	public void foo3(int i);\n" +
+			"	public default int foo4(int i) { return 0;}\n" +
+			"}\n";
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", contents, false, null);
+		CompilationUnit astRoot= createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
+		TypeDeclaration type= findTypeDeclaration(astRoot, "X");
+		MethodDeclaration[] methods = type.getMethods();
+		assertEquals("Incorrect no of methods", 5, methods.length);
+		MethodDeclaration method = methods[0];
+		{	// Change default method to static and vice versa
+			ListRewrite listRewrite = rewrite.getListRewrite(method, MethodDeclaration.MODIFIERS2_PROPERTY);
+			ASTNode newMod = ast.newModifier(ModifierKeyword.DEFAULT_KEYWORD);
+			listRewrite.replace((ASTNode) method.modifiers().get(0), newMod, null);
 
+			method = methods[1];
+			listRewrite = rewrite.getListRewrite(method, MethodDeclaration.MODIFIERS2_PROPERTY);
+			newMod = ast.newModifier(ModifierKeyword.STATIC_KEYWORD);
+			listRewrite.replace((ASTNode) method.modifiers().get(1), newMod, null);
+		}
+		{	// Remove default and the body
+			method = methods[2];
+			ListRewrite listRewrite = rewrite.getListRewrite(method, MethodDeclaration.MODIFIERS2_PROPERTY);
+			listRewrite.remove((ASTNode) method.modifiers().get(1), null);
+			rewrite.set(method, MethodDeclaration.BODY_PROPERTY, null, null);
+		}
+		{	// Add a default and body
+			method = methods[3];
+			ListRewrite listRewrite = rewrite.getListRewrite(method, MethodDeclaration.MODIFIERS2_PROPERTY);
+			ASTNode newMod = ast.newModifier(ModifierKeyword.DEFAULT_KEYWORD);
+			listRewrite.insertAt(newMod, 1, null);
+			Block newBlock = ast.newBlock();
+			rewrite.set(method, MethodDeclaration.BODY_PROPERTY, newBlock, null);
+		}
+		{	// Alter parameters for a default method
+			method = methods[4];
+			ListRewrite listRewrite = rewrite.getListRewrite(method, MethodDeclaration.PARAMETERS_PROPERTY);
+			listRewrite.remove((ASTNode) method.parameters().get(0), null);
+			listRewrite = rewrite.getListRewrite(method, MethodDeclaration.MODIFIERS2_PROPERTY);
+			listRewrite.remove((ASTNode) method.modifiers().get(0), null);
+		}
+		String preview = evaluateRewrite(cu, rewrite);
+		contents =
+				"public interface X {\n" +
+				"	default void foo(){}\n" +
+				"	public static void foo(int i){}\n" +
+				"	public int foo2(int i);\n" +
+				"	public default void foo3(int i) {\n    }\n" +
+				"	default int foo4() { return 0;}\n" +
+				"}\n";
+		assertEqualString(preview, contents);
+	}
+
+	public void testReceiverParam_since_8() throws Exception {
+		IPackageFragment pack1 = this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf = new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("public abstract class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    }\n");
+		buf.append("\n");
+		buf.append("}\n");
+		ICompilationUnit cu = pack1.createCompilationUnit("E.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot = createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite = ASTRewrite.create(astRoot.getAST());
+		TypeDeclaration type = findTypeDeclaration(astRoot, "E");
+
+		MethodDeclaration newMethodDeclaration = ast.newMethodDeclaration();
+		SimpleName methodName = ast.newSimpleName("bar");
+		SimpleType simpleType = ast.newSimpleType(ast.newSimpleName("E"));
+		MarkerAnnotation annotationC = ast.newMarkerAnnotation();
+		annotationC.setTypeName(ast.newSimpleName("C"));
+		simpleType.annotations().add(annotationC);
+		newMethodDeclaration.setName(methodName);
+		newMethodDeclaration.setReceiverType(simpleType);
+
+		MethodDeclaration[] methods = type.getMethods();
+		MethodDeclaration methodDeclaration = methods[0];
+		methodDeclaration.setReceiverType(ast.newSimpleType(ast.newSimpleName("E")));
+
+		ListRewrite listRewrite = rewrite.getListRewrite(type, TypeDeclaration.BODY_DECLARATIONS_PROPERTY);
+		listRewrite.insertLast(newMethodDeclaration, null);
+
+		String preview = evaluateRewrite(cu, rewrite);
+
+		buf = new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("public abstract class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    }\n");
+		buf.append("\n");
+		buf.append("    void bar(@C E this);\n");
+		buf.append("\n");
+		buf.append("}\n");
+
+		assertEqualString(preview, buf.toString());
+	}
+	
+	public void testReceiverParam_InnerClass_since_8() throws Exception {
+		IPackageFragment pack1 = this.sourceFolder.createPackageFragment(
+				"test1", false, null);
+		StringBuffer buf = new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    }\n");
+		buf.append("\n");
+		buf.append("    class Inner{\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		ICompilationUnit cu = pack1.createCompilationUnit("E.java",
+				buf.toString(), false, null);
+
+		CompilationUnit astRoot = createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite = ASTRewrite.create(astRoot.getAST());
+		TypeDeclaration type = findTypeDeclaration(astRoot, "E");
+		TypeDeclaration inner = (TypeDeclaration) type.bodyDeclarations().get(1);
+		
+		MethodDeclaration newMethodDeclaration = ast.newMethodDeclaration();
+		SimpleName methodName = ast.newSimpleName("Inner");
+		SimpleType simpleType = ast.newSimpleType(ast.newSimpleName("E"));
+		MarkerAnnotation annotationC = ast.newMarkerAnnotation();
+		annotationC.setTypeName(ast.newSimpleName("C"));
+		simpleType.annotations().add(annotationC);
+		newMethodDeclaration.setName(methodName);
+		newMethodDeclaration.setConstructor(true);
+		newMethodDeclaration.setReceiverType(simpleType);
+		newMethodDeclaration.setReceiverQualifier(ast.newSimpleName("E"));
+		newMethodDeclaration.setBody(ast.newBlock());
+
+		ListRewrite listRewrite = rewrite.getListRewrite(inner, TypeDeclaration.BODY_DECLARATIONS_PROPERTY);
+		listRewrite.insertLast(newMethodDeclaration, null);
+
+		String preview = evaluateRewrite(cu, rewrite);
+
+		buf = new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    }\n");
+		buf.append("\n");
+		buf.append("    class Inner{\n");
+		buf.append("\n");
+		buf.append("        Inner(@C E E.this) {\n");
+		buf.append("        }\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+
+		assertEqualString(preview, buf.toString());
+	}
+	
 }

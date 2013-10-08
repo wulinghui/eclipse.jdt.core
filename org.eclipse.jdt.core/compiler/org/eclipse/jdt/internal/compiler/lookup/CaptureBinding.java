@@ -1,10 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -32,6 +36,23 @@ public class CaptureBinding extends TypeVariableBinding {
 		this.sourceType = sourceType;
 		this.position = position;
 		this.captureID = captureID;
+		if (wildcard.hasTypeAnnotations()) {
+			setTypeAnnotations(wildcard.getTypeAnnotations(), wildcard.environment.globalOptions.isAnnotationBasedNullAnalysisEnabled);
+		}
+	}
+	
+	public CaptureBinding(CaptureBinding prototype) {
+		super(prototype);
+		this.wildcard = prototype.wildcard;
+		this.sourceType = prototype.sourceType;
+		this.position = prototype.position;
+		this.captureID = prototype.captureID;
+		this.lowerBound = prototype.lowerBound;
+	}
+	
+	// Captures may get cloned and annotated during type inference.
+	public TypeBinding clone(TypeBinding enclosingType) {
+		return new CaptureBinding(this);
 	}
 
 	/*
@@ -59,6 +80,11 @@ public class CaptureBinding extends TypeVariableBinding {
 
 		if (this.wildcard != null) {
 			StringBuffer buffer = new StringBuffer(10);
+			AnnotationBinding [] annotations = getTypeAnnotations();
+			for (int i = 0, length = annotations == null ? 0 : annotations.length; i < length; i++) {
+				buffer.append(annotations[i]);
+				buffer.append(' ');
+			}
 			buffer
 				.append(TypeConstants.WILDCARD_CAPTURE_NAME_PREFIX)
 				.append(this.captureID)
@@ -91,30 +117,30 @@ public class CaptureBinding extends TypeVariableBinding {
 					// still need to capture bound supertype as well so as not to expose wildcards to the outside (111208)
 					TypeBinding capturedWildcardBound = originalWildcardBound.capture(scope, this.position);
 					if (originalWildcardBound.isInterface()) {
-						this.superclass = scope.getJavaLangObject();
-						this.superInterfaces = new ReferenceBinding[] { (ReferenceBinding) capturedWildcardBound };
+						this.setSuperClass(scope.getJavaLangObject());
+						this.setSuperInterfaces(new ReferenceBinding[] { (ReferenceBinding) capturedWildcardBound });
 					} else {
 						// the wildcard bound should be a subtype of variable superclass
 						// it may occur that the bound is less specific, then consider glb (202404)
 						if (capturedWildcardBound.isArrayType() || capturedWildcardBound == this) {
-							this.superclass = scope.getJavaLangObject();
+							this.setSuperClass(scope.getJavaLangObject());
 						} else {
-							this.superclass = (ReferenceBinding) capturedWildcardBound;
+							this.setSuperClass((ReferenceBinding) capturedWildcardBound);
 						}
-						this.superInterfaces = Binding.NO_SUPERINTERFACES;
+						this.setSuperInterfaces(Binding.NO_SUPERINTERFACES);
 					}
-					this.firstBound =  capturedWildcardBound;
+					this.setFirstBound(capturedWildcardBound);
 					if ((capturedWildcardBound.tagBits & TagBits.HasTypeVariable) == 0)
 						this.tagBits &= ~TagBits.HasTypeVariable;
 					break;
 				case Wildcard.UNBOUND :
-					this.superclass = scope.getJavaLangObject();
-					this.superInterfaces = Binding.NO_SUPERINTERFACES;
+					this.setSuperClass(scope.getJavaLangObject());
+					this.setSuperInterfaces(Binding.NO_SUPERINTERFACES);
 					this.tagBits &= ~TagBits.HasTypeVariable;
 					break;
 				case Wildcard.SUPER :
-					this.superclass = scope.getJavaLangObject();
-					this.superInterfaces = Binding.NO_SUPERINTERFACES;
+					this.setSuperClass(scope.getJavaLangObject());
+					this.setSuperInterfaces(Binding.NO_SUPERINTERFACES);
 					this.lowerBound = this.wildcard.bound;
 					if ((originalWildcardBound.tagBits & TagBits.HasTypeVariable) == 0)
 						this.tagBits &= ~TagBits.HasTypeVariable;
@@ -143,44 +169,44 @@ public class CaptureBinding extends TypeVariableBinding {
 				// still need to capture bound supertype as well so as not to expose wildcards to the outside (111208)
 				TypeBinding capturedWildcardBound = originalWildcardBound.capture(scope, this.position);
 				if (originalWildcardBound.isInterface()) {
-					this.superclass = substitutedVariableSuperclass;
+					this.setSuperClass(substitutedVariableSuperclass);
 					// merge wildcard bound into variable superinterfaces using glb
 					if (substitutedVariableInterfaces == Binding.NO_SUPERINTERFACES) {
-						this.superInterfaces = new ReferenceBinding[] { (ReferenceBinding) capturedWildcardBound };
+						this.setSuperInterfaces(new ReferenceBinding[] { (ReferenceBinding) capturedWildcardBound });
 					} else {
 						int length = substitutedVariableInterfaces.length;
 						System.arraycopy(substitutedVariableInterfaces, 0, substitutedVariableInterfaces = new ReferenceBinding[length+1], 1, length);
 						substitutedVariableInterfaces[0] =  (ReferenceBinding) capturedWildcardBound;
-						this.superInterfaces = Scope.greaterLowerBound(substitutedVariableInterfaces);
+						this.setSuperInterfaces(Scope.greaterLowerBound(substitutedVariableInterfaces));
 					}
 				} else {
 					// the wildcard bound should be a subtype of variable superclass
 					// it may occur that the bound is less specific, then consider glb (202404)
 					if (capturedWildcardBound.isArrayType() || capturedWildcardBound == this) {
-						this.superclass = substitutedVariableSuperclass;
+						this.setSuperClass(substitutedVariableSuperclass);
 					} else {
-						this.superclass = (ReferenceBinding) capturedWildcardBound;
+						this.setSuperClass((ReferenceBinding) capturedWildcardBound);
 						if (this.superclass.isSuperclassOf(substitutedVariableSuperclass)) {
-							this.superclass = substitutedVariableSuperclass;
+							this.setSuperClass(substitutedVariableSuperclass);
 						}
 					}
-					this.superInterfaces = substitutedVariableInterfaces;
+					this.setSuperInterfaces(substitutedVariableInterfaces);
 				}
-				this.firstBound =  capturedWildcardBound;
+				this.setFirstBound(capturedWildcardBound);
 				if ((capturedWildcardBound.tagBits & TagBits.HasTypeVariable) == 0)
 					this.tagBits &= ~TagBits.HasTypeVariable;
 				break;
 			case Wildcard.UNBOUND :
-				this.superclass = substitutedVariableSuperclass;
-				this.superInterfaces = substitutedVariableInterfaces;
+				this.setSuperClass(substitutedVariableSuperclass);
+				this.setSuperInterfaces(substitutedVariableInterfaces);
 				this.tagBits &= ~TagBits.HasTypeVariable;
 				break;
 			case Wildcard.SUPER :
-				this.superclass = substitutedVariableSuperclass;
+				this.setSuperClass(substitutedVariableSuperclass);
 				if (wildcardVariable.firstBound == substitutedVariableSuperclass || originalWildcardBound == substitutedVariableSuperclass) {
-					this.firstBound = substitutedVariableSuperclass;
+					this.setFirstBound(substitutedVariableSuperclass);
 				}
-				this.superInterfaces = substitutedVariableInterfaces;
+				this.setSuperInterfaces(substitutedVariableInterfaces);
 				this.lowerBound = originalWildcardBound;
 				if ((originalWildcardBound.tagBits & TagBits.HasTypeVariable) == 0)
 					this.tagBits &= ~TagBits.HasTypeVariable;
@@ -199,7 +225,7 @@ public class CaptureBinding extends TypeVariableBinding {
 	 * @see TypeBinding#isEquivalentTo(TypeBinding)
 	 */
 	public boolean isEquivalentTo(TypeBinding otherType) {
-	    if (this == otherType) return true;
+	    if (equalsEquals(this, otherType)) return true;
 	    if (otherType == null) return false;
 		// capture of ? extends X[]
 		if (this.firstBound != null && this.firstBound.isArrayType()) {
@@ -249,6 +275,11 @@ public class CaptureBinding extends TypeVariableBinding {
 	public String toString() {
 		if (this.wildcard != null) {
 			StringBuffer buffer = new StringBuffer(10);
+			AnnotationBinding [] annotations = getTypeAnnotations();
+			for (int i = 0, length = annotations == null ? 0 : annotations.length; i < length; i++) {
+				buffer.append(annotations[i]);
+				buffer.append(' ');
+			}
 			buffer
 				.append(TypeConstants.WILDCARD_CAPTURE_NAME_PREFIX)
 				.append(this.captureID)

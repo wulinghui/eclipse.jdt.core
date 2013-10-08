@@ -19,6 +19,7 @@ package org.eclipse.jdt.internal.compiler.lookup;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 
 public class SyntheticMethodBinding extends MethodBinding {
@@ -27,6 +28,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 	public FieldBinding targetWriteField;		// write access to a field
 	public MethodBinding targetMethod;			// method or constructor
 	public TypeBinding targetEnumType; 			// enum type
+	public LambdaExpression lambda;
 	
 	public int purpose;
 
@@ -46,9 +48,14 @@ public class SyntheticMethodBinding extends MethodBinding {
 	public final static int EnumValueOf = 10; // enum #valueOf(String)
 	public final static int SwitchTable = 11; // switch table method
 	public final static int TooManyEnumsConstants = 12; // too many enum constants
-
+	public static final int LambdaMethod = 13; // Lambda body emitted as a method.
+	public final static int ArrayConstructor = 14; // X[]::new
+	public static final int ArrayClone = 15; // X[]::clone
+    public static final int FactoryMethod = 16; // for indy call to private constructor.
+    
 	public int sourceStart = 0; // start position of the matching declaration
 	public int index; // used for sorting access methods in the class file
+	public int fakePaddedParameters = 0; // added in synthetic constructor to avoid name clash.
 
 	public SyntheticMethodBinding(FieldBinding targetField, boolean isReadAccess, boolean isSuperAccess, ReferenceBinding declaringClass) {
 
@@ -318,6 +325,58 @@ public class SyntheticMethodBinding extends MethodBinding {
 		this.index = methodId;
 	}
 
+	public SyntheticMethodBinding(int purpose, ArrayBinding arrayType, char [] selector, SourceTypeBinding declaringClass) {
+	    this.declaringClass = declaringClass;
+	    this.selector = selector;
+	    this.modifiers = ClassFileConstants.AccSynthetic | ClassFileConstants.AccPrivate | ClassFileConstants.AccStatic;
+		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved);
+	    this.returnType = arrayType;
+	    this.parameters = new TypeBinding[] { purpose == SyntheticMethodBinding.ArrayConstructor ? TypeBinding.INT : (TypeBinding) arrayType};
+	    this.thrownExceptions = Binding.NO_EXCEPTIONS;
+	    this.purpose = purpose;
+		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
+		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
+		this.index = methodId;
+	}
+
+	public SyntheticMethodBinding(LambdaExpression lambda, char [] lambdaName, SourceTypeBinding declaringClass) {
+		this.lambda = lambda;
+	    this.declaringClass = declaringClass;
+	    this.selector = lambdaName;
+	    this.modifiers = lambda.binding.modifiers;
+		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved) | (lambda.binding.tagBits & TagBits.HasParameterAnnotations);
+	    this.returnType = lambda.binding.returnType;
+	    this.parameters = lambda.binding.parameters;
+	    this.thrownExceptions = lambda.binding.thrownExceptions;
+	    this.purpose = SyntheticMethodBinding.LambdaMethod;
+		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
+		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
+		this.index = methodId;
+	}
+
+	public SyntheticMethodBinding(MethodBinding privateConstructor, MethodBinding publicConstructor, char[] selector, TypeBinding[] enclosingInstances, SourceTypeBinding declaringClass) {
+	    this.declaringClass = declaringClass;
+	    this.selector = selector;
+	    this.modifiers = ClassFileConstants.AccSynthetic | ClassFileConstants.AccPrivate | ClassFileConstants.AccStatic;
+		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved);
+	    this.returnType = publicConstructor.declaringClass;
+	
+	    int realParametersLength = privateConstructor.parameters.length;
+	    int enclosingInstancesLength = enclosingInstances.length;
+	    int parametersLength =  enclosingInstancesLength + realParametersLength;
+	    this.parameters = new TypeBinding[parametersLength];
+	    System.arraycopy(enclosingInstances, 0, this.parameters, 0, enclosingInstancesLength);
+	    System.arraycopy(privateConstructor.parameters, 0, this.parameters, enclosingInstancesLength, realParametersLength);
+	    this.fakePaddedParameters = publicConstructor.parameters.length - realParametersLength;
+	    
+	    this.thrownExceptions = publicConstructor.thrownExceptions;
+	    this.purpose = SyntheticMethodBinding.FactoryMethod;
+	    this.targetMethod = publicConstructor;
+		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
+		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
+		this.index = methodId;
+	}
+
 	/**
 	 * An constructor accessor is a constructor with an extra argument (declaringClass), in case of
 	 * collision with an existing constructor, then add again an extra argument (declaringClass again).
@@ -467,5 +526,9 @@ public class SyntheticMethodBinding extends MethodBinding {
 
 	protected boolean isConstructorRelated() {
 		return this.purpose == SyntheticMethodBinding.ConstructorAccess;
+	}
+	
+	public LambdaExpression sourceLambda() {
+		return this.lambda;
 	}
 }

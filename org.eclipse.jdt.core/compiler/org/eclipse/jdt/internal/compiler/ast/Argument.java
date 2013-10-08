@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,6 +14,9 @@
  *     Stephan Herrmann - Contributions for
  *								bug 186342 - [compiler][null] Using annotations for null checking
  *								bug 365519 - editorial cleanup after bug 186342 and bug 365387
+ *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
+ *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *                          Bug 409246 - [1.8][compiler] Type annotations on catch parameters not handled properly
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -52,7 +55,7 @@ public class Argument extends LocalDeclaration {
 		this.bits |= (IsLocalDeclarationReachable | IsArgument | IsTypeElided);
 	}
 
-	public void createBinding(MethodScope scope, TypeBinding typeBinding) {
+	public TypeBinding createBinding(MethodScope scope, TypeBinding typeBinding) {
 		if (this.binding == null) {
 			// for default constructors and fake implementation of abstract methods 
 			this.binding = new LocalVariableBinding(this, typeBinding, this.modifiers, true /*isArgument*/);
@@ -65,12 +68,18 @@ public class Argument extends LocalDeclaration {
 				}
 			}
 		}
-		resolveAnnotations(scope, this.annotations, this.binding);
+		if ((this.binding.tagBits & TagBits.AnnotationResolved) == 0) {
+			resolveAnnotations(scope, this.annotations, this.binding, true);
+			Annotation.isTypeUseCompatible(this.type, scope, this.annotations);
+			if (scope.compilerOptions().sourceLevel >= ClassFileConstants.JDK1_8)
+				scope.validateNullAnnotation(this.binding.tagBits, this.type, this.annotations);
+		}
 		this.binding.declaration = this;
+		return this.binding.type; // might have been updated during resolveAnnotations (for typeAnnotations)
 	}
 
-	public void bind(MethodScope scope, TypeBinding typeBinding, boolean used) {
-		createBinding(scope, typeBinding); // basically a no-op if createBinding() was called before
+	public TypeBinding bind(MethodScope scope, TypeBinding typeBinding, boolean used) {
+		TypeBinding newTypeBinding = createBinding(scope, typeBinding); // basically a no-op if createBinding() was called before
 
 		// record the resolved type into the type reference
 		Binding existingVariable = scope.getBinding(this.name, Binding.VARIABLE, this, false /*do not resolve hidden field*/);
@@ -97,6 +106,7 @@ public class Argument extends LocalDeclaration {
 		}
 		scope.addLocalVariable(this.binding);
 		this.binding.useFlag = used ? LocalVariableBinding.USED : LocalVariableBinding.UNUSED;
+		return newTypeBinding;
 	}
 
 	/**
@@ -186,7 +196,8 @@ public class Argument extends LocalDeclaration {
 		} else {
 			this.binding = new CatchParameterBinding(this, exceptionType, this.modifiers, false); // argument decl, but local var  (where isArgument = false)
 		}
-		resolveAnnotations(scope, this.annotations, this.binding);
+		resolveAnnotations(scope, this.annotations, this.binding, true);
+		Annotation.isTypeUseCompatible(this.type, scope, this.annotations);
 
 		scope.addLocalVariable(this.binding);
 		this.binding.setConstant(Constant.NotAConstant);

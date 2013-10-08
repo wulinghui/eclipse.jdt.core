@@ -34,13 +34,6 @@ public class UnionTypeReference extends TypeReference {
 	}
 
 	/* (non-Javadoc)
-	 * @see org.eclipse.jdt.internal.compiler.ast.TypeReference#copyDims(int)
-	 */
-	public TypeReference copyDims(int dim) {
-		return this; // arrays are not legal as union types.
-	}
-
-	/* (non-Javadoc)
 	 * @see org.eclipse.jdt.internal.compiler.ast.TypeReference#getLastToken()
 	 */
 	public char[] getLastToken() {
@@ -159,8 +152,10 @@ public class UnionTypeReference extends TypeReference {
 		}
 		return output;
 	}
-
-	public TypeReference copyDims(int dim, Annotation[][] annotationsOnDimensions) {
+	public boolean isUnionType() {
+		return true;
+	}
+	public TypeReference augmentTypeWithAdditionalDimensions(int additionalDimensions, Annotation[][] additionalAnnotations, boolean isVarargs) {
 		return this; // arrays are not legal as union types.
 	}
 

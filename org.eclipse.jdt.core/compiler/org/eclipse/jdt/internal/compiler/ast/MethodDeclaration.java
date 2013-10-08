@@ -18,6 +18,11 @@
  *								bug 368546 - [compiler][resource] Avoid remaining false positives found when compiling the Eclipse SDK
  *								bug 382353 - [1.8][compiler] Implementation property modifiers should be accepted on default methods.
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
+ *								Bug 416176 - [1.8][compiler][null] null type annotations cause grief on type variables
+ *     Jesper S Moller <jesper@selskabet.org> - Contributions for
+ *								bug 378674 - "The method can be declared as static" is wrong
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -31,7 +36,6 @@ import org.eclipse.jdt.internal.compiler.flow.ExceptionHandlingFlowContext;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
-import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.ClassScope;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
@@ -56,6 +60,7 @@ public class MethodDeclaration extends AbstractMethodDeclaration {
 	 */
 	public MethodDeclaration(CompilationResult compilationResult) {
 		super(compilationResult);
+		this.bits |= ASTNode.CanBeStatic; // Start with this assumption, will course correct during resolve and analyseCode.
 	}
 
 	public void analyseCode(ClassScope classScope, FlowContext flowContext, FlowInfo flowInfo) {
@@ -104,20 +109,11 @@ public class MethodDeclaration extends AbstractMethodDeclaration {
 					FlowInfo.DEAD_END);
 
 			// nullity and mark as assigned
-			analyseArguments(flowInfo, this.arguments, this.binding);
+			if (classScope.compilerOptions().sourceLevel < ClassFileConstants.JDK1_8)
+				analyseArguments(flowInfo, this.arguments, this.binding);
+			else
+				analyseArguments18(flowInfo, this.arguments, this.binding);
 
-			if (this.arguments != null) {
-				for (int i = 0, count = this.arguments.length; i < count; i++) {
-					this.bits |= (this.arguments[i].bits & ASTNode.HasTypeAnnotations);
-					// if this method uses a type parameter declared by the declaring class,
-					// it can't be static. https://bugs.eclipse.org/bugs/show_bug.cgi?id=318682
-					if (this.arguments[i].binding != null && (this.arguments[i].binding.type instanceof TypeVariableBinding)) {
-						Binding declaringElement = ((TypeVariableBinding)this.arguments[i].binding.type).declaringElement;
-						if (this.binding != null && this.binding.declaringClass == declaringElement)
-							this.bits &= ~ASTNode.CanBeStatic;
-					}
-				}
-			}
 			if (this.binding.declaringClass instanceof MemberTypeBinding && !this.binding.declaringClass.isStatic()) {
 				// method of a non-static member type can't be static.
 				this.bits &= ~ASTNode.CanBeStatic;
@@ -155,7 +151,7 @@ public class MethodDeclaration extends AbstractMethodDeclaration {
 			// check unused parameters
 			this.scope.checkUnusedParameters(this.binding);
 			// check if the method could have been static
-			if (!this.binding.isStatic() && (this.bits & ASTNode.CanBeStatic) != 0) {
+			if (!this.binding.isStatic() && (this.bits & ASTNode.CanBeStatic) != 0 && !this.isDefaultMethod()) {
 				if(!this.binding.isOverriding() && !this.binding.isImplementing()) {
 					if (this.binding.isPrivate() || this.binding.isFinal() || this.binding.declaringClass.isFinal()) {
 						this.scope.problemReporter().methodCanBeDeclaredStatic(this);
@@ -172,7 +168,7 @@ public class MethodDeclaration extends AbstractMethodDeclaration {
 	}
 
 	public void getAllAnnotationContexts(int targetType, List allAnnotationContexts) {
-		AnnotationCollector collector = new AnnotationCollector(this, targetType, allAnnotationContexts);
+		AnnotationCollector collector = new AnnotationCollector(this.returnType, targetType, allAnnotationContexts);
 		for (int i = 0, max = this.annotations.length; i < max; i++) {
 			Annotation annotation = this.annotations[i];
 			annotation.traverse(collector, (BlockScope) null);
@@ -217,7 +213,7 @@ public class MethodDeclaration extends AbstractMethodDeclaration {
 			for (int i = 0, length = this.typeParameters.length; i < length; i++) {
 				TypeParameter typeParameter = this.typeParameters[i];
 				this.bits |= (typeParameter.bits & ASTNode.HasTypeAnnotations);
-				typeParameter.resolve(this.scope);
+				// typeParameter is already resolved from Scope#connectTypeVariables()
 				if (returnsUndeclTypeVar && this.typeParameters[i].binding == this.returnType.resolvedType) {
 					returnsUndeclTypeVar = false;
 				}
@@ -286,12 +282,12 @@ public class MethodDeclaration extends AbstractMethodDeclaration {
 						if ((this.modifiers & ClassFileConstants.AccAbstract) == 0)
 							this.scope.problemReporter().methodNeedBody(this);
 				} else {
-					// the method HAS a body --> abstract native modifiers are forbiden
+					// the method HAS a body --> abstract native modifiers are forbidden
 					if (((this.modifiers & ClassFileConstants.AccNative) != 0) || ((this.modifiers & ClassFileConstants.AccAbstract) != 0))
 						this.scope.problemReporter().methodNeedingNoBody(this);
-					else if (this.binding != null && !this.binding.isStatic() && !(this.binding.declaringClass instanceof LocalTypeBinding) && !returnsUndeclTypeVar) {
-						// Not a method of local type - can be static
-						this.bits |= ASTNode.CanBeStatic;
+					else if (this.binding == null || this.binding.isStatic() || (this.binding.declaringClass instanceof LocalTypeBinding) || returnsUndeclTypeVar) {
+						// Cannot be static for one of the reasons stated above
+						this.bits &= ~ASTNode.CanBeStatic;
 					}
 				}
 				break;
@@ -359,12 +355,5 @@ public class MethodDeclaration extends AbstractMethodDeclaration {
 	}
 	public TypeParameter[] typeParameters() {
 	    return this.typeParameters;
-	}
-	
-	void validateNullAnnotations() {
-		super.validateNullAnnotations();
-		// null-annotations on the return type?
-		if (this.binding != null)
-			this.scope.validateNullAnnotation(this.binding.tagBits, this.returnType, this.annotations);
 	}
 }

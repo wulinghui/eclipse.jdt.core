@@ -10,6 +10,10 @@
  *     Stephan Herrmann <stephan@cs.tu-berlin.de> - Contributions for
  *								bug 282152 - [1.5][compiler] Generics code rejected by Eclipse but accepted by javac
  *								bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+ *								bug 401456 - Code compiles from javac/intellij, but fails from eclipse
+ *								bug 405706 - Eclipse compiler fails to give compiler error when return type is a inferred generic
+ *								Bug 408441 - Type mismatch using Arrays.asList with 3 or more implementations of an interface with the interface type as the last parameter
+ *								Bug 413958 - Function override returning inherited Generic Type
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -30,8 +34,8 @@ public class GenericsRegressionTest extends AbstractComparableTest {
 	// Static initializer to specify tests subset using TESTS_* static variables
 	// All specified tests which does not belong to the class are skipped...
 	static {
-//		TESTS_NAMES = new String[] { "testBug395002_combined" };
-//		TESTS_NAMES = new String[] { "test1464" };
+//		TESTS_NAMES = new String[] { "testBug405706" };
+//		TESTS_NAMES = new String[] { "testBug413958" };
 //		TESTS_NUMBERS = new int[] { 1465 };
 //		TESTS_RANGE = new int[] { 1097, -1 };
 	}
@@ -1162,6 +1166,180 @@ public void test322817k() {
 			true,
 			customOptions);
 }
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=338350 (unchecked cast - only unavoidable on raw expression)
+public void test338350() {
+	String[] testFiles = new String[] {
+			"Try.java",
+			"import java.lang.reflect.Array;\n" + 
+			"import java.util.ArrayList;\n" + 
+			"import java.util.List;\n" + 
+			"public class Try<E> {\n" + 
+			"	void fooObj() {\n" + 
+			"		takeObj((E) Bar.getObject());\n" + 
+			"		takeObj((E) Bar.getArray());\n" + 
+			"		takeObj((E) Array.newInstance(Integer.class, 2));\n" + 
+			"	}\n" + 
+			"	void takeObj(E obj) { }\n" + 
+			"	void fooArray() {\n" + 
+			"		takeArray((E[]) Bar.getArray());\n" + 
+			"		takeArray((E[]) Array.newInstance(Integer.class, 2));\n" + 
+			"	}\n" + 
+			"	void takeArray(E[] array) { }\n" + 
+			"	<L> void foo(List<L> list) {\n" + 
+			"		list.toArray((L[]) Bar.getArray());\n" + 
+			"		list.toArray((L[]) Array.newInstance(Integer.class, 2));\n" + 
+			"	}\n" + 
+			"	void bar() {\n" + 
+			"		List<String> l = (List<String>) Bar.getObject();\n" + 
+			"		List<String> l2 = Bar.getRawList();\n" + 
+			"		ArrayList<String> l3 = (ArrayList<String>) Bar.getRawList();\n" + 
+			"	}\n" + 
+			"}\n",
+			"Bar.java",
+			"import java.lang.reflect.Array;\n" + 
+			"import java.util.ArrayList;\n" + 
+			"import java.util.List;\n" + 
+			"public class Bar {\n" + 
+			"	public static Object getObject() {\n" + 
+			"		return new Object();\n" + 
+			"	}\n" + 
+			"	public static Object[] getArray() {\n" + 
+			"		return (Object[]) Array.newInstance(Integer.class, 2);\n" + 
+			"	}\n" + 
+			"	public static List getRawList() {\n" + 
+			"		return new ArrayList();\n" + 
+			"	}\n" + 
+			"}\n"
+	};
+	Map customOptions = getCompilerOptions();
+	customOptions.put(CompilerOptions.OPTION_ReportUnavoidableGenericTypeProblems, CompilerOptions.ENABLED);
+	this.runNegativeTest(
+			testFiles,
+			"----------\n" + 
+			"1. WARNING in Try.java (at line 6)\n" + 
+			"	takeObj((E) Bar.getObject());\n" + 
+			"	        ^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object to E\n" + 
+			"----------\n" + 
+			"2. WARNING in Try.java (at line 7)\n" + 
+			"	takeObj((E) Bar.getArray());\n" + 
+			"	        ^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object[] to E\n" + 
+			"----------\n" + 
+			"3. WARNING in Try.java (at line 8)\n" + 
+			"	takeObj((E) Array.newInstance(Integer.class, 2));\n" + 
+			"	        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object to E\n" + 
+			"----------\n" + 
+			"4. WARNING in Try.java (at line 12)\n" + 
+			"	takeArray((E[]) Bar.getArray());\n" + 
+			"	          ^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object[] to E[]\n" + 
+			"----------\n" + 
+			"5. WARNING in Try.java (at line 13)\n" + 
+			"	takeArray((E[]) Array.newInstance(Integer.class, 2));\n" + 
+			"	          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object to E[]\n" + 
+			"----------\n" + 
+			"6. WARNING in Try.java (at line 17)\n" + 
+			"	list.toArray((L[]) Bar.getArray());\n" + 
+			"	             ^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object[] to L[]\n" + 
+			"----------\n" + 
+			"7. WARNING in Try.java (at line 18)\n" + 
+			"	list.toArray((L[]) Array.newInstance(Integer.class, 2));\n" + 
+			"	             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object to L[]\n" + 
+			"----------\n" + 
+			"8. WARNING in Try.java (at line 21)\n" + 
+			"	List<String> l = (List<String>) Bar.getObject();\n" + 
+			"	                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object to List<String>\n" + 
+			"----------\n" + 
+			"9. WARNING in Try.java (at line 22)\n" + 
+			"	List<String> l2 = Bar.getRawList();\n" + 
+			"	                  ^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: The expression of type List needs unchecked conversion to conform to List<String>\n" + 
+			"----------\n" + 
+			"10. WARNING in Try.java (at line 23)\n" + 
+			"	ArrayList<String> l3 = (ArrayList<String>) Bar.getRawList();\n" + 
+			"	                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from List to ArrayList<String>\n" + 
+			"----------\n" + 
+			"----------\n" + 
+			"1. WARNING in Bar.java (at line 11)\n" + 
+			"	public static List getRawList() {\n" + 
+			"	              ^^^^\n" + 
+			"List is a raw type. References to generic type List<E> should be parameterized\n" + 
+			"----------\n" + 
+			"2. WARNING in Bar.java (at line 12)\n" + 
+			"	return new ArrayList();\n" + 
+			"	           ^^^^^^^^^\n" + 
+			"ArrayList is a raw type. References to generic type ArrayList<E> should be parameterized\n" + 
+			"----------\n",
+			null,
+			true,
+			customOptions);
+	customOptions.put(CompilerOptions.OPTION_ReportUnavoidableGenericTypeProblems, CompilerOptions.DISABLED);
+	this.runNegativeTest(
+			testFiles,
+			"----------\n" + 
+			"1. WARNING in Try.java (at line 6)\n" + 
+			"	takeObj((E) Bar.getObject());\n" + 
+			"	        ^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object to E\n" + 
+			"----------\n" + 
+			"2. WARNING in Try.java (at line 7)\n" + 
+			"	takeObj((E) Bar.getArray());\n" + 
+			"	        ^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object[] to E\n" + 
+			"----------\n" + 
+			"3. WARNING in Try.java (at line 8)\n" + 
+			"	takeObj((E) Array.newInstance(Integer.class, 2));\n" + 
+			"	        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object to E\n" + 
+			"----------\n" + 
+			"4. WARNING in Try.java (at line 12)\n" + 
+			"	takeArray((E[]) Bar.getArray());\n" + 
+			"	          ^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object[] to E[]\n" + 
+			"----------\n" + 
+			"5. WARNING in Try.java (at line 13)\n" + 
+			"	takeArray((E[]) Array.newInstance(Integer.class, 2));\n" + 
+			"	          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object to E[]\n" + 
+			"----------\n" + 
+			"6. WARNING in Try.java (at line 17)\n" + 
+			"	list.toArray((L[]) Bar.getArray());\n" + 
+			"	             ^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object[] to L[]\n" + 
+			"----------\n" + 
+			"7. WARNING in Try.java (at line 18)\n" + 
+			"	list.toArray((L[]) Array.newInstance(Integer.class, 2));\n" + 
+			"	             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object to L[]\n" + 
+			"----------\n" + 
+			"8. WARNING in Try.java (at line 21)\n" + 
+			"	List<String> l = (List<String>) Bar.getObject();\n" + 
+			"	                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked cast from Object to List<String>\n" + 
+			"----------\n" + 
+			"----------\n" + 
+			"1. WARNING in Bar.java (at line 11)\n" + 
+			"	public static List getRawList() {\n" + 
+			"	              ^^^^\n" + 
+			"List is a raw type. References to generic type List<E> should be parameterized\n" + 
+			"----------\n" + 
+			"2. WARNING in Bar.java (at line 12)\n" + 
+			"	return new ArrayList();\n" + 
+			"	           ^^^^^^^^^\n" + 
+			"ArrayList is a raw type. References to generic type ArrayList<E> should be parameterized\n" + 
+			"----------\n",
+			null,
+			true,
+			customOptions);
+}
+
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=334622 (private access - different packages)
 public void test334622a() {
 	this.runNegativeTest(
@@ -2816,5 +2994,276 @@ public void test397888b() {
 		"Unused type parameter S\n" + 
 		"----------\n",
 		null, true, customOptions);
+}
+// Bug 401456 - Code compiles from javac/intellij, but fails from eclipse
+public void test401456() {
+	runConformTest(
+		new String[] {
+			"App.java",
+			"import java.util.List;\n" +
+			"\n" +
+			"public class App {\n" +
+			"\n" +
+			"    public interface Command_1<T> {\n" +
+			"        public void execute(T o);\n" +
+			"    }\n" +
+			"    public static class ObservableEventWithArg<T> {\n" +
+			"        public class Monitor {\n" +
+			"            public Object addListener(final Command_1<T> l) {\n" +
+			"                return null;\n" +
+			"            }\n" +
+			"        }\n" +
+			"    }\n" +
+			"    public static class Context<T> {\n" +
+			"          public ObservableEventWithArg<String>.Monitor getSubmissionErrorEventMonitor() {\n" +
+			"              return new ObservableEventWithArg<String>().new Monitor();\n" +
+			"        }\n" +
+			"    }\n" +
+			"\n" +
+			"    public static void main(String[] args) {\n" +
+			"        compileError(new Context<List<String>>());\n" +
+			"    }\n" +
+			"\n" +
+			"    private static void compileError(Context context) {\n" +
+			"        context.getSubmissionErrorEventMonitor().addListener(\n" + // here the inner message send bogusly resolved to ObservableEventWithArg#RAW.Monitor
+			"            new Command_1<String>() {\n" +
+			"                public void execute(String o) {\n" +
+			"                }\n" +
+			"            });\n" +
+			"    }\n" +
+			"}\n"
+		});
+}
+// https://bugs.eclipse.org/405706 - Eclipse compiler fails to give compiler error when return type is a inferred generic
+// original test
+public void testBug405706a() {
+	runNegativeTest(
+		new String[] {
+			"TypeUnsafe.java",
+			"import java.util.Collection;\n" + 
+			"\n" + 
+			"public class TypeUnsafe {\n" + 
+			"	public static <Type,\n" + 
+			"			CollectionType extends Collection<Type>>\n" + 
+			"			CollectionType\n" + 
+			"			nullAsCollection(Class<Type> clazz) {\n" + 
+			"		return null;\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	public static void main(String[] args) {\n" + 
+			"		Collection<Integer> integers = nullAsCollection(String.class);\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in TypeUnsafe.java (at line 12)\n" + 
+		"	Collection<Integer> integers = nullAsCollection(String.class);\n" + 
+		"	                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from Collection<String> to Collection<Integer>\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/405706 - Eclipse compiler fails to give compiler error when return type is a inferred generic
+// include compatibility List <: Collection
+public void testBug405706b() {
+	runNegativeTest(
+		new String[] {
+			"TypeUnsafe.java",
+			"import java.util.Collection;\n" + 
+			"import java.util.List;\n" + 
+			"\n" + 
+			"public class TypeUnsafe {\n" + 
+			"	public static <Type,\n" + 
+			"			CollectionType extends List<Type>>\n" + 
+			"			CollectionType\n" + 
+			"			nullAsList(Class<Type> clazz) {\n" + 
+			"		return null;\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	public static void main(String[] args) {\n" + 
+			"		Collection<Integer> integers = nullAsList(String.class);\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in TypeUnsafe.java (at line 13)\n" + 
+		"	Collection<Integer> integers = nullAsList(String.class);\n" + 
+		"	                               ^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from List<String> to Collection<Integer>\n" + 
+		"----------\n");
+}
+
+// https://bugs.eclipse.org/408441 - Type mismatch using Arrays.asList with 3 or more implementations of an interface with the interface type as the last parameter
+public void testBug408441() {
+	runConformTest(
+		new String[] {
+			"TypeMistmatchIssue.java",
+			"import java.util.Arrays;\n" + 
+			"import java.util.List;\n" + 
+			"\n" + 
+			"\n" + 
+			"public class TypeMistmatchIssue {\n" + 
+			"	static interface A {\n" + 
+			"	}\n" + 
+			"	static class B implements A {\n" + 
+			"	}\n" + 
+			"	static class C implements A {\n" + 
+			"	}\n" + 
+			"	static class D implements A {\n" + 
+			"	}\n" + 
+			"	\n" + 
+			"	void illustrate() {\n" + 
+			"		List<Class<? extends A>> no1= Arrays.asList(B.class, A.class);						// compiles\n" + 
+			"		List<Class<? extends A>> no2= Arrays.asList(C.class, B.class, A.class);				// compiles\n" + 
+			"		List<Class<? extends A>> no3= Arrays.asList(D.class, B.class, A.class);				// compiles\n" + 
+			"		\n" + 
+			"		List<Class<? extends A>> no4= Arrays.asList(D.class, C.class, B.class, A.class);	// cannot convert error !!!\n" + 
+			"\n" + 
+			"		List<Class<? extends A>> no5= Arrays.asList(A.class, B.class, C.class, D.class);	// compiles\n" + 
+			"		List<Class<? extends A>> no6= Arrays.asList(A.class, D.class, C.class, B.class);	// compiles\n" + 
+			"	}\n" + 
+			"}\n"
+		});
+}
+
+// https://bugs.eclipse.org/413958 - Function override returning inherited Generic Type
+public void testBug413958_1() {
+	runConformTest(
+		new String[] {
+			"TestA.java",
+			"public class TestA { }\n",
+			"TestB.java",
+			"public class TestB { }\n",
+			"ReadOnlyWrapper.java",
+			"@SuppressWarnings(\"unchecked\")\n" +
+			"public class ReadOnlyWrapper<A extends TestA, B extends TestB> {\n" +
+			"    protected A a;\n" +
+			"    protected B b;\n" +
+			"    public ReadOnlyWrapper(A ax,B bx){\n" +
+			"        this.a = ax;\n" +
+			"        this.b = bx;\n" +
+			"    }\n" +
+			"    public <X extends ReadOnlyWrapper<A,B>> X copy() {\n" +
+			"        return (X) new ReadOnlyWrapper<A,B>(a,b);\n" +
+			"    }\n" +
+			"    public <TA extends TestA,TB extends TestB,X extends ReadOnlyWrapper<TA,TB>> X icopy() {\n" +
+			"        return (X) new ReadOnlyWrapper<A,B>(a,b);\n" +
+			"    }\n" +
+			"    public A getA() {\n" +
+			"        return this.a;\n" +
+			"    }\n" +
+			"    public B getB() {\n" +
+			"        return this.b;\n" +
+			"    }\n" +
+			"}",
+			"WritableWrapper.java",
+			"@SuppressWarnings(\"unchecked\")\n" +
+			"public class WritableWrapper<A extends TestA, B extends TestB> extends ReadOnlyWrapper<A, B> {\n" +
+			"    public WritableWrapper(A ax,B bx){\n" +
+			"        super(ax,bx);\n" +
+			"    }\n" +
+			"    @Override\n" +
+			"    public <X extends ReadOnlyWrapper<A,B>> X copy() {\n" +
+			"        return (X) new WritableWrapper<A, B>(a,b);\n" +
+			"    }\n" +
+			"    @Override\n" +
+			"    public <TA extends TestA,TB extends TestB,X extends ReadOnlyWrapper<TA,TB>> X icopy() {\n" +
+			"        // Works in Indigo, Fails in Kepler\n" +
+			"        return (X) new WritableWrapper<A,B>(a,b);\n" +
+			"    }\n" +
+			"    public void setA(A ax) {\n" +
+			"        this.a = ax;\n" +
+			"    }\n" +
+			"    public void setB(B bx) {\n" +
+			"        this.b = bx;\n" +
+			"    }\n" +
+			"}\n",
+			"TestGenerics.java",
+			"public class TestGenerics {\n" +
+			"    public static void main(String [] args) {\n" +
+			"        final WritableWrapper<TestA, TestB> v1 = new WritableWrapper<TestA, TestB>(new TestA(), new TestB());\n" +
+			"        final WritableWrapper<TestA,TestB> v2 = v1.copy();\n" +
+			"        final WritableWrapper<TestA,TestB> v3 = v1.icopy();\n" +
+			"    }\n" +
+			"}\n"
+		});
+}
+// https://bugs.eclipse.org/413958 - Function override returning inherited Generic Type
+// variation showing different inference with / without a method parameter
+public void testBug413958_2() {
+	runNegativeTest(
+		new String[] {
+			"TestA.java",
+			"public class TestA { }\n",
+			"TestB.java",
+			"public class TestB { }\n",
+			"TestA2.java",
+			"public class TestA2 extends TestA { }\n",
+			"ReadOnlyWrapper.java",
+			"@SuppressWarnings(\"unchecked\")\n" +
+			"public class ReadOnlyWrapper<A extends TestA, B extends TestB> {\n" +
+			"    protected A a;\n" +
+			"    protected B b;\n" +
+			"    public ReadOnlyWrapper(A ax,B bx){\n" +
+			"        this.a = ax;\n" +
+			"        this.b = bx;\n" +
+			"    }\n" +
+			"    public <X extends ReadOnlyWrapper<A,B>> X copy() {\n" +
+			"        return (X) new ReadOnlyWrapper<A,B>(a,b);\n" +
+			"    }\n" +
+			"    public <TA extends TestA,TB extends TestB,X extends ReadOnlyWrapper<TA,TB>> X icopy() {\n" +
+			"        return (X) new ReadOnlyWrapper<A,B>(a,b);\n" +
+			"    }\n" +
+			"    public <TA extends TestA,TB extends TestB,X extends ReadOnlyWrapper<TA,TB>> X icopy2(TA in) {\n" +
+			"        return (X) new ReadOnlyWrapper<A,B>(a,b);\n" +
+			"    }\n" +
+			"    public A getA() {\n" +
+			"        return this.a;\n" +
+			"    }\n" +
+			"    public B getB() {\n" +
+			"        return this.b;\n" +
+			"    }\n" +
+			"}",
+			"WritableWrapper.java",
+			"@SuppressWarnings(\"unchecked\")\n" +
+			"public class WritableWrapper<A extends TestA, B extends TestB> extends ReadOnlyWrapper<A, B> {\n" +
+			"    public WritableWrapper(A ax,B bx){\n" +
+			"        super(ax,bx);\n" +
+			"    }\n" +
+			"    @Override\n" +
+			"    public <X extends ReadOnlyWrapper<A,B>> X copy() {\n" +
+			"        return (X) new WritableWrapper<A, B>(a,b);\n" +
+			"    }\n" +
+			"    @Override\n" +
+			"    public <TA extends TestA,TB extends TestB,X extends ReadOnlyWrapper<TA,TB>> X icopy() {\n" +
+			"        return (X) new WritableWrapper<A,B>(a,b);\n" +
+			"    }\n" +
+			"    @Override\n" +
+			"    public <TA extends TestA,TB extends TestB,X extends ReadOnlyWrapper<TA,TB>> X icopy2(TA in) {\n" +
+			"        return (X) new WritableWrapper<A,B>(a,b);\n" +
+			"    }\n" +
+			"    public void setA(A ax) {\n" +
+			"        this.a = ax;\n" +
+			"    }\n" +
+			"    public void setB(B bx) {\n" +
+			"        this.b = bx;\n" +
+			"    }\n" +
+			"}\n",
+			"TestGenerics.java",
+			"public class TestGenerics {\n" +
+			"    public static void main(String [] args) {\n" +
+			"        final WritableWrapper<TestA, TestB> v1 = new WritableWrapper<TestA, TestB>(new TestA(), new TestB());\n" +
+			"        final WritableWrapper<TestA,TestB> v2 = v1.copy();\n" +
+			"        final WritableWrapper<TestA,TestB> v3 = v1.icopy();\n" +
+			"        final WritableWrapper<TestA2,TestB> v4 = v1.icopy();\n" +
+			"        final WritableWrapper<TestA2,TestB> v5 = v1.icopy2(new TestA2());\n" +
+			"    }\n" +
+			"}\n"
+		},
+		"----------\n" +
+		"1. ERROR in TestGenerics.java (at line 6)\n" +
+		"	final WritableWrapper<TestA2,TestB> v4 = v1.icopy();\n" +
+		"	                                         ^^^^^^^^^^\n" +
+		"Type mismatch: cannot convert from ReadOnlyWrapper<TestA,TestB> to WritableWrapper<TestA2,TestB>\n" +
+		"----------\n");
 }
 }

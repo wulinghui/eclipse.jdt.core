@@ -18,6 +18,7 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 import java.util.Map;
 
 import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 import junit.framework.Test;
 
@@ -82,17 +83,17 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 			"1. ERROR in I.java (at line 5)\n" + 
 			"	public default synchronized void foo2() { System.exit(0); }\n" + 
 			"	                                 ^^^^^^\n" + 
-			"Illegal modifier for the interface method foo2; only public, abstract and strictfp are permitted\n" + 
+			"Illegal modifier for the interface method foo2; only public, abstract, default, static and strictfp are permitted\n" + 
 			"----------\n" + 
 			"2. ERROR in I.java (at line 7)\n" + 
 			"	public default strictfp synchronized void foo4() {}\n" + 
 			"	                                          ^^^^^^\n" + 
-			"Illegal modifier for the interface method foo4; only public, abstract and strictfp are permitted\n" + 
+			"Illegal modifier for the interface method foo4; only public, abstract, default, static and strictfp are permitted\n" + 
 			"----------\n" + 
 			"3. ERROR in I.java (at line 8)\n" + 
 			"	public default strictfp synchronized @Annot void foo5() {}\n" + 
 			"	                                                 ^^^^^^\n" + 
-			"Illegal modifier for the interface method foo5; only public, abstract and strictfp are permitted\n" + 
+			"Illegal modifier for the interface method foo5; only public, abstract, default, static and strictfp are permitted\n" + 
 			"----------\n");
 	}
 
@@ -147,22 +148,32 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 			"1. ERROR in I.java (at line 5)\n" +
 			"	public synchronized void foo2();\n" +
 			"	                         ^^^^^^\n" +
-			"Illegal modifier for the interface method foo2; only public & abstract are permitted\n" +
+			"Illegal modifier for the interface method foo2; only public, abstract, default, static and strictfp are permitted\n" +
 			"----------\n" +
 			"2. ERROR in I.java (at line 6)\n" +
 			"	strictfp void foo3();\n" +
 			"	              ^^^^^^\n" +
-			"Illegal modifier for the interface method foo3; only public & abstract are permitted\n" +
+			"strictfp is not permitted for abstract interface method foo3\n" +
 			"----------\n" +
 			"3. ERROR in I.java (at line 7)\n" +
 			"	public strictfp synchronized void foo4();\n" +
 			"	                                  ^^^^^^\n" +
-			"Illegal modifier for the interface method foo4; only public & abstract are permitted\n" +
+			"strictfp is not permitted for abstract interface method foo4\n" +
 			"----------\n" +
-			"4. ERROR in I.java (at line 8)\n" +
+			"4. ERROR in I.java (at line 7)\n" +
+			"	public strictfp synchronized void foo4();\n" +
+			"	                                  ^^^^^^\n" +
+			"Illegal modifier for the interface method foo4; only public, abstract, default, static and strictfp are permitted\n" +
+			"----------\n" +
+			"5. ERROR in I.java (at line 8)\n" +
 			"	public strictfp synchronized @Annot void foo5();\n" +
 			"	                                         ^^^^^^\n" +
-			"Illegal modifier for the interface method foo5; only public & abstract are permitted\n" +
+			"strictfp is not permitted for abstract interface method foo5\n" +
+			"----------\n" +
+			"6. ERROR in I.java (at line 8)\n" +
+			"	public strictfp synchronized @Annot void foo5();\n" +
+			"	                                         ^^^^^^\n" + 
+			"Illegal modifier for the interface method foo5; only public, abstract, default, static and strictfp are permitted\n" +
 			"----------\n");
 	}
 
@@ -183,7 +194,7 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 			"1. ERROR in I.java (at line 2)\n" + 
 			"	native void foo1();\n" + 
 			"	            ^^^^^^\n" + 
-			"Illegal modifier for the interface method foo1; only public & abstract are permitted\n" + 
+			"Illegal modifier for the interface method foo1; only public, abstract, default, static and strictfp are permitted\n" + 
 			"----------\n" + 
 			"2. ERROR in I.java (at line 3)\n" + 
 			"	static void foo2();\n" + 
@@ -193,22 +204,22 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 			"3. ERROR in I.java (at line 4)\n" + 
 			"	native default void foo3() {}\n" + 
 			"	                    ^^^^^^\n" + 
-			"Illegal modifier for the interface method foo3; only public, abstract and strictfp are permitted\n" + 
+			"Illegal modifier for the interface method foo3; only public, abstract, default, static and strictfp are permitted\n" + 
 			"----------\n" + 
 			"4. ERROR in I.java (at line 5)\n" + 
 			"	default native void foo4() {}\n" + 
 			"	                    ^^^^^^\n" + 
-			"Illegal modifier for the interface method foo4; only public, abstract and strictfp are permitted\n" + 
+			"Illegal modifier for the interface method foo4; only public, abstract, default, static and strictfp are permitted\n" + 
 			"----------\n" + 
 			"5. ERROR in I.java (at line 6)\n" + 
 			"	static default void foo5() {}\n" + 
 			"	                    ^^^^^^\n" + 
-			"Illegal modifier for the interface method foo5; only public, abstract and strictfp are permitted\n" + 
+			"Illegal combination of modifiers for the interface method foo5; only one of abstract, default, or static permitted\n" + 
 			"----------\n" + 
 			"6. ERROR in I.java (at line 7)\n" + 
 			"	default static void foo6() {}\n" + 
 			"	                    ^^^^^^\n" + 
-			"Illegal modifier for the interface method foo6; only public, abstract and strictfp are permitted\n" + 
+			"Illegal combination of modifiers for the interface method foo6; only one of abstract, default, or static permitted\n" + 
 			"----------\n");
 	}
 
@@ -229,12 +240,12 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 			"1. ERROR in I.java (at line 4)\n" + 
 			"	public abstract default void foo2() {}\n" + 
 			"	                             ^^^^^^\n" + 
-			"Illegal modifier for the interface method foo2; only public, abstract and strictfp are permitted\n" + 
+			"Illegal combination of modifiers for the interface method foo2; only one of abstract, default, or static permitted\n" + 
 			"----------\n" + 
 			"2. ERROR in I.java (at line 5)\n" + 
 			"	default abstract void foo3() {}\n" + 
 			"	                      ^^^^^^\n" + 
-			"Illegal modifier for the interface method foo3; only public, abstract and strictfp are permitted\n" + 
+			"Illegal combination of modifiers for the interface method foo3; only one of abstract, default, or static permitted\n" + 
 			"----------\n" + 
 			"3. ERROR in I.java (at line 6)\n" + 
 			"	void foo4() { }\n" + 
@@ -244,7 +255,7 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 			"4. ERROR in I.java (at line 7)\n" + 
 			"	abstract static default void foo5() {}\n" + 
 			"	                             ^^^^^^\n" + 
-			"Illegal modifier for the interface method foo5; only public, abstract and strictfp are permitted\n" + 
+			"Illegal combination of modifiers for the interface method foo5; only one of abstract, default, or static permitted\n" + 
 			"----------\n");
 	}
 
@@ -1353,17 +1364,17 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 				"2. ERROR in I.java (at line 4)\n" + 
 				"	public static default void foo2 () {};\n" + 
 				"	                           ^^^^^^^\n" + 
-				"Illegal modifier for the interface method foo2; only public, abstract and strictfp are permitted\n" + 
+				"Illegal combination of modifiers for the interface method foo2; only one of abstract, default, or static permitted\n" + 
 				"----------\n" + 
 				"3. ERROR in I.java (at line 5)\n" + 
 				"	abstract static void foo3();\n" + 
 				"	                     ^^^^^^\n" + 
-				"Illegal modifier for the interface method foo3; only public & abstract are permitted\n" + 
+				"Illegal combination of modifiers for the interface method foo3; only one of abstract, default, or static permitted\n" + 
 				"----------\n" + 
 				"4. ERROR in I.java (at line 6)\n" + 
 				"	abstract static void foo4() {}\n" + 
 				"	                     ^^^^^^\n" + 
-				"Illegal modifier for the interface method foo4; only public & abstract are permitted\n" + 
+				"Illegal combination of modifiers for the interface method foo4; only one of abstract, default, or static permitted\n" + 
 				"----------\n");
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399780
@@ -1742,6 +1753,26 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 				"Cannot use super in a static context\n" + 
 				"----------\n");
 	}
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=406619, [1.8][compiler] Incorrect suggestion that method can be made static.
+	public void test406619() {
+		Map compilerOptions = getCompilerOptions();
+		compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+		compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+		this.runNegativeTest(
+			new String[] {
+				"X.java", 
+				"interface X {\n" +
+				"	default int foo() {\n" +
+				"		return 10;\n" +
+				"	}\n" +
+				"}\n"
+			},
+			"",
+			null /* no extra class libraries */,
+			true /* flush output directory */,
+			compilerOptions /* custom options */
+		);
+	}
 
 	// class implements interface with default method. 
 	// - synth. access needed for visibility reasons
@@ -2018,4 +2049,37 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
             },
             "In B.set(CharSequence)");
     }
+    
+    // test for different error messages in modifiers.
+	public void test400977() {
+		runNegativeTest(
+		new String[] {
+			"I.java",
+			"public interface I {\n" +
+			"    default abstract void foo();\n" +
+			"    public abstract default strictfp final void bar();" +
+			"}\n"}, 
+			"----------\n" +
+			"1. ERROR in I.java (at line 2)\n" +
+			"	default abstract void foo();\n" +
+			"	                      ^^^^^\n" +
+			"Illegal combination of modifiers for the interface method foo; only one of abstract, default, or static permitted\n" +
+			"----------\n" +
+			"2. ERROR in I.java (at line 3)\n" +
+			"	public abstract default strictfp final void bar();}\n" +
+			"	                                            ^^^^^\n" +
+			"strictfp is not permitted for abstract interface method bar\n" +
+			"----------\n" +
+			"3. ERROR in I.java (at line 3)\n" +
+			"	public abstract default strictfp final void bar();}\n" +
+			"	                                            ^^^^^\n" +
+			"Illegal combination of modifiers for the interface method bar; only one of abstract, default, or static permitted\n" +
+			"----------\n" +
+			"4. ERROR in I.java (at line 3)\n" +
+			"	public abstract default strictfp final void bar();}\n" +
+			"	                                            ^^^^^\n" +
+			"Illegal modifier for the interface method bar; only public, abstract, default, static and strictfp are permitted\n" +
+			"----------\n");
+	}
+
 }

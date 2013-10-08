@@ -1,12 +1,20 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *        Andy Clement - Contributions for
+ *                          Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
+ *        Jesper Steen Moller - Contributions for
+ *							Bug 406973 - [compiler] Parse MethodParameters attribute
  *******************************************************************************/
 package org.eclipse.jdt.core.util;
 
@@ -141,9 +149,28 @@ public interface IAttributeNamesConstants {
 	 */
 	char[] STACK_MAP = "StackMap".toCharArray(); //$NON-NLS-1$
 	
+ 	/**
+	 * "RuntimeVisibleTypeAnnotations" attribute (added in jsr 308).
+	 * @since 3.9 BETA_JAVA8
+	 */
+	char[] RUNTIME_VISIBLE_TYPE_ANNOTATIONS = "RuntimeVisibleTypeAnnotations".toCharArray(); //$NON-NLS-1$
+
+	/**
+	 * "RuntimeInvisibleTypeAnnotations" attribute (added in jsr 308).
+	 * @since 3.9 BETA_JAVA8
+	 */
+	char[] RUNTIME_INVISIBLE_TYPE_ANNOTATIONS = "RuntimeInvisibleTypeAnnotations".toCharArray(); //$NON-NLS-1$
+
+
 	/**
 	 * "BootstrapMethods" attribute (added in cldc1.0).
 	 * @since 3.8
 	 */
 	char[] BOOTSTRAP_METHODS = "BootstrapMethods".toCharArray(); //$NON-NLS-1$
+
+	/**
+	 * "MethodParameters" attribute (added in jep118).
+	 * @since 3.9 BETA_JAVA8
+	 */
+	char[] METHOD_PARAMETERS = "MethodParameters".toCharArray(); //$NON-NLS-1$
 }

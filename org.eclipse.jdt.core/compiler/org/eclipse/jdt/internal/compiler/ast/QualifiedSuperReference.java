@@ -14,6 +14,7 @@
  *     Stephan Herrmann - Contribution for
  *								bug 382350 - [1.8][compiler] Unable to invoke inherited default method via I.super.m() syntax
  *								bug 404649 - [1.8][compiler] detect illegal reference to indirect or redundant super
+ *								bug 404728 - [1.8]NPE on QualifiedSuperReference error
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -44,7 +45,7 @@ public TypeBinding resolveType(BlockScope scope) {
 		return null;
 	}
 	super.resolveType(scope);
-	if (!this.resolvedType.isValidBinding()) {
+	if (this.resolvedType != null && !this.resolvedType.isValidBinding()) {
 		scope.problemReporter().illegalSuperAccess(this.qualification.resolvedType, this.resolvedType, this);
 		return null;
 	}
@@ -65,16 +66,30 @@ int findCompatibleEnclosing(ReferenceBinding enclosingType, TypeBinding type) {
 		// super call to an overridden default method? (not considering outer enclosings)
 		ReferenceBinding[] supers = enclosingType.superInterfaces();
 		int length = supers.length;
+		boolean isLegal = true; // false => compoundName != null && closestMatch != null
+		char[][] compoundName = null;
+		ReferenceBinding closestMatch = null;
 		for (int i = 0; i < length; i++) {
 			if (supers[i].erasure() == type) {
-				this.currentCompatibleType = supers[i];
+				this.currentCompatibleType = closestMatch = supers[i];
 			} else if (supers[i].erasure().isCompatibleWith(type)) {
-				this.currentCompatibleType = null;
-				this.resolvedType = new ProblemReferenceBinding(supers[i].compoundName, supers[i], ProblemReasons.AttemptToBypassDirectSuper);
-				return 0;
+				isLegal = false;
+				compoundName = supers[i].compoundName;
+				if (closestMatch == null)
+					closestMatch = supers[i];
+				// keep looking to ensure we always find the referenced type (even if illegal) 
 			}
 		}
-		return 0;
+		if (!isLegal) {
+			this.currentCompatibleType = null;
+			// Please note the slightly unconventional use of the ProblemReferenceBinding:
+			// we use the problem's compoundName to report the type being illegally bypassed,
+			// whereas the closestMatch denotes the resolved (though illegal) target type
+			// for downstream resolving.
+			this.resolvedType =  new ProblemReferenceBinding(compoundName, 
+					closestMatch, ProblemReasons.AttemptToBypassDirectSuper);
+		}
+		return 0; // never an outer enclosing type
 	}
 	return super.findCompatibleEnclosing(enclosingType, type);
 }

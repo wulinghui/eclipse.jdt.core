@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,11 @@
  * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *                          Bug 415397 - [1.8][compiler] Type Annotations on wildcard type argument dropped
+ *        Stephan Herrmann - Contribution for
+ *							Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
+ *							Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -59,7 +64,6 @@ public class Wildcard extends SingleTypeReference {
 
 	private TypeBinding internalResolveType(Scope scope, ReferenceBinding genericType, int rank) {
 		TypeBinding boundType = null;
-		resolveAnnotations(scope);
 		if (this.bound != null) {
 			boundType = scope.kind == Scope.CLASS_SCOPE
 					? this.bound.resolveType((ClassScope)scope)
@@ -69,8 +73,15 @@ public class Wildcard extends SingleTypeReference {
 				return null;
 			}
 		}
-		WildcardBinding wildcard = scope.environment().createWildcard(genericType, rank, boundType, null /*no extra bound*/, this.kind);
-		return this.resolvedType = wildcard;
+		this.resolvedType = scope.environment().createWildcard(genericType, rank, boundType, null /*no extra bound*/, this.kind);
+		resolveAnnotations(scope);
+		if (boundType != null && boundType.hasNullTypeAnnotations() && this.resolvedType.hasNullTypeAnnotations()) {
+			if (((boundType.tagBits | this.resolvedType.tagBits) & TagBits.AnnotationNullMASK) == TagBits.AnnotationNullMASK) { // are both set?
+				Annotation annotation = this.bound.findAnnotation(boundType.tagBits & TagBits.AnnotationNullMASK);
+				scope.problemReporter().contradictoryNullAnnotationsOnBounds(annotation, this.resolvedType.tagBits);
+			}
+		}
+		return this.resolvedType;
 	}
 
 	public StringBuffer printExpression(int indent, StringBuffer output){
@@ -120,6 +131,12 @@ public class Wildcard extends SingleTypeReference {
 
 	public void traverse(ASTVisitor visitor, BlockScope scope) {
 		if (visitor.visit(this, scope)) {
+			if (this.annotations != null) {
+				Annotation [] typeAnnotations = this.annotations[0];
+				for (int i = 0, length = typeAnnotations == null ? 0 : typeAnnotations.length; i < length; i++) {
+					typeAnnotations[i].traverse(visitor, scope);
+				}
+			}
 			if (this.bound != null) {
 				this.bound.traverse(visitor, scope);
 			}
@@ -129,6 +146,12 @@ public class Wildcard extends SingleTypeReference {
 
 	public void traverse(ASTVisitor visitor, ClassScope scope) {
 		if (visitor.visit(this, scope)) {
+			if (this.annotations != null) {
+				Annotation [] typeAnnotations = this.annotations[0];
+				for (int i = 0, length = typeAnnotations == null ? 0 : typeAnnotations.length; i < length; i++) {
+					typeAnnotations[i].traverse(visitor, scope);
+				}
+			}
 			if (this.bound != null) {
 				this.bound.traverse(visitor, scope);
 			}

@@ -28,8 +28,21 @@
  *								bug 381445 - [compiler][resource] Can the resource leak check be made aware of Closeables.closeQuietly?
  *								bug 331649 - [compiler][null] consider null annotations for fields
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								bug 382069 - [null] Make the null analysis consider JUnit's assertNotNull similarly to assertions
  *								bug 382350 - [1.8][compiler] Unable to invoke inherited default method via I.super.m() syntax
  *								bug 404649 - [1.8][compiler] detect illegal reference to indirect or redundant super
+ *								bug 403086 - [compiler][null] include the effect of 'assert' in syntactic null analysis for fields
+ *								bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
+ *								Bug 405569 - Resource leak check false positive when using DbUtils.closeQuietly
+ *								Bug 411964 - [1.8][null] leverage null type annotation in foreach statement
+ *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
+ *     Jesper S Moller - Contributions for
+ *								Bug 378674 - "The method can be declared as static" is wrong
+ *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *                          Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
+ *                          Bug 409245 - [1.8][compiler] Type annotations dropped when call is routed through a synthetic bridge method
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -49,11 +62,12 @@ import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
 import org.eclipse.jdt.internal.compiler.lookup.ImplicitNullAnnotationVerifier;
+import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
+import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MissingTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedGenericMethodBinding;
-import org.eclipse.jdt.internal.compiler.lookup.PolyTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.PolymorphicMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
@@ -66,6 +80,7 @@ import org.eclipse.jdt.internal.compiler.lookup.TagBits;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
+import org.eclipse.jdt.internal.compiler.lookup.TypeVariableBinding;
 import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
 
 public class MessageSend extends Expression implements InvocationSite {
@@ -92,13 +107,13 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	flowInfo = this.receiver.analyseCode(currentScope, flowContext, flowInfo, nonStatic).unconditionalInits();
 
 	// recording the closing of AutoCloseable resources:
-	boolean analyseResources = currentScope.compilerOptions().analyseResourceLeaks;
+	CompilerOptions compilerOptions = currentScope.compilerOptions();
+	boolean analyseResources = compilerOptions.analyseResourceLeaks;
 	if (analyseResources) {
-		Expression closeTarget = null;
 		if (nonStatic) {
 			// closeable.close()
 			if (CharOperation.equals(TypeConstants.CLOSE, this.selector)) {
-				closeTarget = this.receiver;
+				recordCallingClose(currentScope, flowContext, flowInfo, this.receiver);
 			}
 		} else if (this.arguments != null && this.arguments.length > 0 && FakedTrackingVariable.isAnyCloseable(this.arguments[0].resolvedType)) {
 			// Helper.closeMethod(closeable, ..)
@@ -107,18 +122,10 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 				if (CharOperation.equals(record.selector, this.selector)
 						&& CharOperation.equals(record.typeName, this.binding.declaringClass.compoundName)) 
 				{
-					closeTarget = this.arguments[0];
+					int len = Math.min(record.numCloseableArgs, this.arguments.length);
+					for (int j=0; j<len; j++)
+						recordCallingClose(currentScope, flowContext, flowInfo, this.arguments[j]);
 					break;
-				}
-			}
-		}
-		if (closeTarget != null) {
-			FakedTrackingVariable trackingVariable = FakedTrackingVariable.getCloseTrackingVariable(closeTarget, flowInfo, flowContext);
-			if (trackingVariable != null) { // null happens if target is not a local variable or not an AutoCloseable
-				if (trackingVariable.methodScope == currentScope.methodScope()) {
-					trackingVariable.markClose(flowInfo, flowContext);
-				} else {
-					trackingVariable.markClosedInNestedMethod();
 				}
 			}
 		}
@@ -126,56 +133,28 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 
 	if (nonStatic) {
 		this.receiver.checkNPE(currentScope, flowContext, flowInfo);
-		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=318682
-		if (this.receiver.isThis() || this.receiver.isSuper()) {
-			// accessing non-static method without an object
-			currentScope.resetDeclaringClassMethodStaticFlag(this.actualReceiverType);
-		}
-	} else if (this.receiver.isThis()) {
-		if ((this.receiver.bits & ASTNode.IsImplicitThis) == 0) {
-			// explicit this receiver, not allowed in static context
-			currentScope.resetEnclosingMethodStaticFlag();
-		}
 	}
 
-	FlowInfo conditionFlowInfo;
 	if (this.arguments != null) {
 		int length = this.arguments.length;
 		for (int i = 0; i < length; i++) {
 			Expression argument = this.arguments[i];
-			if ((argument.implicitConversion & TypeIds.UNBOXING) != 0) {
-				argument.checkNPE(currentScope, flowContext, flowInfo);
-			}
-			if (this.receiver.resolvedType != null 
-					&& this.receiver.resolvedType.id == TypeIds.T_OrgEclipseCoreRuntimeAssert
-					&& argument.resolvedType != null
-					&& argument.resolvedType.id == TypeIds.T_boolean) {
-				Constant cst = argument.optimizedBooleanConstant();
-				boolean isOptimizedTrueAssertion = cst != Constant.NotAConstant && cst.booleanValue() == true;
-				boolean isOptimizedFalseAssertion = cst != Constant.NotAConstant && cst.booleanValue() == false;
-				flowContext.tagBits |= FlowContext.HIDE_NULL_COMPARISON_WARNING;
-				conditionFlowInfo = argument.analyseCode(currentScope, flowContext, flowInfo.copy());
-				if (!wasInsideAssert) {
-					flowContext.tagBits &= ~FlowContext.HIDE_NULL_COMPARISON_WARNING;
-				}
-				UnconditionalFlowInfo assertWhenTrueInfo = conditionFlowInfo.initsWhenTrue().unconditionalInits();
-				FlowInfo assertInfo = conditionFlowInfo.initsWhenFalse();
-				if (isOptimizedTrueAssertion) {
-					assertInfo.setReachMode(FlowInfo.UNREACHABLE_OR_DEAD);
-				}
-				if (!isOptimizedFalseAssertion) {
-					// if assertion is not false for sure, only then it makes sense to carry the flow info ahead.
-					// if the code does reach ahead, it means the assert didn't cause an exit, and so
-					// the expression inside it shouldn't change the prior flowinfo
-					// viz. org.eclipse.core.runtime.Assert.isLegal(false && o != null)
-					
-					// keep the merge from the initial code for the definite assignment
-					// analysis, tweak the null part to influence nulls downstream
-					flowInfo = flowInfo.mergedWith(assertInfo.nullInfoLessUnconditionalCopy()).
-						addInitializationsFrom(assertWhenTrueInfo.discardInitializationInfo());
-				}
-			} else {
-				flowInfo = argument.analyseCode(currentScope, flowContext, flowInfo).unconditionalInits();
+			argument.checkNPEbyUnboxing(currentScope, flowContext, flowInfo);
+			switch (detectAssertionUtility(i)) {
+				case TRUE_ASSERTION:
+					flowInfo = analyseBooleanAssertion(currentScope, argument, flowContext, flowInfo, wasInsideAssert, true);
+					break;
+				case FALSE_ASSERTION:
+					flowInfo = analyseBooleanAssertion(currentScope, argument, flowContext, flowInfo, wasInsideAssert, false);
+					break;
+				case NONNULL_ASSERTION:
+					flowInfo = analyseNullAssertion(currentScope, argument, flowContext, flowInfo, false);
+					break;
+				case NULL_ASSERTION:
+					flowInfo = analyseNullAssertion(currentScope, argument, flowContext, flowInfo, true);
+					break;
+				default:
+					flowInfo = argument.analyseCode(currentScope, flowContext, flowInfo).unconditionalInits();
 			}
 			if (analyseResources) {
 				// if argument is an AutoCloseable insert info that it *may* be closed (by the target method, i.e.)
@@ -202,6 +181,163 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	flowContext.expireNullCheckedFieldInfo(); // no longer trust this info after any message send
 	return flowInfo;
 }
+private void recordCallingClose(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo, Expression closeTarget) {
+	FakedTrackingVariable trackingVariable = FakedTrackingVariable.getCloseTrackingVariable(closeTarget, flowInfo, flowContext);
+	if (trackingVariable != null) { // null happens if target is not a local variable or not an AutoCloseable
+		if (trackingVariable.methodScope == currentScope.methodScope()) {
+			trackingVariable.markClose(flowInfo, flowContext);
+		} else {
+			trackingVariable.markClosedInNestedMethod();
+		}
+	}
+}
+
+// classification of well-known assertion utilities:
+private static final int TRUE_ASSERTION = 1;
+private static final int FALSE_ASSERTION = 2;
+private static final int NULL_ASSERTION = 3;
+private static final int NONNULL_ASSERTION = 4;
+
+// is the argument at the given position being checked by a well-known assertion utility?
+// if so answer what kind of assertion we are facing.
+private int detectAssertionUtility(int argumentIdx) {
+	TypeBinding[] parameters = this.binding.original().parameters;
+	if (argumentIdx < parameters.length) {
+		TypeBinding parameterType = parameters[argumentIdx];
+		if (this.actualReceiverType != null && parameterType != null) {
+			switch (this.actualReceiverType.id) {
+				case TypeIds.T_OrgEclipseCoreRuntimeAssert:
+					if (parameterType.id == TypeIds.T_boolean)
+						return TRUE_ASSERTION;
+					if (parameterType.id == TypeIds.T_JavaLangObject && CharOperation.equals(TypeConstants.IS_NOTNULL, this.selector))
+						return NONNULL_ASSERTION;
+					break;
+				case TypeIds.T_JunitFrameworkAssert:
+				case TypeIds.T_OrgJunitAssert:
+					if (parameterType.id == TypeIds.T_boolean) {
+						if (CharOperation.equals(TypeConstants.ASSERT_TRUE, this.selector))
+							return TRUE_ASSERTION;
+						if (CharOperation.equals(TypeConstants.ASSERT_FALSE, this.selector))
+							return FALSE_ASSERTION;
+					} else if (parameterType.id == TypeIds.T_JavaLangObject) {
+						if (CharOperation.equals(TypeConstants.ASSERT_NOTNULL, this.selector))
+							return NONNULL_ASSERTION;
+						if (CharOperation.equals(TypeConstants.ASSERT_NULL, this.selector))
+							return NULL_ASSERTION;
+					}
+					break;
+				case TypeIds.T_OrgApacheCommonsLangValidate:
+					if (parameterType.id == TypeIds.T_boolean) {
+						if (CharOperation.equals(TypeConstants.IS_TRUE, this.selector))
+							return TRUE_ASSERTION;
+					} else if (parameterType.id == TypeIds.T_JavaLangObject) {
+						if (CharOperation.equals(TypeConstants.NOT_NULL, this.selector))
+							return NONNULL_ASSERTION;
+					}
+					break;
+				case TypeIds.T_OrgApacheCommonsLang3Validate:
+					if (parameterType.id == TypeIds.T_boolean) {
+						if (CharOperation.equals(TypeConstants.IS_TRUE, this.selector))
+							return TRUE_ASSERTION;
+					} else if (parameterType.isTypeVariable()) {
+						if (CharOperation.equals(TypeConstants.NOT_NULL, this.selector))
+							return NONNULL_ASSERTION;
+					}
+					break;
+				case TypeIds.T_ComGoogleCommonBasePreconditions:
+					if (parameterType.id == TypeIds.T_boolean) {
+						if (CharOperation.equals(TypeConstants.CHECK_ARGUMENT, this.selector)
+							|| CharOperation.equals(TypeConstants.CHECK_STATE, this.selector))
+							return TRUE_ASSERTION;
+					} else if (parameterType.isTypeVariable()) {
+						if (CharOperation.equals(TypeConstants.CHECK_NOT_NULL, this.selector))
+							return NONNULL_ASSERTION;
+					}
+					break;					
+				case TypeIds.T_JavaUtilObjects:
+					if (parameterType.isTypeVariable()) {
+						if (CharOperation.equals(TypeConstants.REQUIRE_NON_NULL, this.selector))
+							return NONNULL_ASSERTION;
+					}
+					break;					
+			}
+		}
+	}
+	return 0;
+}
+private FlowInfo analyseBooleanAssertion(BlockScope currentScope, Expression argument,
+		FlowContext flowContext, FlowInfo flowInfo, boolean wasInsideAssert, boolean passOnTrue)
+{
+	Constant cst = argument.optimizedBooleanConstant();
+	boolean isOptimizedTrueAssertion = cst != Constant.NotAConstant && cst.booleanValue() == true;
+	boolean isOptimizedFalseAssertion = cst != Constant.NotAConstant && cst.booleanValue() == false;
+	int tagBitsSave = flowContext.tagBits;
+	flowContext.tagBits |= FlowContext.HIDE_NULL_COMPARISON_WARNING;
+	if (!passOnTrue)
+		flowContext.tagBits |= FlowContext.INSIDE_NEGATION; // this affects syntactic analysis for fields in EqualExpression
+	FlowInfo conditionFlowInfo = argument.analyseCode(currentScope, flowContext, flowInfo.copy());
+	flowContext.extendTimeToLiveForNullCheckedField(2); // survive this assert as a MessageSend and as a Statement
+	flowContext.tagBits = tagBitsSave;
+
+	UnconditionalFlowInfo assertWhenPassInfo;
+	FlowInfo assertWhenFailInfo;
+	boolean isOptimizedPassing;
+	boolean isOptimizedFailing;
+	if (passOnTrue) {
+		assertWhenPassInfo = conditionFlowInfo.initsWhenTrue().unconditionalInits();
+		assertWhenFailInfo = conditionFlowInfo.initsWhenFalse();
+		isOptimizedPassing = isOptimizedTrueAssertion;
+		isOptimizedFailing = isOptimizedFalseAssertion;
+	} else {
+		assertWhenPassInfo = conditionFlowInfo.initsWhenFalse().unconditionalInits();
+		assertWhenFailInfo = conditionFlowInfo.initsWhenTrue();
+		isOptimizedPassing = isOptimizedFalseAssertion;
+		isOptimizedFailing = isOptimizedTrueAssertion;
+	}
+	if (isOptimizedPassing) {
+		assertWhenFailInfo.setReachMode(FlowInfo.UNREACHABLE_OR_DEAD);
+	}
+	if (!isOptimizedFailing) {
+		// if assertion is not failing for sure, only then it makes sense to carry the flow info ahead.
+		// if the code does reach ahead, it means the assert didn't cause an exit, and so
+		// the expression inside it shouldn't change the prior flowinfo
+		// viz. org.eclipse.core.runtime.Assert.isLegal(false && o != null)
+		
+		// keep the merge from the initial code for the definite assignment
+		// analysis, tweak the null part to influence nulls downstream
+		flowInfo = flowInfo.mergedWith(assertWhenFailInfo.nullInfoLessUnconditionalCopy()).
+			addInitializationsFrom(assertWhenPassInfo.discardInitializationInfo());
+	}
+	return flowInfo;
+}
+private FlowInfo analyseNullAssertion(BlockScope currentScope, Expression argument,
+		FlowContext flowContext, FlowInfo flowInfo, boolean expectingNull)
+{
+	int nullStatus = argument.nullStatus(flowInfo, flowContext);
+	boolean willFail = (nullStatus == (expectingNull ? FlowInfo.NON_NULL : FlowInfo.NULL));
+	flowInfo = argument.analyseCode(currentScope, flowContext, flowInfo).unconditionalInits();
+	LocalVariableBinding local = argument.localVariableBinding();
+	if (local != null) {// beyond this point the argument can only be null/nonnull
+		if (expectingNull) 
+			flowInfo.markAsDefinitelyNull(local);
+		else 
+			flowInfo.markAsDefinitelyNonNull(local);
+	} else {
+		if (!expectingNull
+			&& argument instanceof Reference 
+			&& currentScope.compilerOptions().enableSyntacticNullAnalysisForFields) 
+		{
+			FieldBinding field = ((Reference)argument).lastFieldBinding();
+			if (field != null && (field.type.tagBits & TagBits.IsBaseType) == 0) {
+				flowContext.recordNullCheckedFieldReference((Reference) argument, 3); // survive this assert as a MessageSend and as a Statement
+			}
+		}
+	}
+	if (willFail)
+		flowInfo.setReachMode(FlowInfo.UNREACHABLE_BY_NULLANALYSIS);
+	return flowInfo;
+}
+
 public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo) {
 	// message send as a receiver
 	if ((nullStatus(flowInfo, flowContext) & FlowInfo.POTENTIALLY_NULL) != 0) // note that flowInfo is not used inside nullStatus(..)
@@ -277,16 +413,16 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean
 	if (this.syntheticAccessor == null){
 		TypeBinding constantPoolDeclaringClass = CodeStream.getConstantPoolDeclaringClass(currentScope, codegenBinding, this.actualReceiverType, this.receiver.isImplicitThis());
 		if (isStatic){
-			codeStream.invoke(Opcodes.OPC_invokestatic, codegenBinding, constantPoolDeclaringClass);
+			codeStream.invoke(Opcodes.OPC_invokestatic, codegenBinding, constantPoolDeclaringClass, this.typeArguments);
 		} else if((this.receiver.isSuper()) || codegenBinding.isPrivate()){
-			codeStream.invoke(Opcodes.OPC_invokespecial, codegenBinding, constantPoolDeclaringClass);
+			codeStream.invoke(Opcodes.OPC_invokespecial, codegenBinding, constantPoolDeclaringClass, this.typeArguments);
 		} else if (constantPoolDeclaringClass.isInterface()) { // interface or annotation type
-			codeStream.invoke(Opcodes.OPC_invokeinterface, codegenBinding, constantPoolDeclaringClass);
+			codeStream.invoke(Opcodes.OPC_invokeinterface, codegenBinding, constantPoolDeclaringClass, this.typeArguments);
 		} else {
-			codeStream.invoke(Opcodes.OPC_invokevirtual, codegenBinding, constantPoolDeclaringClass);
+			codeStream.invoke(Opcodes.OPC_invokevirtual, codegenBinding, constantPoolDeclaringClass, this.typeArguments);
 		}
 	} else {
-		codeStream.invoke(Opcodes.OPC_invokestatic, this.syntheticAccessor, null /* default declaringClass */);
+		codeStream.invoke(Opcodes.OPC_invokestatic, this.syntheticAccessor, null /* default declaringClass */, this.typeArguments);
 	}
 	// required cast must occur even if no value is required
 	if (this.valueCast != null) codeStream.checkcast(this.valueCast);
@@ -369,10 +505,9 @@ public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
 	if (this.binding.isValidBinding()) {
 		// try to retrieve null status of this message send from an annotation of the called method:
 		long tagBits = this.binding.tagBits;
-		if ((tagBits & TagBits.AnnotationNonNull) != 0)
-			return FlowInfo.NON_NULL;
-		if ((tagBits & TagBits.AnnotationNullable) != 0)
-			return FlowInfo.POTENTIALLY_NULL | FlowInfo.POTENTIALLY_NON_NULL;
+		if ((tagBits & TagBits.AnnotationNullMASK) == 0L) // alternatively look for type annotation (will only be present in 1.8+):
+			tagBits = this.binding.returnType.tagBits;
+		return FlowInfo.tagBitsToNullStatus(tagBits);
 	}
 	return FlowInfo.UNKNOWN;
 }
@@ -547,6 +682,10 @@ public TypeBinding resolveType(BlockScope scope) {
 	this.binding = this.receiver.isImplicitThis()
 			? scope.getImplicitMethod(this.selector, argumentTypes, this)
 			: scope.getMethod(this.actualReceiverType, this.selector, argumentTypes, this);
+	
+	if (polyExpressionSeen && polyExpressionsHaveErrors(scope, this.binding, this.arguments, argumentTypes))
+		return null;
+
 	if (!this.binding.isValidBinding()) {
 		if (this.binding.declaringClass == null) {
 			if (this.actualReceiverType instanceof ReferenceBinding) {
@@ -590,22 +729,6 @@ public TypeBinding resolveType(BlockScope scope) {
 						? this.resolvedType
 						: null;
 	}
-	if (polyExpressionSeen) {
-		boolean variableArity = this.binding.isVarargs();
-		final TypeBinding[] parameters = this.binding.parameters;
-		final int parametersLength = parameters.length;
-		for (int i = 0, length = this.arguments == null ? 0 : this.arguments.length; i < length; i++) {
-			Expression argument = this.arguments[i];
-			TypeBinding parameterType = i < parametersLength ? parameters[i] : parameters[parametersLength - 1];
-			if (argumentTypes[i] instanceof PolyTypeBinding) {
-				argument.setExpressionContext(INVOCATION_CONTEXT);
-				if (variableArity && i >= parametersLength - 1)
-					argument.tagAsEllipsisArgument();
-				argument.setExpectedType(parameterType);
-				argumentTypes[i] = argument.resolveType(scope);
-			}
-		}
-	}
 	final CompilerOptions compilerOptions = scope.compilerOptions();
 	if (compilerOptions.complianceLevel <= ClassFileConstants.JDK1_6
 			&& this.binding.isPolymorphic()) {
@@ -613,10 +736,19 @@ public TypeBinding resolveType(BlockScope scope) {
 		return null;
 	}
 
-	if (compilerOptions.isAnnotationBasedNullAnalysisEnabled && (this.binding.tagBits & TagBits.IsNullnessKnown) == 0) {
-		// not interested in reporting problems against this.binding:
-		new ImplicitNullAnnotationVerifier(compilerOptions.inheritNullAnnotations)
-				.checkImplicitNullAnnotations(this.binding, null/*srcMethod*/, false, scope);
+	if (compilerOptions.isAnnotationBasedNullAnalysisEnabled) {
+		if ((this.binding.tagBits & TagBits.IsNullnessKnown) == 0) {
+			// not interested in reporting problems against this.binding:
+			new ImplicitNullAnnotationVerifier(compilerOptions.inheritNullAnnotations)
+					.checkImplicitNullAnnotations(this.binding, null/*srcMethod*/, false, scope);
+		}
+		if (compilerOptions.sourceLevel >= ClassFileConstants.JDK1_8) {
+			if (this.binding instanceof ParameterizedGenericMethodBinding && this.typeArguments != null) {
+				TypeVariableBinding[] typeVariables = this.binding.original().typeVariables();
+				for (int i = 0; i < this.typeArguments.length; i++)
+					this.typeArguments[i].checkNullConstraints(scope, typeVariables, i);
+			}
+		}
 	}
 	
 	if (((this.bits & ASTNode.InsideExpressionStatement) != 0)
@@ -702,18 +834,7 @@ public TypeBinding resolveType(BlockScope scope) {
 	}
 	if (this.receiver.isSuper() && this.actualReceiverType.isInterface()) {
 		// 15.12.3 (Java 8)
-		ReferenceBinding enclosingType = scope.enclosingReceiverType();
-		MethodBinding otherMethod = scope.getMethod(enclosingType.superclass(), this.selector, argumentTypes, this);
-		if (scope.checkAppropriate(this.binding, otherMethod, this)) {
-			ReferenceBinding[] superInterfaces = enclosingType.superInterfaces();
-			if (superInterfaces != null) {
-				for (int i = 0; i < superInterfaces.length; i++) {
-					otherMethod = scope.getMethod(superInterfaces[i], this.selector, argumentTypes, this);
-					if (!scope.checkAppropriate(this.binding, otherMethod, this))
-						break;
-				}
-			}
-		}
+		scope.checkAppropriateMethodAgainstSupers(this.selector, this.binding, argumentTypes, this);
 	}
 	if (this.typeArguments != null && this.binding.original().typeVariables == Binding.NO_TYPE_VARIABLES) {
 		scope.problemReporter().unnecessaryTypeArgumentsForMethodInvocation(this.binding, this.genericTypeArguments, this.typeArguments);
@@ -800,5 +921,8 @@ public void traverse(ASTVisitor visitor, BlockScope blockScope) {
 }
 public boolean statementExpression() {
 	return true;
+}
+public boolean receiverIsImplicitThis() {
+	return this.receiver.isImplicitThis();
 }
 }

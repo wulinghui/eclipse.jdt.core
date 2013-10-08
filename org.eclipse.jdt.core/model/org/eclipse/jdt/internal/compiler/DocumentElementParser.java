@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -471,7 +471,6 @@ protected void consumeEnterVariable() {
 	this.identifierLengthPtr--;
 	TypeReference type;
 	int variableIndex = this.variablesCounter[this.nestedType];
-	int typeDim = 0;
 	if (variableIndex == 0) {
 		// first variable of the declaration (FieldDeclaration or LocalDeclaration)
 		if (this.nestedMethod[this.nestedType] != 0) {
@@ -479,11 +478,11 @@ protected void consumeEnterVariable() {
 			declaration.declarationSourceStart = this.intStack[this.intPtr--];
 			declaration.modifiersSourceStart = this.intStack[this.intPtr--];
 			declaration.modifiers = this.intStack[this.intPtr--];
-			type = getTypeReference(typeDim = this.intStack[this.intPtr--]); // type dimension
+			type = getTypeReference(this.intStack[this.intPtr--]); // type dimension
 			pushOnAstStack(type);
 		} else {
 			// field declaration
-			type = getTypeReference(typeDim = this.intStack[this.intPtr--]); // type dimension
+			type = getTypeReference(this.intStack[this.intPtr--]); // type dimension
 			pushOnAstStack(type);
 			declaration.declarationSourceStart = this.intStack[this.intPtr--];
 			declaration.modifiersSourceStart = this.intStack[this.intPtr--];
@@ -501,7 +500,6 @@ protected void consumeEnterVariable() {
 		}
 	} else {
 		type = (TypeReference) this.astStack[this.astPtr - variableIndex];
-		typeDim = type.dimensions();
 		AbstractVariableDeclaration previousVariable =
 			(AbstractVariableDeclaration) this.astStack[this.astPtr];
 		declaration.declarationSourceStart = previousVariable.declarationSourceStart;
@@ -514,17 +512,9 @@ protected void consumeEnterVariable() {
 		}
 	}
 
-	if (extendedTypeDimension == 0) {
-		declaration.type = type;
-	} else {
-		int dimension = typeDim + extendedTypeDimension;
-		Annotation [][] annotationsOnAllDimensions = null;
-		Annotation[][] annotationsOnDimensions = type.getAnnotationsOnDimensions();
-		if (annotationsOnDimensions != null || annotationsOnExtendedDimensions != null) {
-			annotationsOnAllDimensions = getMergedAnnotationsOnDimensions(typeDim, annotationsOnDimensions, extendedTypeDimension, annotationsOnExtendedDimensions); 
-		}
-		declaration.type = copyDims(type, dimension, annotationsOnAllDimensions);
-	}
+	declaration.type = extendedTypeDimension != 0 ? augmentTypeWithAdditionalDimensions(type, extendedTypeDimension, annotationsOnExtendedDimensions, false) : type;
+	declaration.bits |= (type.bits & ASTNode.HasTypeAnnotations);
+	
 	this.variablesCounter[this.nestedType]++;
 	this.nestedMethod[this.nestedType]++;
 	pushOnAstStack(declaration);
@@ -748,19 +738,13 @@ protected void consumeFormalParameter(boolean isVarArgs) {
 	int firstDimensions = this.intStack[this.intPtr--];
 	TypeReference type = getTypeReference(firstDimensions);
 
-	final int typeDimensions = firstDimensions + extendedDimensions + (isVarArgs ? 1 : 0);
-	if (typeDimensions != firstDimensions) {
-		// jsr308 type annotations management
-		Annotation [][] annotationsOnFirstDimensions = firstDimensions == 0 ? null : type.getAnnotationsOnDimensions();
-		Annotation [][] annotationsOnAllDimensions = annotationsOnFirstDimensions;
-		if (annotationsOnExtendedDimensions != null) {
-			annotationsOnAllDimensions = getMergedAnnotationsOnDimensions(firstDimensions, annotationsOnFirstDimensions, extendedDimensions, annotationsOnExtendedDimensions); 
+	if (isVarArgs || extendedDimensions != 0) {
+		if (isVarArgs) {
+			type = augmentTypeWithAdditionalDimensions(type, 1, varArgsAnnotations != null ? new Annotation[][] { varArgsAnnotations } : null, true);	
+		} 
+		if (extendedDimensions != 0) { // combination illegal.
+			type = augmentTypeWithAdditionalDimensions(type, extendedDimensions, annotationsOnExtendedDimensions, false);
 		}
-		if (varArgsAnnotations != null) {
-			annotationsOnAllDimensions = getMergedAnnotationsOnDimensions(firstDimensions + extendedDimensions, annotationsOnAllDimensions, 
-																				1, new Annotation[][]{varArgsAnnotations});
-		}
-		type = copyDims(type, typeDimensions, annotationsOnAllDimensions);
 		type.sourceEnd = type.isParameterizedTypeReference() ? this.endStatementPosition : this.endPosition;
 	}
 	if (isVarArgs) {
@@ -942,10 +926,10 @@ protected void consumeLocalVariableDeclaration() {
  *
  * INTERNAL USE-ONLY
  */
-protected void consumeMethodDeclaration(boolean isNotAbstract) {
+protected void consumeMethodDeclaration(boolean isNotAbstract, boolean isDefaultMethod) {
 	// MethodDeclaration ::= MethodHeader MethodBody
 	// AbstractMethodDeclaration ::= MethodHeader ';'
-	super.consumeMethodDeclaration(isNotAbstract);
+	super.consumeMethodDeclaration(isNotAbstract, isDefaultMethod);
 	if (isLocalDeclaration()) {
 		// we ignore the local variable declarations
 		return;
@@ -1045,17 +1029,8 @@ protected void consumeMethodHeaderExtendedDims() {
 	int extendedDims = this.intStack[this.intPtr--];
 	this.extendsDim = extendedDims;
 	if (extendedDims != 0) {
-		TypeReference returnType = md.returnType;
 		md.sourceEnd = this.endPosition;
-		int dims = returnType.dimensions() + extendedDims;
-		Annotation [][] annotationsOnDimensions = returnType.getAnnotationsOnDimensions();
-		Annotation [][] annotationsOnExtendedDimensions = getAnnotationsOnDimensions(extendedDims);
-		Annotation [][] annotationsOnAllDimensions = null;
-		if (annotationsOnDimensions != null || annotationsOnExtendedDimensions != null) {
-			annotationsOnAllDimensions = getMergedAnnotationsOnDimensions(returnType.dimensions(), annotationsOnDimensions, extendedDims, annotationsOnExtendedDimensions);
-		}	
-		md.returnType = copyDims(returnType, dims, annotationsOnAllDimensions);
-
+		md.returnType = augmentTypeWithAdditionalDimensions(md.returnType, extendedDims, getAnnotationsOnDimensions(extendedDims), false);
 		if (this.currentToken == TokenNameLBRACE) {
 			md.bodyStart = this.endPosition + 1;
 		}

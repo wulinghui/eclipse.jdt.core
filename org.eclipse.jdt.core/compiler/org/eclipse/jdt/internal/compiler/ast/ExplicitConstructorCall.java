@@ -17,6 +17,9 @@
  *								bug 361407 - Resource leak warning when resource is assigned to a field outside of constructor
  *								bug 370639 - [compiler][resource] restore the default for resource leak warnings
  *								bug 388996 - [compiler][resource] Incorrect 'potential resource leak'
+ *								bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
+ *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *                          Bug 409245 - [1.8][compiler] Type annotations dropped when call is routed through a synthetic bridge method
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -34,7 +37,6 @@ import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.LocalTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodScope;
-import org.eclipse.jdt.internal.compiler.lookup.PolyTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.RawTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
@@ -94,9 +96,7 @@ public class ExplicitConstructorCall extends Statement implements InvocationSite
 						// if argument is an AutoCloseable insert info that it *may* be closed (by the target constructor, i.e.)
 						flowInfo = FakedTrackingVariable.markPassedToOutside(currentScope, this.arguments[i], flowInfo, flowContext, false);
 					}
-					if ((this.arguments[i].implicitConversion & TypeIds.UNBOXING) != 0) {
-						this.arguments[i].checkNPE(currentScope, flowContext, flowInfo);
-					}
+					this.arguments[i].checkNPEbyUnboxing(currentScope, flowContext, flowInfo);
 				}
 				analyseArguments(currentScope, flowContext, flowInfo, this.binding, this.arguments);
 			}
@@ -175,9 +175,9 @@ public class ExplicitConstructorCall extends Statement implements InvocationSite
 					i++) {
 					codeStream.aconst_null();
 				}
-				codeStream.invoke(Opcodes.OPC_invokespecial, this.syntheticAccessor, null /* default declaringClass */);
+				codeStream.invoke(Opcodes.OPC_invokespecial, this.syntheticAccessor, null /* default declaringClass */, this.typeArguments);
 			} else {
-				codeStream.invoke(Opcodes.OPC_invokespecial, codegenBinding, null /* default declaringClass */);
+				codeStream.invoke(Opcodes.OPC_invokespecial, codegenBinding, null /* default declaringClass */, this.typeArguments);
 			}
 			codeStream.recordPositionsFrom(pc, this.sourceStart);
 		} finally {
@@ -424,23 +424,10 @@ public class ExplicitConstructorCall extends Statement implements InvocationSite
 				return;
 			}
 			this.inferenceContext = new InferenceContext18(scope, this.arguments, this.genericTypeArguments);
-			if ((this.binding = scope.getConstructor(receiverType, argumentTypes, this)).isValidBinding()) {
-				if (polyExpressionSeen) {
-					boolean variableArity = this.binding.isVarargs();
-					final TypeBinding[] parameters = this.binding.parameters;
-					final int parametersLength = parameters.length;
-					for (int i = 0, length = this.arguments == null ? 0 : this.arguments.length; i < length; i++) {
-						Expression argument = this.arguments[i];
-						TypeBinding parameterType = i < parametersLength ? parameters[i] : parameters[parametersLength - 1];
-						if (argumentTypes[i] instanceof PolyTypeBinding) {
-							argument.setExpressionContext(INVOCATION_CONTEXT);
-							if (variableArity && i >= parametersLength - 1)
-								argument.tagAsEllipsisArgument();
-							argument.setExpectedType(parameterType);
-							argumentTypes[i] = argument.resolveType(scope);
-						}
-					}
-				}
+			this.binding = scope.getConstructor(receiverType, argumentTypes, this);
+			if (polyExpressionSeen && polyExpressionsHaveErrors(scope, this.binding, this.arguments, argumentTypes))
+				return;
+			if (this.binding.isValidBinding()) {
 				if ((this.binding.tagBits & TagBits.HasMissingType) != 0) {
 					if (!methodScope.enclosingSourceType().isAnonymousType()) {
 						scope.problemReporter().missingTypeInConstructor(this, this.binding);

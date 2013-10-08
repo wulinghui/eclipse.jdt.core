@@ -11,6 +11,8 @@
  * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contribution for
+ *								Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -31,21 +33,14 @@ public class SingleTypeReference extends TypeReference {
 
 	}
 
-	public TypeReference copyDims(int dim){
-		//return a type reference copy of me with some dimensions
-		//warning : the new type ref has a null binding
-
-		return new ArrayTypeReference(this.token, dim,(((long)this.sourceStart)<<32)+this.sourceEnd);
-	}
-	
-	public TypeReference copyDims(int dim, Annotation[][] annotationsOnDimensions){
-		//return a type reference copy of me with some dimensions
-		//warning : the new type ref has a null binding
-		ArrayTypeReference arrayTypeReference = new ArrayTypeReference(this.token, dim, annotationsOnDimensions, (((long)this.sourceStart)<<32)+this.sourceEnd);
+	public TypeReference augmentTypeWithAdditionalDimensions(int additionalDimensions, Annotation[][] additionalAnnotations, boolean isVarargs) {
+		int totalDimensions = this.dimensions() + additionalDimensions;
+		Annotation [][] allAnnotations = getMergedAnnotationsOnDimensions(additionalDimensions, additionalAnnotations);
+		ArrayTypeReference arrayTypeReference = new ArrayTypeReference(this.token, totalDimensions, allAnnotations, (((long) this.sourceStart) << 32) + this.sourceEnd);
+		arrayTypeReference.annotations = this.annotations;
 		arrayTypeReference.bits |= (this.bits & ASTNode.HasTypeAnnotations);
-		if (annotationsOnDimensions != null) {
-			arrayTypeReference.bits |= ASTNode.HasTypeAnnotations;
-		}
+		if (!isVarargs)
+			arrayTypeReference.extendedDimensions = additionalDimensions;
 		return arrayTypeReference;
 	}
 
@@ -57,6 +52,13 @@ public class SingleTypeReference extends TypeReference {
 			return this.resolvedType;
 
 		this.resolvedType = scope.getType(this.token);
+		
+		if (this.resolvedType instanceof TypeVariableBinding) {
+			TypeVariableBinding typeVariable = (TypeVariableBinding) this.resolvedType;
+			if (typeVariable.declaringElement instanceof SourceTypeBinding) {
+				scope.tagAsAccessingEnclosingInstanceStateOf((ReferenceBinding) typeVariable.declaringElement, true /* type variable access */);
+			}
+		}
 
 		if (scope.kind == Scope.CLASS_SCOPE && this.resolvedType.isValidBinding())
 			if (((ClassScope) scope).detectHierarchyCycle(this.resolvedType, this))
@@ -77,10 +79,11 @@ public class SingleTypeReference extends TypeReference {
 	}
 
 	public TypeBinding resolveTypeEnclosing(BlockScope scope, ReferenceBinding enclosingType) {
-		TypeBinding memberType = this.resolvedType = scope.getMemberType(this.token, enclosingType);
+		this.resolvedType = scope.getMemberType(this.token, enclosingType);
 		boolean hasError = false;
 		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=391500
 		resolveAnnotations(scope);
+		TypeBinding memberType = this.resolvedType; // load after possible update in resolveAnnotations()
 		if (!memberType.isValidBinding()) {
 			hasError = true;
 			scope.problemReporter().invalidEnclosingType(this, memberType, enclosingType);

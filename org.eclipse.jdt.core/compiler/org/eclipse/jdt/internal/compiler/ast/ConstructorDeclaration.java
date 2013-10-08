@@ -16,13 +16,20 @@
  *								bug 383690 - [compiler] location of error re uninitialized final field should be aligned
  *								bug 331649 - [compiler][null] consider null annotations for fields
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								bug 400421 - [compiler] Null analysis for fields does not take @com.google.inject.Inject into account
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								Bug 416176 - [1.8][compiler][null] null type annotations cause grief on type variables
+ *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *                          Bug 415399 - [1.8][compiler] Type annotations on constructor results dropped by the code generator
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import org.eclipse.jdt.core.compiler.*;
 import org.eclipse.jdt.internal.compiler.*;
+import org.eclipse.jdt.internal.compiler.ast.TypeReference.AnnotationCollector;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.*;
 import org.eclipse.jdt.internal.compiler.flow.*;
@@ -81,6 +88,11 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 				break checkUnused;
 			if (!methodBinding.canBeSeenBy(SuperReference.implicitSuperConstructorCall(), this.scope))
 				break checkUnused;
+			ReferenceBinding declaringClass = constructorBinding.declaringClass;
+			if (constructorBinding.isPublic() && constructorBinding.parameters.length == 0 &&
+					declaringClass.isStatic() &&
+					declaringClass.findSuperTypeOriginatingFrom(TypeIds.T_JavaIoExternalizable, false) != null)
+				break checkUnused;
 			// otherwise default super constructor exists, so go ahead and complain unused.
 		}
 		// complain unused
@@ -129,7 +141,10 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 		}
 
 		// nullity and mark as assigned
-		analyseArguments(flowInfo, this.arguments, this.binding);
+		if (classScope.compilerOptions().sourceLevel < ClassFileConstants.JDK1_8)
+			analyseArguments(flowInfo, this.arguments, this.binding);
+		else
+			analyseArguments18(flowInfo, this.arguments, this.binding);
 
 		// propagate to constructor call
 		if (this.constructorCall != null) {
@@ -189,10 +204,12 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 									? (ASTNode) this.scope.referenceType().declarationOf(field.original())
 									: this);
 					} else if (field.isNonNull()) {
+						FieldDeclaration fieldDecl = this.scope.referenceType().declarationOf(field.original());
+						if (!isValueProvidedUsingAnnotation(fieldDecl))
 							this.scope.problemReporter().uninitializedNonNullField(
 								field,
 								((this.bits & ASTNode.IsDefaultConstructor) != 0) 
-									? (ASTNode) this.scope.referenceType().declarationOf(field.original())
+									? (ASTNode) fieldDecl
 									: this);
 					}
 				}
@@ -206,6 +223,29 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 	} catch (AbortMethod e) {
 		this.ignoreFurtherInvestigation = true;
 	}
+}
+
+boolean isValueProvidedUsingAnnotation(FieldDeclaration fieldDecl) {
+	// a member field annotated with @Inject is considered to be initialized by the injector 
+	if (fieldDecl.annotations != null) {
+		int length = fieldDecl.annotations.length;
+		for (int i = 0; i < length; i++) {
+			Annotation annotation = fieldDecl.annotations[i];
+			if (annotation.resolvedType.id == TypeIds.T_JavaxInjectInject) {
+				return true; // no concept of "optional"
+			} else if (annotation.resolvedType.id == TypeIds.T_ComGoogleInjectInject) {
+				MemberValuePair[] memberValuePairs = annotation.memberValuePairs();
+				if (memberValuePairs == Annotation.NoValuePairs)
+					return true;
+				for (int j = 0; j < memberValuePairs.length; j++) {
+					// if "optional=false" is specified, don't rely on initialization by the injector:
+					if (CharOperation.equals(memberValuePairs[j].name, TypeConstants.OPTIONAL))
+						return memberValuePairs[j].value instanceof FalseLiteral;
+				}
+			}
+		}
+	}
+	return false;
 }
 
 /**
@@ -400,6 +440,14 @@ private void internalGenerateCode(ClassScope classScope, ClassFile classFile) {
 	classFile.completeMethodInfo(this.binding, methodAttributeOffset, attributeNumber);
 }
 
+public void getAllAnnotationContexts(int targetType, List allAnnotationContexts) {
+	AnnotationCollector collector = new AnnotationCollector(null, targetType, allAnnotationContexts);
+	for (int i = 0, max = this.annotations.length; i < max; i++) {
+		Annotation annotation = this.annotations[i];
+		annotation.traverse(collector, (BlockScope) null);
+	}
+}
+
 public boolean isConstructor() {
 	return true;
 }
@@ -501,11 +549,7 @@ public void resolveStatements() {
 	if (!CharOperation.equals(sourceType.sourceName, this.selector)){
 		this.scope.problemReporter().missingReturnType(this);
 	}
-	if (this.typeParameters != null) {
-		for (int i = 0, length = this.typeParameters.length; i < length; i++) {
-			this.typeParameters[i].resolve(this.scope);
-		}
-	}
+	// typeParameters are already resolved from Scope#connectTypeVariables()
 	if (this.binding != null && !this.binding.isPrivate()) {
 		sourceType.tagBits |= TagBits.HasNonPrivateConstructor;
 	}

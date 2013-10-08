@@ -187,7 +187,7 @@ public final class AST {
 	 * up to and including Java SE 8 (aka JDK 1.8).
 	 * </p>
 	 *
-	 * @since 3.9
+	 * @since 3.9 BETA_JAVA8
 	 */
 	public static final int JLS8 = 8;
 
@@ -797,6 +797,7 @@ public final class AST {
 	 * @return a new unparented node owned by this AST
 	 * @exception IllegalArgumentException if <code>nodeClass</code> is
 	 * <code>null</code> or is not a concrete node type class
+	 * or is not supported for this AST's API level
 	 * @since 3.0
 	 */
 	public ASTNode createInstance(Class nodeClass) {
@@ -823,7 +824,9 @@ public final class AST {
 		} catch (InvocationTargetException e) {
 			// concrete AST node classes do not die in the constructor
 			// therefore nodeClass is not legit
-			throw new IllegalArgumentException();
+			IllegalArgumentException iae = new IllegalArgumentException();
+			iae.initCause(e.getCause());
+			throw iae;
 		}
 	}
 
@@ -838,7 +841,7 @@ public final class AST {
 	 * constants declared on {@link ASTNode}
 	 * @return a new unparented node owned by this AST
 	 * @exception IllegalArgumentException if <code>nodeType</code> is
-	 * not a legal AST node type
+	 * not a legal AST node type or if it's not supported for this AST's API level
 	 * @since 3.0
 	 */
 	public ASTNode createInstance(int nodeType) {
@@ -996,6 +999,14 @@ public final class AST {
 	}
 
 	/**
+	 * A local method to workaround calling deprecated method in array type.
+	 * @deprecated
+	 */
+	private void setArrayComponentType(ArrayType arrayType, Type type) {
+		arrayType.setComponentType(type);
+	}
+
+	/**
 	 * Creates and returns a new unparented annotation type declaration
 	 * node for an unspecified, but legal, name; no modifiers; no javadoc;
 	 * and an empty list of member declarations.
@@ -1106,19 +1117,31 @@ public final class AST {
 
 	/**
 	 * Creates and returns a new unparented array type node with the given
-	 * component type, which may be another array type.
+	 * component type, which may be another array type for levels less than JLS8.
+	 * For JLS8 and above this type has to be an annotatable type.
 	 *
-	 * @param componentType the component type (possibly another array type)
+	 * @param type the component type (possibly another array type) for level less than JLS8, 
+	 * a <code>AnnotatableType</code>  for JLS8 and above
 	 * @return a new unparented array type node
 	 * @exception IllegalArgumentException if:
 	 * <ul>
 	 * <li>the node belongs to a different AST</li>
 	 * <li>the node already has a parent</li>
+	 * <li> level is greater than or equal to JLS8 and type not an array type</li>
 	 * </ul>
 	 */
-	public ArrayType newArrayType(Type componentType) {
-		ArrayType result = new ArrayType(this);
-		result.setComponentType(componentType);
+	public ArrayType newArrayType(Type type) {
+		ArrayType result;
+		if (this.apiLevel < AST.JLS8) {
+			result = new ArrayType(this);
+			setArrayComponentType(result, type);
+			return result;
+		}
+		if (type.isArrayType()) {
+			throw new IllegalArgumentException();
+		}
+		result = new ArrayType(this);
+		result.setElementType(type);
 		return result;
 	}
 
@@ -1130,7 +1153,7 @@ public final class AST {
 	 * element type of the result will not be the same as what was passed in.
 	 * </p>
 	 *
-	 * @param elementType the element type (can be an array type)
+	 * @param elementType the element type (can be an array type for JLS8. For level JLS8 and above this should be an <code>AnnotatableType</code>)
 	 * @param dimensions the number of dimensions, a positive number
 	 * @return a new unparented array type node
 	 * @exception IllegalArgumentException if:
@@ -1140,6 +1163,7 @@ public final class AST {
 	 * <li>the element type is null</li>
 	 * <li>the number of dimensions is lower than 1</li>
 	 * <li>the number of dimensions is greater than 1000</li>
+	 * <li>for levels from JLS8 and later, if the element type is not an array type </li>
 	 * </ul>
 	 */
 	public ArrayType newArrayType(Type elementType, int dimensions) {
@@ -1150,10 +1174,24 @@ public final class AST {
 			// we would blow our stacks anyway with a 1000-D array
 			throw new IllegalArgumentException();
 		}
-		ArrayType result = new ArrayType(this);
-		result.setComponentType(elementType);
-		for (int i = 2; i <= dimensions; i++) {
-			result = newArrayType(result);
+		ArrayType result;
+		if (this.apiLevel < AST.JLS8) {
+			result = new ArrayType(this);
+			setArrayComponentType(result, elementType);
+			for (int i = 2; i <= dimensions; i++) {
+				result = newArrayType(result);
+			}
+			return result;
+		}
+		//level >= JLS8
+		if (elementType.isArrayType()) {
+			throw new IllegalArgumentException();
+		}
+		result = new ArrayType(this);
+		result.setElementType(elementType);
+		// index starting from 1 since there is a dimension already available by default.
+		for (int i = 1; i < dimensions; ++i) {
+			result.dimensions().add(new ExtraDimension(this));
 		}
 		return result;
 
@@ -1343,6 +1381,19 @@ public final class AST {
 	}
 
 	/**
+	 * Creates an unparented creation reference node owned by this AST.
+	 * By default, the type is unspecified (but legal), and there are no type arguments.
+	 * 
+	 * @return a new unparented creation reference expression node
+	 * @exception UnsupportedOperationException if this operation is used in a JLS2, JLS3 or JLS4 AST
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public CreationReference newCreationReference() {
+		CreationReference result = new CreationReference(this);
+		return result;
+	}
+
+	/**
 	 * Creates a new unparented do statement node owned by this AST.
 	 * By default, the expression is unspecified (but legal), and
 	 * the body statement is an empty block.
@@ -1410,6 +1461,20 @@ public final class AST {
 	}
 
 	/**
+	 * Creates an unparented expression method reference node owned by this AST.
+	 * By default, the expression and method name are unspecified (but legal),
+	 * and there are no type arguments.
+	 * 
+	 * @return a new unparented expression method reference expression node
+	 * @exception UnsupportedOperationException if this operation is used in a JLS2, JLS3 or JLS4 AST
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public ExpressionMethodReference newExpressionMethodReference() {
+		ExpressionMethodReference result = new ExpressionMethodReference(this);
+		return result;
+	}
+
+	/**
 	 * Creates a new unparented expression statement node owned by this AST,
 	 * for the given expression.
 	 * <p>
@@ -1446,7 +1511,7 @@ public final class AST {
 	 * </ul>
 	 * @exception UnsupportedOperationException if this operation is used
 	 *            in a JLS2, JLS3 or JLS4 AST
-	 * @since 3.9
+	 * @since 3.9 BETA_JAVA8
 	 */
 	public ExtraDimension newExtraDimension() {
 		ExtraDimension result = new ExtraDimension(this);
@@ -1597,7 +1662,7 @@ public final class AST {
 	 * 
 	 * @return a new unparented lambda expression node
 	 * @exception UnsupportedOperationException if this operation is used in a JLS2, JLS3 or JLS4 AST
-	 * @since 3.9
+	 * @since 3.9 BETA_JAVA8
 	 */
 	public LambdaExpression newLambdaExpression() {
 		LambdaExpression result = new LambdaExpression(this);
@@ -1757,10 +1822,12 @@ public final class AST {
 	/**
 	 * Creates and returns a list of new unparented modifier nodes
 	 * for the given modifier flags. When multiple modifiers are
-	 * requested the modifiers nodes will appear in the following order:
-	 * public, protected, private, abstract, static, final, synchronized,
-	 * native, strictfp, transient, volatile. This order is consistent
-	 * with the recommendations in JLS2 8.1.1, 8.3.1, and 8.4.3.
+	 * requested, the modifier nodes will appear in the following order:
+	 * <pre> public protected private
+	 * abstract default static final synchronized native strictfp transient volatile</pre>
+	 * <p>
+	 * This order is consistent with the recommendations in JLS8 ("*Modifier:" rules in chapters 8 and 9).
+	 * </p>
 	 *
 	 * @param flags bitwise or of modifier flags declared on {@link Modifier}
 	 * @return a possibly empty list of new unparented modifier nodes
@@ -1785,6 +1852,9 @@ public final class AST {
 		}
 		if (Modifier.isAbstract(flags)) {
 			result.add(newModifier(Modifier.ModifierKeyword.ABSTRACT_KEYWORD));
+		}
+		if (Modifier.isDefault(flags)) {
+			result.add(newModifier(Modifier.ModifierKeyword.DEFAULT_KEYWORD));
 		}
 		if (Modifier.isStatic(flags)) {
 			result.add(newModifier(Modifier.ModifierKeyword.STATIC_KEYWORD));
@@ -1959,6 +2029,29 @@ public final class AST {
 	 */
 	public PackageDeclaration newPackageDeclaration() {
 		PackageDeclaration result = new PackageDeclaration(this);
+		return result;
+	}
+
+	/**
+	 * Creates and returns a new unparented package qualified type node with
+	 * the given qualifier and name.
+	 *
+	 * @param qualifier the package qualifier type node
+	 * @param name the simple name being qualified
+	 * @return a new unparented qualified type node
+	 * @exception IllegalArgumentException if:
+	 * <ul>
+	 * <li>the node belongs to a different AST</li>
+	 * <li>the node already has a parent</li>
+	 * </ul>
+	 * @exception UnsupportedOperationException if this operation is used in
+	 * a JLS2, JLS3 and JLS4 AST
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public PackageQualifiedType newPackageQualifiedType(Name qualifier, SimpleName name) {
+		PackageQualifiedType result = new PackageQualifiedType(this);
+		result.setQualifier(qualifier);
+		result.setName(name);
 		return result;
 	}
 
@@ -2201,7 +2294,7 @@ public final class AST {
 
 	/**
 	 * Creates an unparented "super" method invocation expression node owned by
-	 * this AST. By default, the name of the method is unspecified (but legal)
+	 * this AST. By default, the name of the method is unspecified (but legal),
 	 * there is no qualifier, no type arguments, and the list of arguments is empty.
 	 *
 	 * @return a new unparented  "super" method invocation
@@ -2209,6 +2302,19 @@ public final class AST {
 	 */
 	public SuperMethodInvocation newSuperMethodInvocation() {
 		SuperMethodInvocation result = new SuperMethodInvocation(this);
+		return result;
+	}
+
+	/**
+	 * Creates and returns a new unparented super method reference node owned by
+	 * this AST. By default, the name of the method is unspecified (but legal),
+	 * and there is no qualifier and no type arguments.
+	 *
+	 * @return a new unparented super method reference node
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public SuperMethodReference newSuperMethodReference() {
+		SuperMethodReference result = new SuperMethodReference(this);
 		return result;
 	}
 
@@ -2393,6 +2499,20 @@ public final class AST {
 	}
 
 	/**
+	 * Creates an unparented type method reference node owned by this AST.
+	 * By default, the type and method name are unspecified (but legal),
+	 * and there are no type arguments.
+	 * 
+	 * @return a new unparented type method reference node
+	 * @exception UnsupportedOperationException if this operation is used in a JLS2, JLS3 or JLS4 AST
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public TypeMethodReference newTypeMethodReference() {
+		TypeMethodReference result = new TypeMethodReference(this);
+		return result;
+	}
+
+	/**
 	 * Creates and returns a new unparented type parameter type node with an
 	 * unspecified type variable name and an empty list of type bounds.
 	 *
@@ -2417,6 +2537,19 @@ public final class AST {
 	 */
 	public UnionType newUnionType() {
 		return new UnionType(this);
+	}
+
+	/**
+	 * Creates a new unparented intersection type node owned by this AST.
+	 * By default, the intersection type has no types.
+	 *
+	 * @return a new unparented IntersectionType node
+	 * @exception UnsupportedOperationException if this operation is used in
+	 * a JLS2, JLS3 or JLS4 AST
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public IntersectionType newIntersectionType() {
+		return new IntersectionType(this);
 	}
 
 	/**

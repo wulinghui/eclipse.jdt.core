@@ -1,9 +1,13 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -262,6 +266,17 @@ public interface ITypeBinding extends IBinding {
 	 *   not an array type
 	 */
 	public ITypeBinding getElementType();
+
+	/**
+	 * Returns the binding representing the enclosing type of this type,
+	 * or <code>null</code> if the receiver is an array type binding or a top level
+	 * type or a primitive type.
+	 *
+	 * @return the enclosing type binding, or <code>null</code> if this is
+	 *   an array type, or a primitive type or a top level type.
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public ITypeBinding getEnclosingType();
 
 	/**
 	 * Returns the erasure of this type binding.
@@ -736,6 +751,15 @@ public interface ITypeBinding extends IBinding {
 	public boolean isGenericType();
 
 	/**
+	 * Returns whether this type binding represents a functional interface type.
+	 *
+	 * @return <code>true</code> if this object represents a functional interface,
+	 *    and <code>false</code> otherwise
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public boolean isFunctionalInterface();
+
+	/**
 	 * Returns whether this type binding represents an interface type.
 	 * <p>
 	 * Note that an interface can also be an annotation type.
@@ -952,4 +976,23 @@ public interface ITypeBinding extends IBinding {
 	 * @see #isUpperbound()
 	 */
 	public boolean isWildcardType();
+
+	/**
+	 * Returns the annotations that this type reference is annotated with. Since JLS8, 
+	 * multiple instances of type bindings may be created if they are annotated with 
+	 * different type use annotations.
+	 * <p>
+	 * For example, the following two type references would produce two distinct type 
+	 * bindings for java.lang.String.
+	 * <ul>
+	 * <li>java.lang.@Marker1 String</li>
+	 * <li>java.lang.@Marker2 String</li>
+	 * </ul>
+	 * </p>
+	 * @return type annotations specified on this type reference, or an empty array if
+	 * no type use annotations are found.
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public IAnnotationBinding[] getTypeAnnotations();
+	
 }

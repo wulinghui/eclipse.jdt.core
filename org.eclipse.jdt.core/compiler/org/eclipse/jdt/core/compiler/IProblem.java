@@ -161,7 +161,9 @@
  *									ArrayReferencePotentialNullReference
  *									DereferencingNullableExpression
  *									NullityMismatchingTypeAnnotation
- *									NullityMismatchingTypeAnnotationUnchecked
+ *									NullityMismatchingTypeAnnotationSuperHint
+ *									NullityUncheckedTypeAnnotationDetail
+ *									NullityUncheckedTypeAnnotationDetailSuperHint
  *									NullableFieldReference
  *									UninitializedNonNullField
  *									UninitializedNonNullFieldHintMissingDefault
@@ -177,11 +179,35 @@
  *									DuplicateInheritedDefaultMethods
  *									SuperAccessCannotBypassDirectSuper
  *									SuperCallCannotBypassOverride
+ *									ConflictingNullAnnotations
+ *									ConflictingInheritedNullAnnotations
+ *									UnsafeElementTypeConversion
+ *									PotentialNullUnboxing
+ *									NullUnboxing
+ *									NullExpressionReference
+ *									PotentialNullExpressionReference
+ *									RedundantNullCheckAgainstNonNullType
+ *									NullAnnotationUnsupportedLocation
+ *									NullAnnotationUnsupportedLocationAtType
+ *									NullityMismatchTypeArgument
+ *									ContradictoryNullAnnotationsOnBound
+ *									UnsafeNullnessCast
  *      Jesper S Moller  - added the following constants
  *									TargetTypeNotAFunctionalInterface
  *									OuterLocalMustBeEffectivelyFinal
  *									IllegalModifiersForPackage
- *******************************************************************************/
+ *									DuplicateAnnotationNotMarkedRepeatable
+ *									DisallowedTargetForContainerAnnotation
+ *									RepeatedAnnotationWithContainerAnnotation
+ *									ContainingAnnotationMustHaveValue
+ *									ContainingAnnotationHasNonDefaultMembers
+ *									ContainingAnnotationHasWrongValueType
+ *								 	ContainingAnnotationHasShorterRetention
+ *									RepeatableAnnotationHasTargets
+ *									RepeatableAnnotationTargetMismatch
+ *									RepeatableAnnotationIsDocumented
+ *									RepeatableAnnotationIsInherited
+*******************************************************************************/
 package org.eclipse.jdt.core.compiler;
 
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
@@ -942,6 +968,10 @@ void setSourceStart(int sourceStart);
 	int RedundantNullCheckOnNonNullLocalVariable = Internal + 457;
 	/** @since 3.3 */
 	int NonNullLocalVariableComparisonYieldsFalse = Internal + 458;
+	/** @since 3.9 */
+	int PotentialNullUnboxing = Internal + 459;
+	/** @since 3.9 */
+	int NullUnboxing = Internal + 461;
 
 	// block
 	/** @since 3.0 */
@@ -1413,6 +1443,10 @@ void setSourceStart(int sourceStart);
 	int NonNullExpressionComparisonYieldsFalse = Internal + 670;
 	/** @since 3.9 */
 	int RedundantNullCheckOnNonNullExpression = Internal + 671;
+	/** @since 3.9 */
+	int NullExpressionReference = Internal + 672;
+	/** @since 3.9 */
+	int PotentialNullExpressionReference = Internal + 673;
 
 	/**
 	 * Corrupted binaries
@@ -1586,6 +1620,41 @@ void setSourceStart(int sourceStart);
 	int MultipleFunctionalInterfaces = TypeRelated + 895;
 	/** @since 3.9 BETA_JAVA8 */
 	int StaticInterfaceMethodNotBelow18 = Internal + Syntax + 896;
+	/** @since 3.9 BETA_JAVA8 */
+	int DuplicateAnnotationNotMarkedRepeatable = TypeRelated + 897;
+	/** @since 3.9 BETA_JAVA8 */
+	int DisallowedTargetForContainerAnnotation = TypeRelated + 898;
+	/** @since 3.9 BETA_JAVA8 */
+	int RepeatedAnnotationWithContainerAnnotation = TypeRelated + 899;
+	
+	/**
+	 * External problems -- These are problems defined by other plugins
+	 */
+
+	/** @since 3.2 */
+	int ExternalProblemNotFixable = 900;
+
+	// indicates an externally defined problem that has a quick-assist processor
+	// associated with it
+	/** @since 3.2 */
+	int ExternalProblemFixable = 901;
+	
+	/** @since 3.9 BETA_JAVA8 */
+	int ContainingAnnotationHasWrongValueType = TypeRelated + 902;
+	/** @since 3.9 BETA_JAVA8 */
+	int ContainingAnnotationMustHaveValue = TypeRelated + 903;
+	/** @since 3.9 BETA_JAVA8 */
+	int ContainingAnnotationHasNonDefaultMembers = TypeRelated + 904;
+	/** @since 3.9 BETA_JAVA8 */
+	int ContainingAnnotationHasShorterRetention = TypeRelated + 905;
+	/** @since 3.9 BETA_JAVA8 */
+	int RepeatableAnnotationHasTargets = TypeRelated + 906;
+	/** @since 3.9 BETA_JAVA8 */
+	int RepeatableAnnotationTargetMismatch = TypeRelated + 907;
+	/** @since 3.9 BETA_JAVA8 */
+	int RepeatableAnnotationIsDocumented = TypeRelated + 908;
+	/** @since 3.9 BETA_JAVA8 */
+	int RepeatableAnnotationIsInherited = TypeRelated + 909;
 	
 	/**
 	 * Errors/warnings from annotation based null analysis
@@ -1652,6 +1721,10 @@ void setSourceStart(int sourceStart);
 	int ConflictingNullAnnotations = MethodRelated + 939;
 	/** @since 3.9 */
 	int ConflictingInheritedNullAnnotations = MethodRelated + 940;
+	/** @since 3.9 BETA_JAVA8 */
+	int RedundantNullCheckOnField = Internal + 941;
+	/** @since 3.9 BETA_JAVA8 */
+	int FieldComparisonYieldsFalse = Internal + 942;
 	
 	/** @since 3.9 BETA_JAVA8 */
 	int ArrayReferencePotentialNullReference = Internal + 951;
@@ -1660,15 +1733,31 @@ void setSourceStart(int sourceStart);
 	/** @since 3.9 BETA_JAVA8 */
 	int NullityMismatchingTypeAnnotation = Internal + 953;
 	/** @since 3.9 BETA_JAVA8 */
-	int NullityMismatchingTypeAnnotationUnchecked = Internal + 954;
+	int NullityMismatchingTypeAnnotationSuperHint = Internal + 954;
 	/** @since 3.9 BETA_JAVA8 */
-	int ReferenceExpressionParameterMismatchPromisedNullable = MethodRelated + 955;
+	int NullityUncheckedTypeAnnotationDetail = Internal + 955;
 	/** @since 3.9 BETA_JAVA8 */
-	int ReferenceExpressionParameterRequiredNonnullUnchecked = MethodRelated + 956;
+	int NullityUncheckedTypeAnnotationDetailSuperHint = Internal + 956;
 	/** @since 3.9 BETA_JAVA8 */
-	int ReferenceExpressionReturnNullRedef = MethodRelated + 957;
+	int ReferenceExpressionParameterMismatchPromisedNullable = MethodRelated + 957;
 	/** @since 3.9 BETA_JAVA8 */
-	int ReferenceExpressionReturnNullRedefUnchecked = MethodRelated + 958;
+	int ReferenceExpressionParameterRequiredNonnullUnchecked = MethodRelated + 958;
+	/** @since 3.9 BETA_JAVA8 */
+	int ReferenceExpressionReturnNullRedef = MethodRelated + 959;
+	/** @since 3.9 BETA_JAVA8 */
+	int ReferenceExpressionReturnNullRedefUnchecked = MethodRelated + 960;
+	/** @since 3.9 BETA_JAVA8 */
+	int RedundantNullCheckAgainstNonNullType = Internal + 961;
+	/** @since 3.9 BETA_JAVA8 */
+	int NullAnnotationUnsupportedLocation = Internal + 962;
+	/** @since 3.9 BETA_JAVA8 */
+	int NullAnnotationUnsupportedLocationAtType = Internal + 963;
+	/** @since 3.9 BETA_JAVA8 */
+	int NullityMismatchTypeArgument = Internal + 964;
+	/** @since 3.9 BETA_JAVA8 */
+	int ContradictoryNullAnnotationsOnBound = Internal + 965;
+	/** @since 3.9 BETA_JAVA8 */
+	int UnsafeNullnessCast = Internal + 966;
 
 	// Java 8 work
 	/** @since 3.9 BETA_JAVA8 */
@@ -1678,7 +1767,7 @@ void setSourceStart(int sourceStart);
 
 	// default methods:
 	/** @since 3.9 BETA_JAVA8 */
-	int IllegalModifierForInterfaceDefaultMethod = MethodRelated + 1050;
+	int IllegalModifierForInterfaceMethod18 = MethodRelated + 1050;
 
 	/** @since 3.9 BETA_JAVA8 */
 	int DefaultMethodOverridesObjectMethod = MethodRelated + 1051;
@@ -1693,16 +1782,10 @@ void setSourceStart(int sourceStart);
 	int SuperAccessCannotBypassDirectSuper = TypeRelated + 1054;
 	/** @since 3.9 BETA_JAVA8 */
 	int SuperCallCannotBypassOverride = MethodRelated + 1055;
-
-	/**
-	 * External problems -- These are problems defined by other plugins
-	 */
-
-	/** @since 3.2 */
-	int ExternalProblemNotFixable = 900;
-
-	// indicates an externally defined problem that has a quick-assist processor
-	// associated with it
-	/** @since 3.2 */
-	int ExternalProblemFixable = 901;
+	/** @since 3.9 BETA_JAVA8 */
+	int IllegalModifierCombinationForInterfaceMethod = MethodRelated + 1056;
+	/** @since 3.9 BETA_JAVA8 */
+	int IllegalStrictfpForAbstractInterfaceMethod = MethodRelated + 1057;
+	/** @since 3.9 BETA_JAVA8 */
+	int IllegalDefaultModifierSpecification = MethodRelated + 1058;
 }

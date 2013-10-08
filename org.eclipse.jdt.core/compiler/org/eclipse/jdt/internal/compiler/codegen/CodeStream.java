@@ -14,6 +14,13 @@
  *     Stephan Herrmann - Contribution for
  *								bug 400710 - [1.8][compiler] synthetic access to default method generates wrong code
  *								bug 391376 - [1.8] check interaction of default methods with bridge methods and generics
+ *     Jesper S Moller - Contributions for
+ *							Bug 405066 - [1.8][compiler][codegen] Implement code generation infrastructure for JSR335        
+ *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *                          Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
+ *                          Bug 409247 - [1.8][compiler] Verify error with code allocating multidimensional array
+ *                          Bug 409236 - [1.8][compiler] Type annotations on intersection cast types dropped by code generator
+ *                          Bug 409250 - [1.8][compiler] Various loose ends in 308 code generation
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.codegen;
 
@@ -24,11 +31,14 @@ import org.eclipse.jdt.internal.compiler.ast.ASTNode;
 import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.AbstractVariableDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.AllocationExpression;
+import org.eclipse.jdt.internal.compiler.ast.ArrayAllocationExpression;
 import org.eclipse.jdt.internal.compiler.ast.ExplicitConstructorCall;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
 import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.ast.OperatorIds;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.flow.UnconditionalFlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
@@ -78,6 +88,7 @@ public class CodeStream {
 	public int maxFieldCount;
 	public int maxLocals;
 	public AbstractMethodDeclaration methodDeclaration;
+	public LambdaExpression lambdaExpression;
 	public int[] pcToSourceMap = new int[24];
 	public int pcToSourceMapSize;
 	public int position; // So when first set can be incremented
@@ -640,13 +651,23 @@ public void checkcast(int baseId) {
 }
 
 public void checkcast(TypeBinding typeBinding) {
-	this.countLabels = 0;
-	if (this.classFileOffset + 2 >= this.bCodeStream.length) {
-		resizeByteArray();
+	this.checkcast(null, typeBinding);
+}
+
+public void checkcast(TypeReference typeReference, TypeBinding typeBinding) {
+	/* We use a slightly sub-optimal generation for intersection casts by resorting to a runtime cast for every intersecting type, but in
+	   reality this should not matter. In its intended use form such as (I & Serializable) () -> {}, no cast is emitted at all
+	*/
+	TypeBinding [] types = typeBinding instanceof IntersectionCastTypeBinding ? typeBinding.getIntersectingTypes() : new TypeBinding [] { typeBinding };
+	for (int i = 0, max = types.length; i < max; i++) {
+		this.countLabels = 0;
+		if (this.classFileOffset + 2 >= this.bCodeStream.length) {
+			resizeByteArray();
+		}
+		this.position++;
+		this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_checkcast;
+		writeUnsignedShort(this.constantPool.literalIndexForType(types[i]));
 	}
-	this.position++;
-	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_checkcast;
-	writeUnsignedShort(this.constantPool.literalIndexForType(typeBinding));
 }
 
 public void d2f() {
@@ -2429,7 +2450,55 @@ public void generateSyntheticBodyForConstructorAccess(SyntheticMethodBinding acc
 	invoke(Opcodes.OPC_invokespecial, constructorBinding, null /* default declaringClass */);
 	return_();
 }
-
+public void generateSyntheticBodyForArrayConstructor(SyntheticMethodBinding methodBinding) {
+	initializeMaxLocals(methodBinding);
+	iload_0();
+	anewarray(((ArrayBinding) methodBinding.returnType).elementsType());
+	areturn();
+}
+public void generateSyntheticBodyForArrayClone(SyntheticMethodBinding methodBinding) {
+	initializeMaxLocals(methodBinding);
+	TypeBinding arrayType = methodBinding.parameters[0];
+	aload_0();
+	invoke(   // // invokevirtual: "[I".clone:()Ljava/lang/Object;
+			Opcodes.OPC_invokevirtual,
+			1, // receiverAndArgsSize
+			1, // return type size
+			arrayType.signature(), // declaring class e.g "[I"
+			ConstantPool.Clone,
+			ConstantPool.CloneSignature);
+	checkcast(arrayType);
+	areturn();
+}
+public void generateSyntheticBodyForFactoryMethod(SyntheticMethodBinding methodBinding) {
+	initializeMaxLocals(methodBinding);
+	MethodBinding constructorBinding = methodBinding.targetMethod;
+	TypeBinding[] parameters = methodBinding.parameters;
+	int length = parameters.length;
+	
+	new_(constructorBinding.declaringClass);
+	dup();
+	
+	int resolvedPosition = 0;
+	for (int i = 0; i < length; i++) {
+		TypeBinding parameter;
+		load(parameter = parameters[i], resolvedPosition);
+		switch(parameter.id) {
+			case TypeIds.T_long :
+			case TypeIds.T_double :
+				resolvedPosition += 2;
+				break;
+			default :
+				resolvedPosition++;
+				break;
+		}
+	}
+	for (int i = 0; i < methodBinding.fakePaddedParameters; i++)
+		aconst_null();
+	
+	invoke(Opcodes.OPC_invokespecial, constructorBinding, null /* default declaringClass */);
+	areturn();
+}
 //static X valueOf(String name) {
 // return (X) Enum.valueOf(X.class, name);
 //}
@@ -3859,10 +3928,18 @@ public boolean inlineForwardReferencesFromLabelsTargeting(BranchLabel targetLabe
 }
 
 /**
- * We didn't call it instanceof because there is a conflit with the
+ * We didn't call it instanceof because there is a conflict with the
  * instanceof keyword
  */
 public void instance_of(TypeBinding typeBinding) {
+	this.instance_of(null, typeBinding);
+}
+
+/**
+ * We didn't call it instanceof because there is a conflict with the
+ * instanceof keyword
+ */
+public void instance_of(TypeReference typeReference, TypeBinding typeBinding) {
 	this.countLabels = 0;
 	if (this.classFileOffset + 2 >= this.bCodeStream.length) {
 		resizeByteArray();
@@ -3901,7 +3978,31 @@ protected void invoke(byte opcode, int receiverAndArgsSize, int returnTypeSize, 
 	}
 }
 
+public void invokeDynamic(int bootStrapIndex, int argsSize, int returnTypeSize, char[] selector, char[] signature) {
+	this.invokeDynamic(bootStrapIndex, argsSize, returnTypeSize, selector, signature, false, null, null);
+}
+
+public void invokeDynamic(int bootStrapIndex, int argsSize, int returnTypeSize, char[] selector, char[] signature, boolean isConstructorReference, TypeReference lhsTypeReference, TypeReference [] typeArguments) {
+	if (this.classFileOffset + 4 >= this.bCodeStream.length) {
+		resizeByteArray();
+	}
+	int invokeDynamicIndex = this.constantPool.literalIndexForInvokeDynamic(bootStrapIndex, selector, signature);
+	this.position +=3;
+	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_invokedynamic;
+	writeUnsignedShort(invokeDynamicIndex);
+	this.bCodeStream[this.classFileOffset++] = 0;
+	this.bCodeStream[this.classFileOffset++] = 0;
+	this.stackDepth += returnTypeSize - argsSize;
+	if (this.stackDepth > this.stackMax) {
+		this.stackMax = this.stackDepth;
+	}
+}
+
 public void invoke(byte opcode, MethodBinding methodBinding, TypeBinding declaringClass) {
+	this.invoke(opcode, methodBinding, declaringClass, null);
+}
+
+public void invoke(byte opcode, MethodBinding methodBinding, TypeBinding declaringClass, TypeReference[] typeArguments) {
 	if (declaringClass == null) declaringClass = methodBinding.declaringClass;
 	if ((declaringClass.tagBits & TagBits.ContainsNestedTypeReferences) != 0) {
 		Util.recordNestedType(this.classFile, declaringClass);
@@ -5609,7 +5710,11 @@ public void monitorexit() {
 	this.bCodeStream[this.classFileOffset++] = Opcodes.OPC_monitorexit;
 }
 
-public void multianewarray(TypeBinding typeBinding, int dimensions) {
+public void multianewarray(
+		TypeReference typeReference,
+		TypeBinding typeBinding,
+		int dimensions,
+		ArrayAllocationExpression allocationExpression) {
 	this.countLabels = 0;
 	this.stackDepth += (1 - dimensions);
 	if (this.classFileOffset + 3 >= this.bCodeStream.length) {
@@ -5623,6 +5728,11 @@ public void multianewarray(TypeBinding typeBinding, int dimensions) {
 
 // We didn't call it new, because there is a conflit with the new keyword
 public void new_(TypeBinding typeBinding) {
+	this.new_(null, typeBinding);
+}
+
+// We didn't call it new, because there is a conflit with the new keyword
+public void new_(TypeReference typeReference, TypeBinding typeBinding) {
 	this.countLabels = 0;
 	this.stackDepth++;
 	if (this.stackDepth > this.stackMax)
@@ -5646,6 +5756,10 @@ public void newarray(int array_Type) {
 }
 
 public void newArray(ArrayBinding arrayBinding) {
+	this.newArray(null, null, arrayBinding);
+}
+
+public void newArray(TypeReference typeReference, ArrayAllocationExpression allocationExpression, ArrayBinding arrayBinding) {
 	TypeBinding component = arrayBinding.elementsType();
 	switch (component.id) {
 		case TypeIds.T_int :
@@ -6256,6 +6370,7 @@ public void removeVariable(LocalVariableBinding localBinding) {
 public void reset(AbstractMethodDeclaration referenceMethod, ClassFile targetClassFile) {
 	init(targetClassFile);
 	this.methodDeclaration = referenceMethod;
+	this.lambdaExpression = null;
 	int[] lineSeparatorPositions2 = this.lineSeparatorPositions;
 	if (lineSeparatorPositions2 != null) {
 		int length = lineSeparatorPositions2.length;
@@ -6280,6 +6395,31 @@ public void reset(AbstractMethodDeclaration referenceMethod, ClassFile targetCla
 	}
 	this.preserveUnusedLocals = referenceMethod.scope.compilerOptions().preserveAllLocalVariables;
 	initializeMaxLocals(referenceMethod.binding);
+}
+
+public void reset(LambdaExpression lambda, ClassFile targetClassFile) {
+	init(targetClassFile);
+	this.lambdaExpression = lambda;
+	this.methodDeclaration = null;
+	int[] lineSeparatorPositions2 = this.lineSeparatorPositions;
+	if (lineSeparatorPositions2 != null) {
+		int length = lineSeparatorPositions2.length;
+		int lineSeparatorPositionsEnd = length - 1;
+		int start = Util.getLineNumber(lambda.body.sourceStart, lineSeparatorPositions2, 0, lineSeparatorPositionsEnd);
+		this.lineNumberStart = start;
+		if (start > lineSeparatorPositionsEnd) {
+			this.lineNumberEnd = start;
+		} else {
+			int end = Util.getLineNumber(lambda.body.sourceEnd, lineSeparatorPositions2, start - 1, lineSeparatorPositionsEnd);
+			if (end >= lineSeparatorPositionsEnd) {
+				end = length;
+			}
+			this.lineNumberEnd = end == 0 ? 1 : end;
+		}
+
+	}
+	this.preserveUnusedLocals = lambda.scope.compilerOptions().preserveAllLocalVariables;
+	initializeMaxLocals(lambda.binding);
 }
 
 public void reset(ClassFile givenClassFile) {

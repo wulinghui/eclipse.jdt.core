@@ -19,6 +19,10 @@
  *     						bug 349326 - [1.7] new warning for missing try-with-resources
  *							bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
  *							bug 383368 - [compiler][null] syntactic null analysis for field references
+ *							bug 400761 - [compiler][null] null may be return as boolean without a diagnostic
+ *							Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *							Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
+ *							Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -84,6 +88,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		}
 		this.trueInitStateIndex = currentScope.methodScope().recordInitializationStates(trueFlowInfo);
 		trueFlowInfo = this.valueIfTrue.analyseCode(currentScope, flowContext, trueFlowInfo);
+		this.valueIfTrue.checkNPEbyUnboxing(currentScope, flowContext, trueFlowInfo);
 
 		// may need to fetch this null status before expireNullCheckedFieldInfo():
 		int preComputedTrueNullStatus = -1;
@@ -105,6 +110,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		}
 		this.falseInitStateIndex = currentScope.methodScope().recordInitializationStates(falseFlowInfo);
 		falseFlowInfo = this.valueIfFalse.analyseCode(currentScope, flowContext, falseFlowInfo);
+		this.valueIfFalse.checkNPEbyUnboxing(currentScope, flowContext, falseFlowInfo);
 
 		flowContext.conditionalLevel--;
 		
@@ -173,6 +179,14 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 			currentScope.methodScope().recordInitializationStates(mergedInfo);
 		mergedInfo.setReachMode(mode);
 		return mergedInfo;
+	}
+
+	public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo) {
+		if ((this.nullStatus & FlowInfo.NULL) != 0)
+			scope.problemReporter().expressionNullReference(this);
+		else if ((this.nullStatus & FlowInfo.POTENTIALLY_NULL) != 0)
+			scope.problemReporter().expressionPotentialNullReference(this);
+		return true; // all checking done
 	}
 
 	private void computeNullStatus(int ifTrueNullStatus, FlowInfo trueBranchInfo, FlowInfo falseBranchInfo, FlowContext flowContext) {
@@ -458,7 +472,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		
 		TypeBinding valueIfTrueType = this.originalValueIfTrueType;
 		TypeBinding valueIfFalseType = this.originalValueIfFalseType;
-		if (use15specifics && valueIfTrueType != valueIfFalseType) {
+		if (use15specifics && TypeBinding.notEquals(valueIfTrueType, valueIfFalseType)) {
 			if (valueIfTrueType.isBaseType()) {
 				if (valueIfFalseType.isBaseType()) {
 					// bool ? baseType : baseType
@@ -503,7 +517,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 			// from valueIFTrue or valueIfFalse to the receiver constant
 			this.constant = condConstant.booleanValue() ? trueConstant : falseConstant;
 		}
-		if (valueIfTrueType == valueIfFalseType) { // harmed the implicit conversion
+		if (TypeBinding.equalsEquals(valueIfTrueType, valueIfFalseType)) { // harmed the implicit conversion
 			this.valueIfTrue.computeConversion(scope, valueIfTrueType, this.originalValueIfTrueType);
 			this.valueIfFalse.computeConversion(scope, valueIfFalseType, this.originalValueIfFalseType);
 			if (valueIfTrueType == TypeBinding.BOOLEAN) {
@@ -520,7 +534,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 						: this.optimizedIfFalseConstant;
 				}
 			}
-			return this.resolvedType = valueIfTrueType;
+			return this.resolvedType = NullAnnotationMatching.moreDangerousType(valueIfTrueType, valueIfFalseType);
 		}
 		// Determine the return type depending on argument types
 		// Numeric types

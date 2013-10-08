@@ -11,6 +11,9 @@
  * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *                          Bug 409245 - [1.8][compiler] Type annotations dropped when call is routed through a synthetic bridge method
+ *                          Bug 409250 - [1.8][compiler] Various loose ends in 308 code generation
  *******************************************************************************/
 package org.eclipse.jdt.internal.eval;
 
@@ -29,7 +32,6 @@ import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
-import org.eclipse.jdt.internal.compiler.lookup.PolyTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
@@ -83,14 +85,14 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean
 		// actual message invocation
 		TypeBinding constantPoolDeclaringClass = CodeStream.getConstantPoolDeclaringClass(currentScope, codegenBinding, this.actualReceiverType, this.receiver.isImplicitThis());
 		if (isStatic) {
-			codeStream.invoke(Opcodes.OPC_invokestatic, codegenBinding, constantPoolDeclaringClass);
+			codeStream.invoke(Opcodes.OPC_invokestatic, codegenBinding, constantPoolDeclaringClass, this.typeArguments);
 		} else if( (this.receiver.isSuper()) || codegenBinding.isPrivate()){
-			codeStream.invoke(Opcodes.OPC_invokespecial, codegenBinding, constantPoolDeclaringClass);
+			codeStream.invoke(Opcodes.OPC_invokespecial, codegenBinding, constantPoolDeclaringClass, this.typeArguments);
 		} else {
 			if (constantPoolDeclaringClass.isInterface()) { // interface or annotation type
-				codeStream.invoke(Opcodes.OPC_invokeinterface, codegenBinding, constantPoolDeclaringClass);
+				codeStream.invoke(Opcodes.OPC_invokeinterface, codegenBinding, constantPoolDeclaringClass, this.typeArguments);
 			} else {
-				codeStream.invoke(Opcodes.OPC_invokevirtual, codegenBinding, constantPoolDeclaringClass);
+				codeStream.invoke(Opcodes.OPC_invokevirtual, codegenBinding, constantPoolDeclaringClass, this.typeArguments);
 			}
 		}
 	} else {
@@ -259,6 +261,10 @@ public TypeBinding resolveType(BlockScope scope) {
 		this.receiver.isImplicitThis()
 			? scope.getImplicitMethod(this.selector, argumentTypes, this)
 			: scope.getMethod(this.actualReceiverType, this.selector, argumentTypes, this);
+	
+	if (polyExpressionSeen && polyExpressionsHaveErrors(scope, this.binding, this.arguments, argumentTypes))
+		return null;
+	
 	if (!this.binding.isValidBinding()) {
 		if (this.binding instanceof ProblemMethodBinding
 			&& ((ProblemMethodBinding) this.binding).problemId() == ProblemReasons.NotVisible) {
@@ -304,22 +310,6 @@ public TypeBinding resolveType(BlockScope scope) {
 			}
 			scope.problemReporter().invalidMethod(this, this.binding);
 			return null;
-		}
-	}
-	if (polyExpressionSeen) {
-		boolean variableArity = this.binding.isVarargs();
-		final TypeBinding[] parameters = this.binding.parameters;
-		final int parametersLength = parameters.length;
-		for (int i = 0, length = this.arguments == null ? 0 : this.arguments.length; i < length; i++) {
-			Expression argument = this.arguments[i];
-			TypeBinding parameterType = i < parametersLength ? parameters[i] : parameters[parametersLength - 1];
-			if (argumentTypes[i] instanceof PolyTypeBinding) {
-				argument.setExpressionContext(INVOCATION_CONTEXT);
-				if (variableArity && i >= parametersLength - 1)
-					argument.tagAsEllipsisArgument();
-				argument.setExpectedType(parameterType);
-				argumentTypes[i] = argument.resolveType(scope);
-			}
 		}
 	}
 	if (!this.binding.isStatic()) {

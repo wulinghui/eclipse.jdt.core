@@ -1,9 +1,13 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -11,6 +15,8 @@
  *								bug 186342 - [compiler][null] Using annotations for null checking
  *								bug 331649 - [compiler][null] consider null annotations for fields
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								bug 382069 - [null] Make the null analysis consider JUnit's assertNotNull similarly to assertions
+ *								bug 403086 - [compiler][null] include the effect of 'assert' in syntactic null analysis for fields
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -40,12 +46,15 @@ public class EqualExpression extends BinaryExpression {
 		// - allocation expression, some literals, this reference (see inside expressionNonNullComparison(..))
 		// these checks do not leverage the flowInfo.
 		boolean checkEquality = ((this.bits & OperatorMASK) >> OperatorSHIFT) == EQUAL_EQUAL;
-		if (leftStatus == FlowInfo.NON_NULL && rightStatus == FlowInfo.NULL) {
-			leftNonNullChecked = scope.problemReporter().expressionNonNullComparison(this.left, checkEquality);
-		} else if (leftStatus == FlowInfo.NULL && rightStatus == FlowInfo.NON_NULL) {
-			rightNonNullChecked = scope.problemReporter().expressionNonNullComparison(this.right, checkEquality);
+		if ((flowContext.tagBits & FlowContext.HIDE_NULL_COMPARISON_WARNING_MASK) == 0) {
+			if (leftStatus == FlowInfo.NON_NULL && rightStatus == FlowInfo.NULL) {
+				leftNonNullChecked = scope.problemReporter().expressionNonNullComparison(this.left, checkEquality);
+			} else if (leftStatus == FlowInfo.NULL && rightStatus == FlowInfo.NON_NULL) {
+				rightNonNullChecked = scope.problemReporter().expressionNonNullComparison(this.right, checkEquality);
+			}
 		}
 		
+		boolean contextualCheckEquality = checkEquality ^ ((flowContext.tagBits & FlowContext.INSIDE_NEGATION) != 0);
 		// perform flowInfo-based checks for variables and record info for syntactic null analysis for fields:
 		if (!leftNonNullChecked) {
 			LocalVariableBinding local = this.left.localVariableBinding();
@@ -54,7 +63,8 @@ public class EqualExpression extends BinaryExpression {
 					checkVariableComparison(scope, flowContext, flowInfo, initsWhenTrue, initsWhenFalse, local, rightStatus, this.left);
 				}
 			} else if (this.left instanceof Reference
-							&& ((!checkEquality && rightStatus == FlowInfo.NULL) || (checkEquality && rightStatus == FlowInfo.NON_NULL))
+							&& ((!contextualCheckEquality && rightStatus == FlowInfo.NULL) 
+									|| (contextualCheckEquality && rightStatus == FlowInfo.NON_NULL))
 							&& scope.compilerOptions().enableSyntacticNullAnalysisForFields)
 			{
 				FieldBinding field = ((Reference)this.left).lastFieldBinding();
@@ -70,7 +80,8 @@ public class EqualExpression extends BinaryExpression {
 					checkVariableComparison(scope, flowContext, flowInfo, initsWhenTrue, initsWhenFalse, local, leftStatus, this.right);
 				}
 			} else if (this.right instanceof Reference
-							&& ((!checkEquality && leftStatus == FlowInfo.NULL) || (checkEquality && leftStatus == FlowInfo.NON_NULL))
+							&& ((!contextualCheckEquality && leftStatus == FlowInfo.NULL) 
+									|| (contextualCheckEquality && leftStatus == FlowInfo.NON_NULL))
 							&& scope.compilerOptions().enableSyntacticNullAnalysisForFields) 
 			{
 				FieldBinding field = ((Reference)this.right).lastFieldBinding();

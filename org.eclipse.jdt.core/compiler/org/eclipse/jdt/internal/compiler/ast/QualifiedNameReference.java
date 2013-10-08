@@ -17,10 +17,14 @@
  *								bug 365519 - editorial cleanup after bug 186342 and bug 365387
  *								bug 368546 - [compiler][resource] Avoid remaining false positives found when compiling the Eclipse SDK
  *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
+ *								Bug 414380 - [compiler][internal] QualifiedNameReference#indexOfFirstFieldBinding does not point to the first field
  *     Jesper S Moller - Contributions for
  *								bug 382721 - [1.8][compiler] Effectively final variables needs special treatment
  *								bug 331649 - [compiler][null] consider null annotations for fields
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								bug 402993 - [null] Follow up of bug 401088: Missing warning about redundant null check
+ *     Jesper S Moller <jesper@selskabet.org> - Contributions for
+ *								bug 378674 - "The method can be declared as static" is wrong
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -60,7 +64,9 @@ public class QualifiedNameReference extends NameReference {
 	public long[] sourcePositions;
 	public FieldBinding[] otherBindings;
 	int[] otherDepths;
-	public int indexOfFirstFieldBinding;//points (into tokens) for the first token that corresponds to first FieldBinding
+	public int indexOfFirstFieldBinding; 	// points into tokens & sourcePositions for the first token that corresponds to first FieldBinding
+										  	// *** the index is 1-based ***
+											// during BlockScope#getBinding(..) it will walk through positions until it finds the first field
 	public SyntheticMethodBinding syntheticWriteAccessor;
 	public SyntheticMethodBinding[] syntheticReadAccessors;
 	public TypeBinding genericCast;
@@ -93,9 +99,6 @@ public FlowInfo analyseAssignment(BlockScope currentScope, FlowContext flowConte
 				if (!fieldInits.isDefinitelyAssigned(lastFieldBinding)) {
 					currentScope.problemReporter().uninitializedBlankFinalField(lastFieldBinding, this);
 				}
-			}
-			if (!lastFieldBinding.isStatic()) {
-				currentScope.resetDeclaringClassMethodStaticFlag(lastFieldBinding.declaringClass);
 			}
 			break;
 		case Binding.LOCAL :
@@ -204,9 +207,6 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 					}
 				}
 			}
-			if (!fieldBinding.isStatic()) {
-				currentScope.resetDeclaringClassMethodStaticFlag(fieldBinding.declaringClass);
-			}
 			break;
 		case Binding.LOCAL : // reading a local variable
 			LocalVariableBinding localBinding;
@@ -250,20 +250,18 @@ private void checkInternalNPE(BlockScope scope, FlowContext flowContext, FlowInf
 			}
 			flowInfo.markAsComparedEqualToNonNull(local);
 			// from thereon it is set
-			if (flowContext.initsOnFinally != null) {
-				flowContext.markFinallyNullStatus(local, FlowInfo.NON_NULL);
-			}
+			flowContext.markFinallyNullStatus(local, FlowInfo.NON_NULL);
 		}
 	}
 	if (this.otherBindings != null) {
 		if ((this.bits & ASTNode.RestrictiveFlagMASK) == Binding.FIELD) {
 			// is the first field dereferenced annotated Nullable? If so, report immediately
-			checkNullableFieldDereference(scope, (FieldBinding) this.binding, this.sourcePositions[0]);
+			checkNullableFieldDereference(scope, (FieldBinding) this.binding, this.sourcePositions[this.indexOfFirstFieldBinding-1]);
 		}
 		// look for annotated fields, they do not depend on flow context -> check immediately:
 		int length = this.otherBindings.length - 1; // don't check the last binding
 		for (int i = 0; i < length; i++) {
-			checkNullableFieldDereference(scope, this.otherBindings[i], this.sourcePositions[i+1]);
+			checkNullableFieldDereference(scope, this.otherBindings[i], this.sourcePositions[this.indexOfFirstFieldBinding+i]);
 		}
 	}
 }
@@ -862,7 +860,7 @@ public FieldBinding lastFieldBinding() {
 
 public void manageEnclosingInstanceAccessIfNecessary(BlockScope currentScope, FlowInfo flowInfo) {
 	//If inlinable field, forget the access emulation, the code gen will directly target it
-	if (((this.bits & ASTNode.DepthMASK) == 0) || (this.constant != Constant.NotAConstant)) {
+	if (((this.bits & ASTNode.DepthMASK) == 0 && (this.bits & ASTNode.IsCapturedOuterLocal) == 0) || (this.constant != Constant.NotAConstant)) {
 		return;
 	}
 	if ((this.bits & ASTNode.RestrictiveFlagMASK) == Binding.LOCAL) {
@@ -1064,12 +1062,18 @@ public TypeBinding resolveType(BlockScope scope) {
 							scope.problemReporter().indirectAccessToStaticField(this, fieldBinding);
 						}						
 					} else {
-						if (this.indexOfFirstFieldBinding == 1 && scope.compilerOptions().getSeverity(CompilerOptions.UnqualifiedFieldAccess) != ProblemSeverities.Ignore) {
-							scope.problemReporter().unqualifiedFieldAccess(this, fieldBinding);
+						boolean inStaticContext = scope.methodScope().isStatic;
+						if (this.indexOfFirstFieldBinding == 1) {
+							if (scope.compilerOptions().getSeverity(CompilerOptions.UnqualifiedFieldAccess) != ProblemSeverities.Ignore) {
+								scope.problemReporter().unqualifiedFieldAccess(this, fieldBinding);
+							}
+							if (!inStaticContext) {
+								scope.tagAsAccessingEnclosingInstanceStateOf(fieldBinding.declaringClass, false /* type variable access */);
+							}
 						}
 						//must check for the static status....
 						if (this.indexOfFirstFieldBinding > 1  //accessing to a field using a type as "receiver" is allowed only with static field
-								 || scope.methodScope().isStatic) { 	// the field is the first token of the qualified reference....
+								 || inStaticContext) { 	// the field is the first token of the qualified reference....
 							scope.problemReporter().staticFieldAccessToNonStaticVariable(this, fieldBinding);
 							return null;
 						 }

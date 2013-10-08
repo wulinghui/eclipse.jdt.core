@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,9 @@
  *								bug 185682 - Increment/decrement operators mark local variables as read
  *								bug 331649 - [compiler][null] consider null annotations for fields
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								Bug 412203 - [compiler] Internal compiler error: java.lang.IllegalArgumentException: info cannot be null
+ *     Jesper S Moller - Contributions for
+ *								Bug 378674 - "The method can be declared as static" is wrong
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -118,20 +121,10 @@ public FlowInfo analyseAssignment(BlockScope currentScope, FlowContext flowConte
 		if (   !isCompound
 			&& this.receiver.isThis()
 			&& !(this.receiver instanceof QualifiedThisReference)
+			&& this.receiver.resolvedType == this.binding.declaringClass // inherited fields are not tracked here
 			&& ((this.receiver.bits & ASTNode.ParenthesizedMASK) == 0)) { // (this).x is forbidden
 			flowInfo.markAsDefinitelyAssigned(this.binding);
 		}		
-	}
-	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=318682
-	if (!this.binding.isStatic()) {
-		if (this.receiver.isThis()) {
-			currentScope.resetDeclaringClassMethodStaticFlag(this.binding.declaringClass);
-		}
-	} else if (this.receiver.isThis()) {
-		if ((this.receiver.bits & ASTNode.IsImplicitThis) == 0) {
-			// explicit this, not allowed in static context
-			currentScope.resetDeclaringClassMethodStaticFlag(this.binding.declaringClass);
-		}
 	}
 	return flowInfo;
 }
@@ -145,16 +138,6 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	this.receiver.analyseCode(currentScope, flowContext, flowInfo, nonStatic);
 	if (nonStatic) {
 		this.receiver.checkNPE(currentScope, flowContext, flowInfo);
-		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=318682
-		if (this.receiver.isThis()) {
-			currentScope.resetDeclaringClassMethodStaticFlag(this.binding.declaringClass);
-		}
-	} else if (this.receiver.isThis()) {
-		if ((this.receiver.bits & ASTNode.IsImplicitThis) == 0) {
-			// explicit this receiver, not allowed in static context
-			// https://bugs.eclipse.org/bugs/show_bug.cgi?id=318682
-			currentScope.resetEnclosingMethodStaticFlag();
-		}
 	}
 
 	if (valueRequired || currentScope.compilerOptions().complianceLevel >= ClassFileConstants.JDK1_4) {
@@ -750,7 +733,7 @@ public void traverse(ASTVisitor visitor, BlockScope scope) {
 public VariableBinding nullAnnotatedVariableBinding(boolean supportTypeAnnotations) {
 	if (this.binding != null) {
 		if (supportTypeAnnotations
-				|| ((this.binding.tagBits & (TagBits.AnnotationNonNull|TagBits.AnnotationNullable)) != 0)) {
+				|| ((this.binding.tagBits & TagBits.AnnotationNullMASK) != 0)) {
 			return this.binding;
 		}
 	}

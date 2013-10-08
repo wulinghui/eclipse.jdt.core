@@ -1,10 +1,14 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contributions for 
@@ -65,6 +69,20 @@ public class ASTConverter15Test extends ConverterTestSetup {
 			this.workingCopy.discardWorkingCopy();
 			this.workingCopy = null;
 		}
+	}
+	private void assertArrayEquals(int[] expectedAnnotationsSize,
+			int[] actualAnnotationsSize) {
+		assertEquals("wrong array size", expectedAnnotationsSize.length, actualAnnotationsSize.length);
+		for (int i = 0, max = expectedAnnotationsSize.length; i < max; i++) {
+			assertEquals("Wrong element at " + i, expectedAnnotationsSize[i], actualAnnotationsSize[i]);
+		}
+	}
+
+	/**
+	 * @deprecated
+	 */
+	private Type componentType(ArrayType array) {
+		return array.getComponentType();
 	}
 
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=234609 BindingKey#toSignature() fails with key from createWilcardTypeBindingKey(..)
@@ -1707,7 +1725,7 @@ public class ASTConverter15Test extends ConverterTestSetup {
 		checkSourceRange(type, "String[]", source);
 		assertTrue("not an array type", type.isArrayType());
 		ArrayType arrayType = (ArrayType) type;
-		checkSourceRange(arrayType.getComponentType(), "String", source);
+		checkSourceRange(componentType(arrayType), "String", source);
 		assertEquals("Wrong extra dimensions", 1, singleVariableDeclaration.getExtraDimensions());
 	}
 
@@ -1735,7 +1753,7 @@ public class ASTConverter15Test extends ConverterTestSetup {
 		checkSourceRange(type, "String[]", source);
 		assertTrue("not an array type", type.isArrayType());
 		ArrayType arrayType = (ArrayType) type;
-		checkSourceRange(arrayType.getComponentType(), "String", source);
+		checkSourceRange(componentType(arrayType), "String", source);
 		assertEquals("Wrong extra dimensions", 0, singleVariableDeclaration.getExtraDimensions());
 	}
 	/**
@@ -2426,11 +2444,11 @@ public class ASTConverter15Test extends ConverterTestSetup {
 		checkSourceRange(type, "Map<String, Double>[][]", source);
 		assertEquals("wrong type", ASTNode.ARRAY_TYPE, type.getNodeType());
 		ArrayType arrayType = (ArrayType) type;
-		type = arrayType.getComponentType();
+		type = componentType(arrayType);
 		checkSourceRange(type, "Map<String, Double>[]", source);
 		assertEquals("wrong type", ASTNode.ARRAY_TYPE, type.getNodeType());
 		arrayType = (ArrayType) type;
-		type = arrayType.getComponentType();
+		type = componentType(arrayType);
 		checkSourceRange(type, "Map<String, Double>", source);
 	}
 
@@ -2453,11 +2471,11 @@ public class ASTConverter15Test extends ConverterTestSetup {
 		checkSourceRange(type, "java.util.Map<String, Double>[][]", source);
 		assertEquals("wrong type", ASTNode.ARRAY_TYPE, type.getNodeType());
 		ArrayType arrayType = (ArrayType) type;
-		type = arrayType.getComponentType();
+		type = componentType(arrayType);
 		checkSourceRange(type, "java.util.Map<String, Double>[]", source);
 		assertEquals("wrong type", ASTNode.ARRAY_TYPE, type.getNodeType());
 		arrayType = (ArrayType) type;
-		type = arrayType.getComponentType();
+		type = componentType(arrayType);
 		checkSourceRange(type, "java.util.Map<String, Double>", source);
 	}
 
@@ -4117,7 +4135,7 @@ public class ASTConverter15Test extends ConverterTestSetup {
     	assertEquals("wrong dimensions", 1, typeBinding.getDimensions());
     	ArrayType arrayType = (ArrayType) type;
     	assertEquals("Wrong dimension", 1, arrayType.getDimensions());
-    	type = arrayType.getComponentType();
+    	type = componentType(arrayType);
     	assertTrue("Not a simple type", type.isSimpleType());
     	checkSourceRange(type, "String", contents);
     	assertEquals("Wrong extra dimension", 1, singleVariableDeclaration.getExtraDimensions());
@@ -4501,7 +4519,7 @@ public class ASTConverter15Test extends ConverterTestSetup {
     	assertEquals("wrong dimensions", 1, typeBinding.getDimensions());
     	ArrayType arrayType = (ArrayType) type;
     	assertEquals("Wrong dimension", 1, arrayType.getDimensions());
-    	type = arrayType.getComponentType();
+    	type = componentType(arrayType);
     	assertTrue("Not a simple type", type.isSimpleType());
     	checkSourceRange(type, "String", contents);
     	assertEquals("Wrong extra dimension", 0, singleVariableDeclaration.getExtraDimensions());
@@ -11186,7 +11204,7 @@ public class ASTConverter15Test extends ConverterTestSetup {
 		ITypeBinding binding = type.resolveBinding();
 		assertNotNull("No binding", binding);
 		assertEquals("Wrong qualified name", "test0347.Outer<java.lang.Integer>.Inner<java.lang.Double>[]", binding.getQualifiedName());
-		Type componentType = type.getComponentType();
+		Type componentType = componentType(type);
 		binding = componentType.resolveBinding();
 		assertNotNull("No binding", binding);
 		assertEquals("Wrong qualified name", "test0347.Outer<java.lang.Integer>.Inner<java.lang.Double>", binding.getQualifiedName());
@@ -11312,7 +11330,7 @@ public class ASTConverter15Test extends ConverterTestSetup {
 		assertTrue("Not a compilation unit", result.getNodeType() == ASTNode.COMPILATION_UNIT);
 		CompilationUnit unit = (CompilationUnit) result;
 		MethodDeclaration methodDeclaration = (MethodDeclaration) getASTNode(unit, 0, 0);
-		Type componentType = ((ArrayType)methodDeclaration.getReturnType2()).getComponentType();
+		Type componentType = componentType(((ArrayType)methodDeclaration.getReturnType2()));
 		ITypeBinding typeBinding = componentType.resolveBinding();
 		assertEquals("Wrong fully qualified name", "test0351.I1", typeBinding.getQualifiedName());
 	}
@@ -11452,5 +11470,104 @@ public class ASTConverter15Test extends ConverterTestSetup {
 			deleteProject(jp);
 		}
 	}
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376440
+	public void testBug376440() throws JavaModelException {
+		String str =
+				"package p;\n" +
+				 "class X extends p.Z<String>{}\n" +
+				 "class X extends  p.Z<String> {}\n" +
+				 "class Z<T> {}\n";
+		this.workingCopy = getWorkingCopy("/Converter15/src/p/X.java", true/*resolve*/);
+		ASTNode node = buildAST(str,this.workingCopy, false);
 
+		assertNotNull("No node", node);
+		assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, node.getNodeType());
+		CompilationUnit compilationUnit = (CompilationUnit) node;
+		assertEquals("Invaid no of types", 3, compilationUnit.types().size());
+		TypeDeclaration typeDecl = (TypeDeclaration) compilationUnit.types().get(0);
+		Type type = typeDecl.getSuperclassType();
+		ITypeBinding bindingFromAST = type.resolveBinding();
+		assertNotNull("Binding should not be null", bindingFromAST);
+		typeDecl = (TypeDeclaration) compilationUnit.types().get(1);
+		type = typeDecl.getSuperclassType();
+		try {
+			bindingFromAST = type.resolveBinding();
+		} catch(Exception e) {
+			fail("Should not throw exception, should just return null binding");
+		}
+		assertNull("Binding should be null", bindingFromAST);
+	}
+	/*
+	 * https://bugs.eclipse.org/bugs/show_bug.cgi?id=398520
+	 */
+	public void testBug398520() throws CoreException {
+		String jarLocation = getWorkspacePath()+"Converter15/bins/bug398520.jar";
+		IJavaProject jp = createJavaProject("Bug398520", new String[]{"src"}, new String[]{"CONVERTER_JCL15_LIB", jarLocation}, "bin", "1.5");
+		try {
+			this.workingCopy = getWorkingCopy("/Bug398520/src/testBug398520/C.java", true/*resolve*/);
+			String contents =
+				"package testBug398520;\n" +
+				"import pack.*;\n" +
+				"public class C {\n" +
+				"	 public Object foo() {\n" +
+				"        return new T<String, String>().new C().new Iter(\"\", 0, null);\n" +
+				"    }\n" +
+				"}\n";
+			ASTNode node = buildAST(
+					contents,
+					this.workingCopy,
+					true);
+			assertNotNull("No node", node);
+			assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, node.getNodeType());
+			CompilationUnit compilationUnit = (CompilationUnit) node;
+			assertEquals("Got problems", 0, compilationUnit.getProblems().length);
+			ASTNode astNode = getASTNode(compilationUnit, 0, 0, 0);
+			assertEquals("Not a return statement", ASTNode.RETURN_STATEMENT, astNode.getNodeType());
+			ReturnStatement statement = (ReturnStatement) astNode;
+			Expression expression = statement.getExpression();
+			ClassInstanceCreation creation = (ClassInstanceCreation) expression;
+			IMethodBinding methodBinding = creation.resolveConstructorBinding();
+			int[] expectedAnnotationsSize = new int[] { 1, 0, 1};
+			int[] actualAnnotationsSize = new int[] {
+					methodBinding.getParameterAnnotations(0).length,
+					methodBinding.getParameterAnnotations(1).length,
+					methodBinding.getParameterAnnotations(2).length
+			};
+			assertArrayEquals(expectedAnnotationsSize, actualAnnotationsSize);
+		} finally {
+			deleteProject(jp);
+		}
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=404489
+	public void testBug404489() throws JavaModelException {
+		ICompilationUnit sourceUnit = getCompilationUnit("Converter18" , "src", "test404489.bug", "X.java"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+		ASTNode result = runConversion(this.ast.apiLevel(), sourceUnit, true);
+		assertTrue("Not a compilation unit", result.getNodeType() == ASTNode.COMPILATION_UNIT);
+		CompilationUnit compilationUnit = (CompilationUnit) result;
+		assertProblemsSize(compilationUnit, 0);
+		ASTNode node = getASTNode(compilationUnit, 0, 0, 0);
+		TypeDeclaration typeDeclaration =  (TypeDeclaration) compilationUnit.types().get(0);
+
+		node = (ASTNode) typeDeclaration.bodyDeclarations().get(2);
+		assertEquals("Not a method declaration", ASTNode.METHOD_DECLARATION, node.getNodeType());		
+		MethodDeclaration methodDecl = (MethodDeclaration) node;
+		Type type = methodDecl.getReturnType2();
+		assertTrue(type.isQualifiedType());
+		assertTrue(isMalformed(type));
+
+		// parameter
+		SingleVariableDeclaration param = (SingleVariableDeclaration) methodDecl.parameters().get(0);
+		type = param.getType();
+		assertTrue(type.isQualifiedType());
+		assertTrue(isMalformed(type));
+		
+		node = (ASTNode) typeDeclaration.bodyDeclarations().get(3);
+		assertEquals("Not a field declaration", ASTNode.FIELD_DECLARATION, node.getNodeType());		
+		FieldDeclaration field = (FieldDeclaration) node;
+		type = field.getType();
+		assertTrue(type.isQualifiedType());
+		assertTrue(type.isQualifiedType());
+		assertTrue(isMalformed(type));
+	}
 }

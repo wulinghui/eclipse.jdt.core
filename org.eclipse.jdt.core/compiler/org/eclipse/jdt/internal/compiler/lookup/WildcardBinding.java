@@ -15,6 +15,7 @@
  *     							bug 349326 - [1.7] new warning for missing try-with-resources
  *     							bug 359362 - FUP of bug 349326: Resource leak on non-Closeable resource
  *								bug 358903 - Filter practically unimportant resource leak warnings
+ *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -23,6 +24,7 @@ import java.util.List;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 /*
  * A wildcard acts as an argument for parameterized types, allowing to
@@ -51,12 +53,6 @@ public class WildcardBinding extends ReferenceBinding {
 		this.modifiers = ClassFileConstants.AccPublic | ExtraCompilerModifiers.AccGenericSignature; // treat wildcard as public
 		this.environment = environment;
 		initialize(genericType, bound, otherBounds);
-
-//		if (!genericType.isGenericType() && !(genericType instanceof UnresolvedReferenceBinding)) {
-//			RuntimeException e = new RuntimeException("WILDCARD with NON GENERIC");
-//			e.printStackTrace();
-//			throw e;
-//		}
 		if (genericType instanceof UnresolvedReferenceBinding)
 			((UnresolvedReferenceBinding) genericType).addWrapper(this, environment);
 		if (bound instanceof UnresolvedReferenceBinding)
@@ -65,6 +61,22 @@ public class WildcardBinding extends ReferenceBinding {
 		this.typeBits = TypeIds.BitUninitialized;
 	}
 
+	TypeBinding bound() {
+		return this.bound;
+	}
+	
+	int boundKind() {
+		return this.boundKind;
+	}
+	
+	protected ReferenceBinding actualType() {
+		return this.genericType;
+	}
+	
+	TypeBinding[] additionalBounds() {
+		return this.otherBounds;
+	}
+	
 	public int kind() {
 		return this.otherBounds == null ? Binding.WILDCARD_TYPE : Binding.INTERSECTION_TYPE;
 	}
@@ -381,6 +393,32 @@ public class WildcardBinding extends ReferenceBinding {
 		return erasure().constantPoolName();
 	}
 
+	public TypeBinding clone(TypeBinding immaterial) {
+		return new WildcardBinding(this.genericType, this.rank, this.bound, this.otherBounds, this.boundKind, this.environment);
+	}
+	
+	public String annotatedDebugName() {
+		StringBuffer buffer = new StringBuffer(16);
+		AnnotationBinding [] annotations = getTypeAnnotations();
+		for (int i = 0, length = annotations == null ? 0 : annotations.length; i < length; i++) {
+			buffer.append(annotations[i]);
+			buffer.append(' ');
+		}
+		switch (this.boundKind) {
+            case Wildcard.UNBOUND :
+                return buffer.append(TypeConstants.WILDCARD_NAME).toString();
+            case Wildcard.EXTENDS :
+            	if (this.otherBounds == null)
+                	return buffer.append(CharOperation.concat(TypeConstants.WILDCARD_NAME, TypeConstants.WILDCARD_EXTENDS, this.bound.annotatedDebugName().toCharArray())).toString();
+            	buffer.append(this.bound.annotatedDebugName());
+            	for (int i = 0, length = this.otherBounds.length; i < length; i++) {
+            		buffer.append(" & ").append(this.otherBounds[i].annotatedDebugName()); //$NON-NLS-1$
+            	}
+            	return buffer.toString();
+			default: // SUPER
+			    return buffer.append(CharOperation.concat(TypeConstants.WILDCARD_NAME, TypeConstants.WILDCARD_SUPER, this.bound.annotatedDebugName().toCharArray())).toString();
+        }
+	}
 	/**
 	 * @see org.eclipse.jdt.internal.compiler.lookup.TypeBinding#debugName()
 	 */
@@ -473,12 +511,12 @@ public class WildcardBinding extends ReferenceBinding {
 			this.fPackage = someGenericType.getPackage();
 		}
 		if (someBound != null) {
-			this.tagBits |= someBound.tagBits & (TagBits.HasTypeVariable | TagBits.HasMissingType | TagBits.ContainsNestedTypeReferences);
+			this.tagBits |= someBound.tagBits & (TagBits.HasTypeVariable | TagBits.HasMissingType | TagBits.ContainsNestedTypeReferences | TagBits.HasNullTypeAnnotation);
 		}
 		if (someOtherBounds != null) {
 			for (int i = 0, max = someOtherBounds.length; i < max; i++) {
 				TypeBinding someOtherBound = someOtherBounds[i];
-				this.tagBits |= someOtherBound.tagBits & TagBits.ContainsNestedTypeReferences;
+				this.tagBits |= someOtherBound.tagBits & (TagBits.ContainsNestedTypeReferences | TagBits.HasNullTypeAnnotation);
 			}
 		}
 	}
@@ -580,6 +618,10 @@ public class WildcardBinding extends ReferenceBinding {
 	    return true;
 	}
 
+	int rank() {
+		return this.rank;
+	}
+	
     /* (non-Javadoc)
      * @see org.eclipse.jdt.internal.compiler.lookup.Binding#readableName()
      */
@@ -602,6 +644,33 @@ public class WildcardBinding extends ReferenceBinding {
 			default: // SUPER
 			    return CharOperation.concat(TypeConstants.WILDCARD_NAME, TypeConstants.WILDCARD_SUPER, this.bound.readableName());
         }
+    }
+
+    public char[] nullAnnotatedReadableName(CompilerOptions options, boolean shortNames) {
+    	StringBuffer buffer = new StringBuffer(10);
+    	appendNullAnnotation(buffer, options);
+        switch (this.boundKind) {
+            case Wildcard.UNBOUND :
+                buffer.append(TypeConstants.WILDCARD_NAME);
+                break;
+            case Wildcard.EXTENDS :
+            	if (this.otherBounds == null) {
+            		buffer.append(TypeConstants.WILDCARD_NAME).append(TypeConstants.WILDCARD_EXTENDS);
+            		buffer.append(shortNames ? this.bound.shortReadableName(): this.bound.readableName());
+            	} else {
+	            	buffer.append(this.bound.nullAnnotatedReadableName(options, shortNames));
+	            	for (int i = 0, length = this.otherBounds.length; i < length; i++) {
+	            		buffer.append('&').append(this.otherBounds[i].nullAnnotatedReadableName(options, shortNames));
+	            	}
+            	}
+            	break;
+			default: // SUPER
+			    buffer.append(TypeConstants.WILDCARD_NAME).append(TypeConstants.WILDCARD_SUPER).append(this.bound.nullAnnotatedReadableName(options, shortNames));
+        }
+        int length;
+        char[] result = new char[length = buffer.length()];
+        buffer.getChars(0, length, result, 0);
+        return result;
     }
 
 	ReferenceBinding resolve() {
@@ -763,6 +832,8 @@ public class WildcardBinding extends ReferenceBinding {
 	 * @see java.lang.Object#toString()
 	 */
 	public String toString() {
+		if (this.hasTypeAnnotations())
+			return annotatedDebugName();
         switch (this.boundKind) {
             case Wildcard.UNBOUND :
                 return new String(TypeConstants.WILDCARD_NAME);
@@ -788,5 +859,9 @@ public class WildcardBinding extends ReferenceBinding {
 				this.typeVariable = typeVariables[this.rank];
 		}
 		return this.typeVariable;
+	}
+
+	public TypeBinding unannotated() {
+		return this.hasTypeAnnotations() ? this.environment.getUnannotatedType(this) : this;
 	}
 }

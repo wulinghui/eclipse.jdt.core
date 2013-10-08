@@ -16,7 +16,11 @@
  *								bug 185682 - Increment/decrement operators mark local variables as read
  *								bug 331649 - [compiler][null] consider null annotations for fields
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
- *     Jesper S Moller - <jesper@selskabet.org>   - Contributions for bug 382721 - [1.8][compiler] Effectively final variables needs special treatment
+ *								Bug 412203 - [compiler] Internal compiler error: java.lang.IllegalArgumentException: info cannot be null
+ *     Jesper S Moller - <jesper@selskabet.org>   - Contributions for 
+ *     							bug 382721 - [1.8][compiler] Effectively final variables needs special treatment
+ *								bug 378674 - "The method can be declared as static" is wrong
+ *								bug 404657 - [1.8][compiler] Analysis for effectively final variables fails to consider loops
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -79,10 +83,6 @@ public FlowInfo analyseAssignment(BlockScope currentScope, FlowContext flowConte
 						currentScope.problemReporter().uninitializedBlankFinalField(fieldBinding, this);
 					}
 				}
-				if (!fieldBinding.isStatic()) {
-					// https://bugs.eclipse.org/bugs/show_bug.cgi?id=318682
-					currentScope.resetDeclaringClassMethodStaticFlag(fieldBinding.declaringClass);
-				}
 				manageSyntheticAccessIfNecessary(currentScope, flowInfo, true /*read-access*/);
 				break;
 			case Binding.LOCAL : // reading a local variable
@@ -126,13 +126,10 @@ public FlowInfo analyseAssignment(BlockScope currentScope, FlowContext flowConte
 				} else {
 					currentScope.problemReporter().cannotAssignToFinalField(fieldBinding, this);
 				}
-			} else if (!isCompound && fieldBinding.isNonNull()) {
+			} else if (!isCompound && fieldBinding.isNonNull()
+						&& fieldBinding.declaringClass == currentScope.enclosingReceiverType()) { // inherited fields are not tracked here
 				// record assignment for detecting uninitialized non-null fields:
 				flowInfo.markAsDefinitelyAssigned(fieldBinding);
-			}
-			if (!fieldBinding.isStatic()) {
-				// https://bugs.eclipse.org/bugs/show_bug.cgi?id=318682
-				currentScope.resetDeclaringClassMethodStaticFlag(fieldBinding.declaringClass);
 			}
 			break;
 		case Binding.LOCAL : // assigning to a local variable
@@ -143,19 +140,23 @@ public FlowInfo analyseAssignment(BlockScope currentScope, FlowContext flowConte
 			} else {
 				this.bits &= ~ASTNode.FirstAssignmentToLocal;
 			}
-			if (flowInfo.isPotentiallyAssigned(localBinding)) {
+			if (flowInfo.isPotentiallyAssigned(localBinding) || (this.bits & ASTNode.IsCapturedOuterLocal) != 0) {
 				localBinding.tagBits &= ~TagBits.IsEffectivelyFinal;
 				if (!isFinal && (this.bits & ASTNode.IsCapturedOuterLocal) != 0) {
 					currentScope.problemReporter().cannotReferToNonEffectivelyFinalOuterLocal(localBinding, this);
 				}
 			}
-			if (isFinal) {
+			if (! isFinal && (localBinding.tagBits & TagBits.IsEffectivelyFinal) != 0 && (localBinding.tagBits & TagBits.IsArgument) == 0) {
+				flowContext.recordSettingFinal(localBinding, this, flowInfo);
+			} else if (isFinal) {
 				if ((this.bits & ASTNode.DepthMASK) == 0) {
 					// tolerate assignment to final local in unreachable code (45674)
 					if ((isReachable && isCompound) || !localBinding.isBlankFinal()){
 						currentScope.problemReporter().cannotAssignToFinalLocal(localBinding, this);
 					} else if (flowInfo.isPotentiallyAssigned(localBinding)) {
 						currentScope.problemReporter().duplicateInitializationOfFinalLocal(localBinding, this);
+					} else if ((this.bits & ASTNode.IsCapturedOuterLocal) != 0) {
+						currentScope.problemReporter().cannotAssignToFinalOuterLocal(localBinding, this);
 					} else {
 						flowContext.recordSettingFinal(localBinding, this, flowInfo);
 					}
@@ -189,10 +190,6 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 				if (!fieldInits.isDefinitelyAssigned(fieldBinding)) {
 					currentScope.problemReporter().uninitializedBlankFinalField(fieldBinding, this);
 				}
-			}
-			if (!fieldBinding.isStatic()) {
-				// https://bugs.eclipse.org/bugs/show_bug.cgi?id=318682
-				currentScope.resetDeclaringClassMethodStaticFlag(fieldBinding.declaringClass);
 			}
 			break;
 		case Binding.LOCAL : // reading a local variable
@@ -239,6 +236,8 @@ public TypeBinding checkFieldAccess(BlockScope scope) {
 		if (methodScope.isStatic) {
 			scope.problemReporter().staticFieldAccessToNonStaticVariable(this, fieldBinding);
 			return fieldBinding.type;
+		} else {
+			scope.tagAsAccessingEnclosingInstanceStateOf(fieldBinding.declaringClass, false /* type variable access */);
 		}
 	}
 
@@ -857,7 +856,7 @@ public VariableBinding nullAnnotatedVariableBinding(boolean supportTypeAnnotatio
 		case Binding.FIELD : // reading a field
 		case Binding.LOCAL : // reading a local variable
 			if (supportTypeAnnotations 
-					|| (((VariableBinding)this.binding).tagBits & (TagBits.AnnotationNonNull|TagBits.AnnotationNullable)) != 0)
+					|| (((VariableBinding)this.binding).tagBits & TagBits.AnnotationNullMASK) != 0)
 				return (VariableBinding) this.binding;
 	}
 	return null;
@@ -873,7 +872,7 @@ public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
 
 public void manageEnclosingInstanceAccessIfNecessary(BlockScope currentScope, FlowInfo flowInfo) {
 	//If inlinable field, forget the access emulation, the code gen will directly target it
-	if (((this.bits & ASTNode.DepthMASK) == 0) || (this.constant != Constant.NotAConstant)) {
+	if (((this.bits & ASTNode.DepthMASK) == 0 && (this.bits & ASTNode.IsCapturedOuterLocal) == 0) || (this.constant != Constant.NotAConstant)) {
 		return;
 	}
 	if ((this.bits & ASTNode.RestrictiveFlagMASK) == Binding.LOCAL) {

@@ -20,7 +20,18 @@
  *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
  *								bug 388996 - [compiler][resource] Incorrect 'potential resource leak'
  *								bug 395977 - [compiler][resource] Resource leak warning behavior possibly incorrect for anonymous inner class
- *******************************************************************************/
+ *								bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
+ *								Bug 415850 - [1.8] Ensure RunJDTCoreTests can cope with null annotations enabled
+ *								Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
+ *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
+ *     Jesper S Moller <jesper@selskabet.org> - Contributions for
+ *								bug 378674 - "The method can be declared as static" is wrong
+ *     Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *                          Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
+ *                          Bug 409245 - [1.8][compiler] Type annotations dropped when call is routed through a synthetic bridge method
+ *     Till Brychcy - Contributions for
+ *     							bug 413460 - NonNullByDefault is not inherited to Constructors when accessed via Class File
+ ******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
@@ -29,14 +40,15 @@ import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
 import org.eclipse.jdt.internal.compiler.codegen.Opcodes;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
+import org.eclipse.jdt.internal.compiler.lookup.ImplicitNullAnnotationVerifier;
 import org.eclipse.jdt.internal.compiler.lookup.LocalTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedTypeBinding;
-import org.eclipse.jdt.internal.compiler.lookup.PolyTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReferenceBinding;
@@ -77,7 +89,9 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 				ReferenceBinding superclass = this.binding.declaringClass.superclass();
 				if (superclass != null && superclass.isMemberType() && !superclass.isStatic()) {
 					// creating an anonymous type of a non-static member type without an enclosing instance of parent type
-					currentScope.resetDeclaringClassMethodStaticFlag(superclass.enclosingType());
+					currentScope.tagAsAccessingEnclosingInstanceStateOf(superclass.enclosingType(), false /* type variable access */);
+					// Reviewed for https://bugs.eclipse.org/bugs/show_bug.cgi?id=378674 :
+					// The corresponding problem (when called from static) is not produced until during code generation
 				}
 			}
 			
@@ -103,9 +117,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 					// if argument is an AutoCloseable insert info that it *may* be closed (by the target method, i.e.)
 					flowInfo = FakedTrackingVariable.markPassedToOutside(currentScope, this.arguments[i], flowInfo, flowContext, false);
 				}
-				if ((this.arguments[i].implicitConversion & TypeIds.UNBOXING) != 0) {
-					this.arguments[i].checkNPE(currentScope, flowContext, flowInfo);
-				}
+				this.arguments[i].checkNPEbyUnboxing(currentScope, flowContext, flowInfo);
 			}
 			analyseArguments(currentScope, flowContext, flowInfo, this.binding, this.arguments);
 		}
@@ -155,7 +167,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 		int pc = codeStream.position;
 		MethodBinding codegenBinding = this.binding.original();
 		ReferenceBinding allocatedType = codegenBinding.declaringClass;
-		codeStream.new_(allocatedType);
+		codeStream.new_(this.type, allocatedType);
 		boolean isUnboxing = (this.implicitConversion & TypeIds.UNBOXING) != 0;
 		if (valueRequired || isUnboxing) {
 			codeStream.dup();
@@ -188,7 +200,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 
 		// invoke constructor
 		if (this.syntheticAccessor == null) {
-			codeStream.invoke(Opcodes.OPC_invokespecial, codegenBinding, null /* default declaringClass */);
+			codeStream.invoke(Opcodes.OPC_invokespecial, codegenBinding, null /* default declaringClass */, this.typeArguments);
 		} else {
 			// synthetic accessor got some extra arguments appended to its signature, which need values
 			for (int i = 0,
@@ -197,7 +209,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 				i++) {
 				codeStream.aconst_null();
 			}
-			codeStream.invoke(Opcodes.OPC_invokespecial, this.syntheticAccessor, null /* default declaringClass */);
+			codeStream.invoke(Opcodes.OPC_invokespecial, this.syntheticAccessor, null /* default declaringClass */, this.typeArguments);
 		}
 		if (valueRequired) {
 			codeStream.generateImplicitConversion(this.implicitConversion);
@@ -266,7 +278,18 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 		if (this.anonymousType == null && this.enclosingInstance == null) {
 			return super.resolveType(scope);
 		}
-
+		TypeBinding result=resolveTypeForQualifiedAllocationExpression(scope);
+		if(result != null && this.binding != null) {
+			final CompilerOptions compilerOptions = scope.compilerOptions();
+			if (compilerOptions.isAnnotationBasedNullAnalysisEnabled && (this.binding.tagBits & TagBits.IsNullnessKnown) == 0) {
+				new ImplicitNullAnnotationVerifier(compilerOptions.inheritNullAnnotations)
+						.checkImplicitNullAnnotations(this.binding, null/*srcMethod*/, false, scope);
+			}
+		}
+		return result;
+	}
+	
+	private TypeBinding resolveTypeForQualifiedAllocationExpression(BlockScope scope) {
 		// Propagate the type checking to the arguments, and checks if the constructor is defined.
 		// ClassInstanceCreationExpression ::= Primary '.' 'new' SimpleName '(' ArgumentListopt ')' ClassBodyopt
 		// ClassInstanceCreationExpression ::= Name '.' 'new' SimpleName '(' ArgumentListopt ')' ClassBodyopt
@@ -304,6 +327,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 				hasError = true;
 			} else {
 				receiverType = ((SingleTypeReference) this.type).resolveTypeEnclosing(scope, (ReferenceBinding) enclosingInstanceType);
+				checkIllegalNullAnnotation(scope, receiverType);
 				if (receiverType != null && enclosingInstanceContainsCast) {
 					CastExpression.checkNeedForEnclosingInstanceCast(scope, this.enclosingInstance, enclosingInstanceType, receiverType);
 				}
@@ -314,6 +338,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 				receiverType = scope.enclosingSourceType();
 			} else {
 				receiverType = this.type.resolveType(scope, true /* check bounds*/);
+				checkIllegalNullAnnotation(scope, receiverType);
 				checkParameterizedAllocation: {
 					if (receiverType == null || !receiverType.isValidBinding()) break checkParameterizedAllocation;
 					if (this.type instanceof ParameterizedQualifiedTypeReference) { // disallow new X<String>.Y<Integer>()
@@ -449,23 +474,10 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 				receiverType = this.type.resolvedType = scope.environment().createParameterizedType(((ParameterizedTypeBinding) receiverType).genericType(), inferredTypes, ((ParameterizedTypeBinding) receiverType).enclosingType());
 			}
 			ReferenceBinding allocationType = (ReferenceBinding) receiverType;
-			if ((this.binding = scope.getConstructor(allocationType, argumentTypes, this)).isValidBinding()) {
-				if (polyExpressionSeen) {
-					boolean variableArity = this.binding.isVarargs();
-					final TypeBinding[] parameters = this.binding.parameters;
-					final int parametersLength = parameters.length;
-					for (int i = 0, length = this.arguments == null ? 0 : this.arguments.length; i < length; i++) {
-						Expression argument = this.arguments[i];
-						TypeBinding parameterType = i < parametersLength ? parameters[i] : parameters[parametersLength - 1];
-						if (argumentTypes[i] instanceof PolyTypeBinding) {
-							argument.setExpressionContext(INVOCATION_CONTEXT);
-							if (variableArity && i >= parametersLength - 1)
-								argument.tagAsEllipsisArgument();
-							argument.setExpectedType(parameterType);
-							argumentTypes[i] = argument.resolveType(scope);
-						}
-					}
-				}
+			this.binding = scope.getConstructor(allocationType, argumentTypes, this);
+			if (polyExpressionSeen && polyExpressionsHaveErrors(scope, this.binding, this.arguments, argumentTypes))
+				return null;
+			if (this.binding.isValidBinding()) {	
 				if (isMethodUseDeprecated(this.binding, scope, true)) {
 					scope.problemReporter().deprecatedMethod(this.binding, this);
 				}
@@ -530,6 +542,8 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 			return null; // stop secondary errors
 		}
 		MethodBinding inheritedBinding = scope.getConstructor(anonymousSuperclass, argumentTypes, this);
+		if (polyExpressionSeen && polyExpressionsHaveErrors(scope, inheritedBinding, this.arguments, argumentTypes))
+			return null;
 		if (!inheritedBinding.isValidBinding()) {
 			if (inheritedBinding.declaringClass == null) {
 				inheritedBinding.declaringClass = anonymousSuperclass;
@@ -540,22 +554,6 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 			}
 			scope.problemReporter().invalidConstructor(this, inheritedBinding);
 			return this.resolvedType;
-		}
-		if (polyExpressionSeen) {
-			boolean variableArity = inheritedBinding.isVarargs();
-			final TypeBinding[] parameters = inheritedBinding.parameters;
-			final int parametersLength = parameters.length;
-			for (int i = 0, length = this.arguments == null ? 0 : this.arguments.length; i < length; i++) {
-				Expression argument = this.arguments[i];
-				TypeBinding parameterType = i < parametersLength ? parameters[i] : parameters[parametersLength - 1];
-				if (argumentTypes[i] instanceof PolyTypeBinding) {
-					argument.setExpressionContext(INVOCATION_CONTEXT);
-					if (variableArity && i >= parametersLength - 1)
-						argument.tagAsEllipsisArgument();
-					argument.setExpectedType(parameterType);
-					argumentTypes[i] = argument.resolveType(scope);
-				}
-			}
 		}
 		if ((inheritedBinding.tagBits & TagBits.HasMissingType) != 0) {
 			scope.problemReporter().missingTypeInConstructor(this, inheritedBinding);

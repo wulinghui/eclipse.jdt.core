@@ -14,6 +14,8 @@
  *     Stephan Herrmann - Contributions for
  *								bug 186342 - [compiler][null] Using annotations for null checking
  *								bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+ *								Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
+ *								bug 413958 - Function override returning inherited Generic Type
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -290,7 +292,7 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 					if (substitute != null) continue nextTypeParameter; // already inferred previously
 					TypeBinding [] bounds = inferenceContext.getSubstitutes(current, TypeConstants.CONSTRAINT_EXTENDS);
 					if (bounds == null) continue nextTypeParameter;
-					TypeBinding[] glb = Scope.greaterLowerBound(bounds, scope);
+					TypeBinding[] glb = Scope.greaterLowerBound(bounds, scope, scope.environment());
 					TypeBinding mostSpecificSubstitute = null;
 					// https://bugs.eclipse.org/bugs/show_bug.cgi?id=341795 - Per 15.12.2.8, we should fully apply glb
 					if (glb != null) {
@@ -552,14 +554,14 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 		}
 		// With T mapping to I<T>, answer of I<?>, when given T, having eliminated the circularity/self reference.
 		public TypeBinding substitute(TypeVariableBinding typeVariable) {
-			if (typeVariable.rank >= this.variables.length || this.variables[typeVariable.rank] != typeVariable) {   // not kosher, don't touch.
+			if (typeVariable.rank >= this.variables.length || TypeBinding.notEquals(this.variables[typeVariable.rank], typeVariable)) {   // not kosher, don't touch.
 				return typeVariable;
 			}
 			if (this.substitutes != null) {
 				return Scope.substitute(new LingeringTypeVariableEliminator(this.variables, null, this.scope), this.substitutes[typeVariable.rank]); 
 			}
 			ReferenceBinding genericType = (ReferenceBinding) (typeVariable.declaringElement instanceof ReferenceBinding ? typeVariable.declaringElement : null);
-			return this.scope.environment().createWildcard(genericType, typeVariable.rank, null, null, Wildcard.UNBOUND);
+			return this.scope.environment().createWildcard(genericType, typeVariable.rank, null, null, Wildcard.UNBOUND, typeVariable.getTypeAnnotations());
 		}
 
 		public LookupEnvironment environment() {
@@ -585,8 +587,9 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
         TypeVariableBinding[] variables = this.originalMethod.typeVariables;
         int length = variables.length;
         // check this variable can be substituted given parameterized type
-        if (originalVariable.rank < length && variables[originalVariable.rank] == originalVariable) {
-			return this.typeArguments[originalVariable.rank];
+        if (originalVariable.rank < length && TypeBinding.equalsEquals(variables[originalVariable.rank], originalVariable)) {
+        	TypeBinding substitute = this.typeArguments[originalVariable.rank];
+        	return originalVariable.hasTypeAnnotations() ? this.environment.createAnnotatedType(substitute, originalVariable.getTypeAnnotations()) : substitute;
         }
 	    return originalVariable;
 	}

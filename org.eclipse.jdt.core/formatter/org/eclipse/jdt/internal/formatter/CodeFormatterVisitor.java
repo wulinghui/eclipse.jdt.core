@@ -487,9 +487,20 @@ public class CodeFormatterVisitor extends ASTVisitor {
 								this.scribe.printNextToken(operators[i], this.preferences.insert_space_before_binary_operator);
 								this.scribe.alignFragment(binaryExpressionAlignment, i);
 							}
-							if (operators[i] == TerminalTokens.TokenNameMINUS && isNextToken(TerminalTokens.TokenNameMINUS)) {
-								// the next character is a minus (unary operator)
-								this.scribe.space();
+							switch(operators[i]) {
+								case TerminalTokens.TokenNameMINUS :
+									if (isNextToken(TerminalTokens.TokenNameMINUS)
+											|| isNextToken(TerminalTokens.TokenNameMINUS_MINUS)) {
+										// the next character is a '-' or '--' (unary operator)
+										this.scribe.space();
+									}
+									break;
+								case TerminalTokens.TokenNamePLUS :
+									if (isNextToken(TerminalTokens.TokenNamePLUS)
+											|| isNextToken(TerminalTokens.TokenNamePLUS_PLUS)) {
+										// the next character is a + or ++ (unary operator)
+										this.scribe.space();
+									}
 							}
 							if (this.preferences.insert_space_after_binary_operator) {
 								this.scribe.space();
@@ -705,7 +716,7 @@ public class CodeFormatterVisitor extends ASTVisitor {
 			if (this.preferences.insert_space_before_opening_bracket_in_array_type_reference) {
 				this.scribe.space();
 			}
-			Annotation[][] annotationsOnDimensions = typeReference != null ? typeReference.getAnnotationsOnDimensions() : null;
+			Annotation[][] annotationsOnDimensions = typeReference != null ? typeReference.getAnnotationsOnDimensions(true) : null;
 			for (int i = 0; i < count; i++) {
 				int dimensionIndex = anchor + i;
 				if (annotationsOnDimensions != null && annotationsOnDimensions.length > dimensionIndex) {
@@ -2752,7 +2763,7 @@ public class CodeFormatterVisitor extends ASTVisitor {
 		}
 
 		if (argument.isVarArgs()) {
-			Annotation [][] annotationsOnDimensions = argumentType.getAnnotationsOnDimensions();
+			Annotation [][] annotationsOnDimensions = argumentType.getAnnotationsOnDimensions(true);
 			if (annotationsOnDimensions != null) {
 				Annotation [] varargAnnotations = annotationsOnDimensions[annotationsOnDimensions.length - 1];
 				if (varargAnnotations != null) {

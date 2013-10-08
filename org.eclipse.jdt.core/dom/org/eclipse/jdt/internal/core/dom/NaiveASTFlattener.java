@@ -18,6 +18,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.eclipse.jdt.core.dom.*;
+import org.eclipse.jdt.internal.compiler.parser.ScannerHelper;
 
 /**
  * Internal AST visitor for serializing an AST in a quick and dirty fashion.
@@ -202,6 +203,41 @@ public class NaiveASTFlattener extends ASTVisitor {
 	}
 
 	/**
+	 * reference node helper function that is common to all
+	 * the difference reference nodes.
+	 * 
+	 * @param typeArguments list of type arguments 
+	 */
+	private void visitReferenceTypeArguments(List typeArguments) {
+		this.buffer.append("::");//$NON-NLS-1$
+		if (!typeArguments.isEmpty()) {
+			this.buffer.append('<');
+			for (Iterator it = typeArguments.iterator(); it.hasNext(); ) {
+				Type t = (Type) it.next();
+				t.accept(this);
+				if (it.hasNext()) {
+					this.buffer.append(',');
+				}
+			}
+			this.buffer.append('>');
+		}
+	}
+	
+	private void visitTypeAnnotations(AnnotatableType node) {
+		if (node.getAST().apiLevel() >= AST.JLS8) {
+			visitAnnotationsList(node.annotations());
+		}
+	}
+
+	private void visitAnnotationsList(List annotations) {
+		for (Iterator it = annotations.iterator(); it.hasNext(); ) {
+			Annotation annotation = (Annotation) it.next();
+			annotation.accept(this);
+			this.buffer.append(' ');
+		}
+	}
+	
+	/**
 	 * Resets this printer so that it can be used again.
 	 */
 	public void reset() {
@@ -334,9 +370,17 @@ public class NaiveASTFlattener extends ASTVisitor {
 	 * @see ASTVisitor#visit(ArrayType)
 	 */
 	public boolean visit(ArrayType node) {
-		node.getComponentType().accept(this);
-		visitTypeAnnotations(node);
-		this.buffer.append("[]");//$NON-NLS-1$
+		if (node.getAST().apiLevel() < AST.JLS8) {
+			visitComponentType(node);
+			this.buffer.append("[]");//$NON-NLS-1$
+		} else {
+			node.getElementType().accept(this);
+			List dimensions = node.dimensions();
+			for (int i = 0; i < dimensions.size() ; i++) {
+				ExtraDimension aDimension = (ExtraDimension) dimensions.get(i);
+				aDimension.accept(this);
+			}
+		}
 		return false;
 	}
 
@@ -563,6 +607,18 @@ public class NaiveASTFlattener extends ASTVisitor {
 	}
 	
 	/*
+	 * @see ASTVisitor#visit(CreationReference)
+	 * 
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public boolean visit(CreationReference node) {
+		node.getType().accept(this);
+		visitReferenceTypeArguments(node.typeArguments());
+		this.buffer.append("new");//$NON-NLS-1$
+		return false;
+	}
+
+	/*
 	 * @see ASTVisitor#visit(DoStatement)
 	 */
 	public boolean visit(DoStatement node) {
@@ -672,6 +728,18 @@ public class NaiveASTFlattener extends ASTVisitor {
 		this.buffer.append("}\n");//$NON-NLS-1$
 		return false;
 	}
+
+	/*
+	 * @see ASTVisitor#visit(ExpressionMethodReference)
+	 * 
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public boolean visit(ExpressionMethodReference node) {
+		node.getExpression().accept(this);
+		visitReferenceTypeArguments(node.typeArguments());
+		node.getName().accept(this);
+		return false;
+	}	
 
 	/*
 	 * @see ASTVisitor#visit(ExpressionStatement)
@@ -833,6 +901,21 @@ public class NaiveASTFlattener extends ASTVisitor {
 		node.getLeftOperand().accept(this);
 		this.buffer.append(" instanceof ");//$NON-NLS-1$
 		node.getRightOperand().accept(this);
+		return false;
+	}
+
+	/*
+	 * @see ASTVisitor#visit(IntersectionType)
+	 * @since 3.7
+	 */
+	public boolean visit(IntersectionType node) {
+		for (Iterator it = node.types().iterator(); it.hasNext(); ) {
+			Type t = (Type) it.next();
+			t.accept(this);
+			if (it.hasNext()) {
+				this.buffer.append(" & "); //$NON-NLS-1$
+			}
+		}
 		return false;
 	}
 
@@ -1173,6 +1256,18 @@ public class NaiveASTFlattener extends ASTVisitor {
 	}
 
 	/*
+	 * @see ASTVisitor#visit(PackageQualifiedType)
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public boolean visit(PackageQualifiedType node) {
+		node.getQualifier().accept(this);
+		this.buffer.append('.');
+		visitTypeAnnotations(node);
+		node.getName().accept(this);
+		return false;
+	}
+
+	/*
 	 * @see ASTVisitor#visit(ParameterizedType)
 	 * @since 3.1
 	 */
@@ -1318,10 +1413,10 @@ public class NaiveASTFlattener extends ASTVisitor {
 			if (node.isVarargs()) {
 				if (node.getAST().apiLevel() >= AST.JLS8) {
 					List annotations = node.varargsAnnotations();
-					if (annotations != null) {
+					if (annotations.size() > 0) {
 						this.buffer.append(' ');
-						visitAnnotationsList(annotations);
 					}
+					visitAnnotationsList(annotations);
 				}
 				this.buffer.append("...");//$NON-NLS-1$
 			}
@@ -1437,6 +1532,22 @@ public class NaiveASTFlattener extends ASTVisitor {
 	}
 
 	/*
+	 * @see ASTVisitor#visit(SuperMethodReference)
+	 * 
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public boolean visit(SuperMethodReference node) {
+		if (node.getQualifier() != null) {
+			node.getQualifier().accept(this);
+			this.buffer.append('.');
+		}
+		this.buffer.append("super");//$NON-NLS-1$
+		visitReferenceTypeArguments(node.typeArguments());
+		node.getName().accept(this);
+		return false;
+	}
+
+	/*
 	 * @see ASTVisitor#visit(SwitchCase)
 	 */
 	public boolean visit(SwitchCase node) {
@@ -1502,9 +1613,15 @@ public class NaiveASTFlattener extends ASTVisitor {
 		boolean previousRequiresNewLine = false;
 		for (Iterator it = node.fragments().iterator(); it.hasNext(); ) {
 			ASTNode e = (ASTNode) it.next();
-			// assume text elements include necessary leading and trailing whitespace
-			// but Name, MemberRef, MethodRef, and nested TagElement do not include white space
-			boolean currentIncludesWhiteSpace = (e instanceof TextElement);
+			// Name, MemberRef, MethodRef, and nested TagElement do not include white space.
+			// TextElements don't always include whitespace, see <https://bugs.eclipse.org/206518>.
+			boolean currentIncludesWhiteSpace = false;
+			if (e instanceof TextElement) {
+				String text = ((TextElement) e).getText();
+				if (text.length() > 0 && ScannerHelper.isWhitespace(text.charAt(0))) {
+					currentIncludesWhiteSpace = true; // workaround for https://bugs.eclipse.org/403735
+				}
+			}
 			if (previousRequiresNewLine && currentIncludesWhiteSpace) {
 				this.buffer.append("\n * ");//$NON-NLS-1$
 			}
@@ -1687,6 +1804,18 @@ public class NaiveASTFlattener extends ASTVisitor {
 	}
 
 	/*
+	 * @see ASTVisitor#visit(TypeMethodReference)
+	 * 
+	 * @since 3.9 BETA_JAVA8
+	 */
+	public boolean visit(TypeMethodReference node) {
+		node.getType().accept(this);
+		visitReferenceTypeArguments(node.typeArguments());
+		node.getName().accept(this);
+		return false;
+	}
+
+	/*
 	 * @see ASTVisitor#visit(TypeParameter)
 	 * @since 3.1
 	 */
@@ -1822,19 +1951,12 @@ public class NaiveASTFlattener extends ASTVisitor {
 		}
 		return false;
 	}
-	private void visitTypeAnnotations(AnnotatableType node) {
-		if (node.getAST().apiLevel() >= AST.JLS8) {
-			visitAnnotationsList(node.annotations());
-		}
+
+	/**
+	 * @deprecated
+	 */
+	private void visitComponentType(ArrayType node) {
+		node.getComponentType().accept(this);
 	}
 
-	private void visitAnnotationsList(List annotations) {
-		if (annotations != null) {
-			for (Iterator it = annotations.iterator(); it.hasNext(); ) {
-				Annotation annotation = (Annotation) it.next();
-				annotation.accept(this);
-				this.buffer.append(' ');
-			}
-		}
-	}
 }

@@ -43,9 +43,24 @@ import java.util.List;
  * The first form is preferred when "A" is known to be a type. However, a
  * parser cannot always determine this. Clients should be prepared to handle
  * either rather than make assumptions. (Note also that the first form
- * became possible as of JLS3; only the second form existed in JLS2 API.)
+ * became possible as of JLS3; only the second form existed in JLS2 API;
+ * the ASTParser currently prefers the second form).
  * </p>
- *
+ * <p>
+ * Since JLS8, it's also possible to annotate qualified type names.
+ * A type like "a.@X B" cannot be represented in either of
+ * the old ways, because "a" is not a type, but a package.
+ * Such types are represented as:
+ * </p>
+ * <ol start="3">
+ * <li>
+ * <code>PackageQualifiedType(SimpleName("a"),MarkerAnnotation("X"),SimpleName("B"))</code>
+ * </li>
+ * </ol>
+ * 
+ * @see SimpleType
+ * @see PackageQualifiedType
+ * 
  * @since 3.1
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
@@ -63,7 +78,7 @@ public class QualifiedType extends AnnotatableType {
 
 	/**
 	 * The "annotations" structural property of this node type (element type: {@link Annotation}).
-	 * @since 3.9
+	 * @since 3.9 BETA_JAVA8
 	 */
 	public static final ChildListPropertyDescriptor ANNOTATIONS_PROPERTY =
 			internalAnnotationsPropertyFactory(QualifiedType.class);
@@ -84,7 +99,7 @@ public class QualifiedType extends AnnotatableType {
 	 * A list of property descriptors (element type:
 	 * {@link StructuralPropertyDescriptor}),
 	 * or null if uninitialized.
-	 * @since 3.9
+	 * @since 3.9 BETA_JAVA8
 	 */
 	private static final List PROPERTY_DESCRIPTORS_8_0;
 
@@ -151,7 +166,7 @@ public class QualifiedType extends AnnotatableType {
 
 	/* (omit javadoc for this method)
 	 * Method declared on AnnotatableType.
-	 * @since 3.9
+	 * @since 3.9 BETA_JAVA8
 	 */
 	final ChildListPropertyDescriptor internalAnnotationsProperty() {
 		return ANNOTATIONS_PROPERTY;

@@ -30,17 +30,20 @@ import java.util.List;
  * </p>
  *
  * In JLS8 and later, the SimpleType may have optional annotations.
- * If annotations are present, then the name must be a {@link SimpleName}. 
+ * If annotations are present, then the name must be a {@link SimpleName}.
+ * Annotated qualified names are represented as {@link QualifiedType} or {@link PackageQualifiedType}.
+ * 
+ * @see QualifiedType
+ * @see PackageQualifiedType
  * 
  * @since 2.0
- * @see QualifiedType
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
 public class SimpleType extends AnnotatableType {
 
 	/**
 	 * The "annotations" structural property of this node type (element type: {@link Annotation}).
-	 * @since 3.9
+	 * @since 3.9 BETA_JAVA8
 	 */
 	public static final ChildListPropertyDescriptor ANNOTATIONS_PROPERTY =
 			internalAnnotationsPropertyFactory(SimpleType.class);
@@ -62,7 +65,7 @@ public class SimpleType extends AnnotatableType {
 	 * A list of property descriptors (element type:
 	 * {@link StructuralPropertyDescriptor}),
 	 * or null if uninitialized.
-	 * @since 3.9
+	 * @since 3.9 BETA_JAVA8
 	 */
 	private static final List PROPERTY_DESCRIPTORS_8_0;
 
@@ -121,7 +124,7 @@ public class SimpleType extends AnnotatableType {
 
 	/* (omit javadoc for this method)
 	 * Method declared on AnnotatableType.
-	 * @since 3.9
+	 * @since 3.9 BETA_JAVA8
 	 */
 	final ChildListPropertyDescriptor internalAnnotationsProperty() {
 		return ANNOTATIONS_PROPERTY;

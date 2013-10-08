@@ -15,6 +15,10 @@
  *								bug 317046 - Exception during debugging when hover mouse over a field
  *								bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
  *								bug 392862 - [1.8][compiler][null] Evaluate null annotations on array types
+ *								bug 392384 - [1.8][compiler][null] Restore nullness info from type annotations in class files
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								Bug 415291 - [1.8][null] differentiate type incompatibilities due to null annotations
+ *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
  *      Jesper S Moller <jesper@selskabet.org> -  Contributions for
  *								bug 382701 - [1.8][compiler] Implement semantic analysis of Lambda expressions & Reference expression
  *******************************************************************************/
@@ -24,6 +28,7 @@ import java.util.List;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 /*
  * Not all fields defined by this type (& its subclasses) are initialized when it is created.
@@ -40,7 +45,15 @@ abstract public class TypeBinding extends Binding {
 	public int id = TypeIds.NoId;
 	public long tagBits = 0; // See values in the interface TagBits below
 
-
+	protected AnnotationBinding [] typeAnnotations = Binding.NO_ANNOTATIONS;
+	
+	// jsr 308
+	public static final ReferenceBinding TYPE_USE_BINDING = new ReferenceBinding() { /* used for type annotation resolution. */
+		{ this.id = TypeIds.T_undefined; }
+		public int kind() { return Binding.TYPE_USE; }
+		public boolean hasTypeBit(int bit) { return false; }
+	};
+	
 	/** Base type definitions */
 	public final static BaseTypeBinding INT = new BaseTypeBinding(
 			TypeIds.T_int, TypeConstants.INT, new char[] { 'I' });
@@ -72,6 +85,16 @@ abstract public class TypeBinding extends Binding {
 	public final static BaseTypeBinding VOID = new BaseTypeBinding(
 			TypeIds.T_void, TypeConstants.VOID, new char[] { 'V' });
 
+
+public TypeBinding() {
+	super();
+}
+	
+public TypeBinding(TypeBinding prototype) {  // faithfully copy all instance state - clone operation should specialize/override suitably.
+	this.id = prototype.id;
+	this.tagBits = prototype.tagBits;
+}
+
 /**
  * Match a well-known type id to its binding
  */
@@ -100,6 +123,42 @@ public static final TypeBinding wellKnownType(Scope scope, int id) {
 	default:
 		return null;
 	}
+}
+
+protected ReferenceBinding actualType() {
+	return null; // overridden in ParameterizedTypeBinding & WildcardBinding
+}
+
+TypeBinding [] additionalBounds() {
+	return null;  // overridden in WildcardBinding
+}
+
+public String annotatedDebugName() {
+	TypeBinding enclosingType = enclosingType();
+	StringBuffer buffer = new StringBuffer(16);
+	if (enclosingType != null) {
+		buffer.append(enclosingType.annotatedDebugName());
+		buffer.append('.');
+	}
+	AnnotationBinding [] annotations = getTypeAnnotations();
+	for (int i = 0, length = annotations == null ? 0 : annotations.length; i < length; i++) {
+		buffer.append(annotations[i]);
+		buffer.append(' ');
+	}
+	buffer.append(sourceName());
+	return buffer.toString();
+}
+
+TypeBinding bound() {
+	return null; // overridden in WildcardBinding
+}
+
+int boundKind() {
+	return -1; // overridden in WildcardBinding
+}
+
+int rank() {
+	return -1; // overridden in WildcardBinding
 }
 
 /* Answer true if the receiver can be instantiated
@@ -144,6 +203,15 @@ public void collectSubstitutes(Scope scope, TypeBinding actualType, InferenceCon
 	// no substitute by default
 }
 
+/** Virtual copy constructor: a copy is made of the receiver's entire instance state and then suitably
+    parameterized by the arguments to the clone operation as seen fit by each type. Parameters may not
+    make sense for every type in the hierarchy, in which case they are silently ignored. A type may
+    choose to retain a copy of the prototype for reference. 
+*/
+public TypeBinding clone(TypeBinding enclosingType) {
+	throw new IllegalStateException("TypeBinding#clone() should have been overridden"); //$NON-NLS-1$
+}
+
 /**
  *  Answer the receiver's constant pool name.
  *  NOTE: This method should only be used during/after code gen.
@@ -152,7 +220,7 @@ public void collectSubstitutes(Scope scope, TypeBinding actualType, InferenceCon
 public abstract char[] constantPoolName();
 
 public String debugName() {
-	return new String(readableName());
+	return this.hasTypeAnnotations() ? annotatedDebugName() : new String(readableName());
 }
 
 /*
@@ -162,7 +230,11 @@ public int dimensions() {
 	return 0;
 }
 
-/* Answer the receiver's enclosing type... null if the receiver is a top level type.
+public int depth() {
+	return 0;
+}
+
+/* Answer the receiver's enclosing type... null if the receiver is a top level type or is an array or a non reference type.
  */
 public ReferenceBinding enclosingType() {
 	return null;
@@ -246,7 +318,7 @@ public ReferenceBinding findSuperTypeOriginatingFrom(int wellKnownOriginalID, bo
  * Find supertype which originates from a given type, or null if not found
  */
 public TypeBinding findSuperTypeOriginatingFrom(TypeBinding otherType) {
-	if (this == otherType) return this;
+	if (equalsEquals(this, otherType)) return this;
 	if (otherType == null) return null;
 	switch(kind()) {
 		case Binding.ARRAY_TYPE :
@@ -287,16 +359,16 @@ public TypeBinding findSuperTypeOriginatingFrom(TypeBinding otherType) {
 		case Binding.INTERSECTION_TYPE:
 		    // do not allow type variables/intersection types to match with erasures for free
 			otherType = otherType.original();
-		    if (this == otherType)
+		    if (equalsEquals(this, otherType))
 		    	return this;
-		    if (original() == otherType)
+		    if (equalsEquals(original(), otherType))
 		    	return this;
 		    ReferenceBinding currentType = (ReferenceBinding)this;
 		    if (!otherType.isInterface()) {
 				while ((currentType = currentType.superclass()) != null) {
-					if (currentType == otherType)
+					if (equalsEquals(currentType, otherType))
 						return currentType;
-					if (currentType.original() == otherType)
+					if (equalsEquals(currentType.original(), otherType))
 						return currentType;
 				}
 				return null;
@@ -316,7 +388,7 @@ public TypeBinding findSuperTypeOriginatingFrom(TypeBinding otherType) {
 						nextInterface : for (int a = 0; a < itsLength; a++) {
 							ReferenceBinding next = itsInterfaces[a];
 							for (int b = 0; b < nextPosition; b++)
-								if (next == interfacesToVisit[b]) continue nextInterface;
+								if (equalsEquals(next, interfacesToVisit[b])) continue nextInterface;
 							interfacesToVisit[nextPosition++] = next;
 						}
 					}
@@ -325,9 +397,9 @@ public TypeBinding findSuperTypeOriginatingFrom(TypeBinding otherType) {
 
 			for (int i = 0; i < nextPosition; i++) {
 				currentType = interfacesToVisit[i];
-				if (currentType == otherType)
+				if (equalsEquals(currentType, otherType))
 					return currentType;
-				if (currentType.original() == otherType)
+				if (equalsEquals(currentType.original(), otherType))
 					return currentType;
 				ReferenceBinding[] itsInterfaces = currentType.superInterfaces();
 				if (itsInterfaces != null && itsInterfaces != Binding.NO_SUPERINTERFACES) {
@@ -337,7 +409,7 @@ public TypeBinding findSuperTypeOriginatingFrom(TypeBinding otherType) {
 					nextInterface : for (int a = 0; a < itsLength; a++) {
 						ReferenceBinding next = itsInterfaces[a];
 						for (int b = 0; b < nextPosition; b++)
-							if (next == interfacesToVisit[b]) continue nextInterface;
+							if (equalsEquals(next, interfacesToVisit[b])) continue nextInterface;
 						interfacesToVisit[nextPosition++] = next;
 					}
 				}
@@ -419,10 +491,6 @@ void initializeForStaticImports() {
 	// only applicable to source types
 }
 
-public boolean isAnnotationType() {
-	return false;
-}
-
 public final boolean isAnonymousType() {
 	return (this.tagBits & TagBits.IsAnonymousType) != 0;
 }
@@ -494,7 +562,7 @@ public boolean isEnum() {
  * or for generic types, true if compared to its raw type.
  */
 public boolean isEquivalentTo(TypeBinding otherType) {
-	if (this == otherType)
+	if (equalsEquals(this, otherType))
 		return true;
 	if (otherType == null)
 		return false;
@@ -565,6 +633,24 @@ public final boolean isNumericType() {
  */
 public final boolean isParameterizedType() {
 	return kind() == Binding.PARAMETERIZED_TYPE;
+}
+/**
+ * Returns true for those ParameterizedTypeBindings, which represent an annotated type
+ * yet without any type parameters (neither locally nor in any enclosing type).
+ */
+public boolean isAnnotatedTypeWithoutArguments() {
+	return false;
+}
+
+public int hashCode() {
+	return this.id != TypeIds.NoId ? this.id : super.hashCode();
+}
+/**
+ * Does this type or any of its details (array dimensions, type arguments)
+ * have a null type annotation?
+ */
+public boolean hasNullTypeAnnotations() {
+	return (this.tagBits & TagBits.HasNullTypeAnnotation) != 0;
 }
 
 public boolean isIntersectionCastType() {
@@ -654,7 +740,7 @@ public boolean isProvablyDistinct(TypeBinding otherType) {
         https://bugs.eclipse.org/bugs/show_bug.cgi?id=329588
 	 */ 
 
-	if (this == otherType)
+	if (equalsEquals(this, otherType))
 	    return false;
     if (otherType == null)
         return true;
@@ -666,7 +752,7 @@ public boolean isProvablyDistinct(TypeBinding otherType) {
 		    switch(otherType.kind()) {
 		    	case Binding.PARAMETERIZED_TYPE :
 		            ParameterizedTypeBinding otherParamType = (ParameterizedTypeBinding) otherType;
-		            if (paramType.genericType() != otherParamType.genericType())
+		            if (notEquals(paramType.genericType(), otherParamType.genericType()))
 		                return true;
 		            if (!paramType.isStatic()) { // static member types do not compare their enclosing
 		            	ReferenceBinding enclosing = enclosingType();
@@ -692,7 +778,7 @@ public boolean isProvablyDistinct(TypeBinding otherType) {
 		            return false;
 
 		    	case Binding.GENERIC_TYPE :
-		            if (paramType.genericType() != otherType)
+		            if (notEquals(paramType.genericType(), otherType))
 		                return true;
 		            if (!paramType.isStatic()) { // static member types do not compare their enclosing
 		            	ReferenceBinding enclosing = enclosingType();
@@ -700,7 +786,7 @@ public boolean isProvablyDistinct(TypeBinding otherType) {
 		            		ReferenceBinding otherEnclosing = otherType.enclosingType();
 		            		if (otherEnclosing == null) return true;
 		            		if ((otherEnclosing.tagBits & TagBits.HasDirectWildcard) == 0) {
-								if (enclosing != otherEnclosing) return true;
+								if (notEquals(enclosing, otherEnclosing)) return true;
 		            		} else {
 		            			if (!enclosing.isEquivalentTo(otherType.enclosingType())) return true;
 		            		}
@@ -718,9 +804,9 @@ public boolean isProvablyDistinct(TypeBinding otherType) {
 		            return false;
 
 		    	case Binding.RAW_TYPE :
-		            return erasure() != otherType.erasure();
+		            return notEquals(erasure(), otherType.erasure());
 		    	case Binding.TYPE:  // https://bugs.eclipse.org/bugs/show_bug.cgi?id=329588
-		    		return erasure() != otherType;
+		    		return notEquals(erasure(), otherType);
 		    }
 	        return true;
 
@@ -732,7 +818,7 @@ public boolean isProvablyDistinct(TypeBinding otherType) {
 		    	case Binding.PARAMETERIZED_TYPE :
 		    	case Binding.RAW_TYPE :
 		    	case Binding.TYPE:  // https://bugs.eclipse.org/bugs/show_bug.cgi?id=329588
-		            return erasure() != otherType.erasure();
+		            return notEquals(erasure(), otherType.erasure());
 		    }
 	        return true;
 
@@ -740,7 +826,7 @@ public boolean isProvablyDistinct(TypeBinding otherType) {
 		    switch(otherType.kind()) {
 		    	case Binding.PARAMETERIZED_TYPE :
 		    	case Binding.RAW_TYPE :
-		            return this != otherType.erasure();
+		            return notEquals(this, otherType.erasure());
 		    }
 		    break;
 
@@ -949,6 +1035,13 @@ public boolean isReifiable() {
 }
 
 /**
+ * Answer true if the receiver is a static member type (or toplevel)
+ */
+public boolean isStatic() {
+	return false;
+}
+
+/**
  * Returns true if a given type may be thrown
  */
 public boolean isThrowable() {
@@ -956,7 +1049,7 @@ public boolean isThrowable() {
 }
 // JLS3: 4.5.1.1
 public boolean isTypeArgumentContainedBy(TypeBinding otherType) {
-	if (this == otherType)
+	if (TypeBinding.equalsEquals(this, otherType))
 		return true;
 	switch (otherType.kind()) {
 		// handle captured wildcards.
@@ -1028,7 +1121,7 @@ public boolean isTypeArgumentContainedBy(TypeBinding otherType) {
 			TypeBinding otherBound = otherWildcard.bound;
 			switch (otherWildcard.boundKind) {
 				case Wildcard.EXTENDS:
-					if (otherBound == this)
+					if (TypeBinding.equalsEquals(otherBound, this))
 						return true; // ? extends T  <=  ? extends ? extends T
 					if (upperBound == null)
 						return false;
@@ -1205,7 +1298,7 @@ public boolean needsUncheckedConversion(TypeBinding targetType) {
 }
 
 /** Answer a readable name (for error reporting) that includes nullness type annotations. */
-public char[] nullAnnotatedReadableName(LookupEnvironment env, boolean shortNames) /* e.g.: java.lang.Object @o.e.j.a.NonNull[] */ {
+public char[] nullAnnotatedReadableName(CompilerOptions options, boolean shortNames) /* e.g.: java.lang.Object @o.e.j.a.NonNull[] */ {
 	if (shortNames)
 		return shortReadableName();
 	else
@@ -1225,6 +1318,17 @@ public TypeBinding original() {
 		default :
 			return this;
 	}
+}
+
+/** 
+ * Return this type minus its type annotations
+ */
+public TypeBinding unannotated() {
+	return this;
+}
+
+public boolean hasTypeAnnotations() {
+	return (this.tagBits & TagBits.HasTypeAnnotations) != 0;
 }
 
 /**
@@ -1250,6 +1354,36 @@ public char[] qualifiedPackageName() {
 public abstract char[] qualifiedSourceName();
 
 /**
+ * @return the JSR 308 annotations for this type.
+ */
+final public AnnotationBinding[] getTypeAnnotations() {
+	return this.typeAnnotations;
+}
+
+public void setTypeAnnotations(AnnotationBinding[] annotations, boolean evalNullAnnotations) {
+	this.tagBits |= TagBits.HasTypeAnnotations;
+	if (annotations == null || annotations.length == 0)
+		return;
+	this.typeAnnotations = annotations;
+	if (evalNullAnnotations) {
+		for (int i = 0, length = annotations.length; i < length; i++) {
+			AnnotationBinding annotation = annotations[i];
+			if (annotation != null) {
+				switch (annotation.type.id) {
+					case TypeIds.T_ConfiguredAnnotationNullable :
+						this.tagBits |= TagBits.AnnotationNullable | TagBits.HasNullTypeAnnotation;
+						break;
+					case TypeIds.T_ConfiguredAnnotationNonNull :
+						this.tagBits |= TagBits.AnnotationNonNull  | TagBits.HasNullTypeAnnotation;
+						break;
+				}
+			}
+		}
+		// we do accept contradictory tagBits here, to support detecting contradictions caused by type substitution
+	}
+}
+
+/**
  * Answer the receiver classfile signature.
  * Arrays & base types do not distinguish between signature() & constantPoolName().
  * NOTE: This method should only be used during/after code gen.
@@ -1263,6 +1397,10 @@ public abstract char[] sourceName();
 public void swapUnresolved(UnresolvedReferenceBinding unresolvedType,
 		ReferenceBinding resolvedType, LookupEnvironment environment) {
 	// subclasses must override if they wrap another type binding
+}
+
+TypeBinding [] typeArguments () {
+	return null;
 }
 
 public TypeVariableBinding[] typeVariables() {
@@ -1290,6 +1428,37 @@ TypeBound[] getTypeBounds(TypeBinding[] parameters, InferenceVariable variable, 
 
 public ReferenceBinding[] getIntersectingTypes() {
 	return null;
+}
+
+public static boolean equalsEquals(TypeBinding that, TypeBinding other) {
+	if (that == other)
+		return true;
+	if (that == null || other == null)
+		return false;
+	if (that.id != TypeIds.NoId && that.id == other.id)
+		return true;
+	return false;
+}
+
+public static boolean notEquals(TypeBinding that, TypeBinding other) {
+	if (that == other)
+		return false;
+	if (that == null || other == null)
+		return true;
+	if (that.id != TypeIds.NoId && that.id == other.id)
+		return false;
+	return true;
+}
+/** Return the primordial type from which the receiver was cloned. Not all types track a prototype, only {@link SourceTypeBinding},
+ * {@link BinaryTypeBinding} and {@link UnresolvedReferenceBinding} do so as of now. In fact some types e.g {@link ParameterizedTypeBinding}
+ * should not do so. Deflecting a query to a prototype would lead to wrong results in the case of {@link ParameterizedTypeBinding}
+ */
+public TypeBinding prototype() {
+	return null;
+}
+
+public boolean isUnresolvedType() {
+	return false;
 }
 
 /** Does this type mention any of the given type parameters, except the one at position 'idx'? */

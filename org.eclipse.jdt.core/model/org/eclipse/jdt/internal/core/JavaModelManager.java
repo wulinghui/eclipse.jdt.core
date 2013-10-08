@@ -5,6 +5,10 @@
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Theodora Yeung (tyeung@bea.com) - ensure that JarPackageFragmentRoot make it into cache
@@ -12,6 +16,7 @@
  *                                                           (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=102422)
  *     Stephan Herrmann - Contribution for Bug 346010 - [model] strange initialization dependency in OptionTests
  *     Terry Parker <tparker@google.com> - DeltaProcessor misses state changes in archive files, see https://bugs.eclipse.org/bugs/show_bug.cgi?id=357425
+ *     Thirumala Reddy Mutchukota <thirumala@google.com> - Contribution to bug: https://bugs.eclipse.org/bugs/show_bug.cgi?id=411423
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
 
@@ -52,6 +57,8 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.util.HashtableOfObjectToInt;
 import org.eclipse.jdt.internal.core.JavaProjectElementInfo.ProjectCache;
 import org.eclipse.jdt.internal.core.builder.JavaBuilder;
+import org.eclipse.jdt.internal.core.dom.SourceRangeVerifier;
+import org.eclipse.jdt.internal.core.dom.rewrite.RewriteEventStore;
 import org.eclipse.jdt.internal.core.hierarchy.TypeHierarchy;
 import org.eclipse.jdt.internal.core.search.AbstractSearchScope;
 import org.eclipse.jdt.internal.core.search.BasicSearchEngine;
@@ -86,6 +93,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 
 	private static final String NON_CHAINING_JARS_CACHE = "nonChainingJarsCache"; //$NON-NLS-1$
 	private static final String INVALID_ARCHIVES_CACHE = "invalidArchivesCache";  //$NON-NLS-1$
+	private static final String EXTERNAL_FILES_CACHE = "externalFilesCache";  //$NON-NLS-1$
 
 	/**
 	 * Define a zip cache object.
@@ -222,6 +230,12 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	private static final String RESOLVE_REFERENCED_LIBRARIES_FOR_CONTAINERS = "resolveReferencedLibrariesForContainers"; //$NON-NLS-1$
 	
 	/**
+	 * Name of the JVM parameter to specify how many compilation units must be handled at once by the builder.
+	 * The default value is represented by <code>AbstractImageBuilder#MAX_AT_ONCE</code>.
+	 */
+	public static final String MAX_COMPILED_UNITS_AT_ONCE = "maxCompiledUnitsAtOnce"; //$NON-NLS-1$
+
+	/**
 	 * Special value used for recognizing ongoing initialization and breaking initialization cycles
 	 */
 	public final static IPath VARIABLE_INITIALIZATION_IN_PROGRESS = new Path("Variable Initialization In Progress"); //$NON-NLS-1$
@@ -245,6 +259,9 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	private static final String ZIP_ACCESS_DEBUG = JavaCore.PLUGIN_ID + "/debug/zipaccess" ; //$NON-NLS-1$
 	private static final String DELTA_DEBUG =JavaCore.PLUGIN_ID + "/debug/javadelta" ; //$NON-NLS-1$
 	private static final String DELTA_DEBUG_VERBOSE =JavaCore.PLUGIN_ID + "/debug/javadelta/verbose" ; //$NON-NLS-1$
+	private static final String DOM_AST_DEBUG = JavaCore.PLUGIN_ID + "/debug/dom/ast" ; //$NON-NLS-1$
+	private static final String DOM_AST_DEBUG_THROW = JavaCore.PLUGIN_ID + "/debug/dom/ast/throw" ; //$NON-NLS-1$
+	private static final String DOM_REWRITE_DEBUG = JavaCore.PLUGIN_ID + "/debug/dom/rewrite" ; //$NON-NLS-1$
 	private static final String HIERARCHY_DEBUG = JavaCore.PLUGIN_ID + "/debug/hierarchy" ; //$NON-NLS-1$
 	private static final String POST_ACTION_DEBUG = JavaCore.PLUGIN_ID + "/debug/postaction" ; //$NON-NLS-1$
 	private static final String BUILDER_DEBUG = JavaCore.PLUGIN_ID + "/debug/builder" ; //$NON-NLS-1$
@@ -289,7 +306,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 
 	public static class CompilationParticipants {
 
-		private final static int MAX_SOURCE_LEVEL = 7; // 1.1 to 1.7
+		private final static int MAX_SOURCE_LEVEL = 8; // 1.1 to 1.8
 
 		/*
 		 * The registered compilation participants (a table from int (source level) to Object[])
@@ -433,6 +450,8 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 					return 5;
 				case ClassFileConstants.MAJOR_VERSION_1_7:
 					return 6;
+				case ClassFileConstants.MAJOR_VERSION_1_8:
+					return 7;
 				default:
 					// all other cases including ClassFileConstants.MAJOR_VERSION_1_1
 					return 0;
@@ -1432,6 +1451,11 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	 */
 	private Set invalidArchives;
 
+	/*
+	 * List of IPath of files that are known to be external to the workspace
+	 */
+	private Set externalFiles;
+
 	/**
 	 * Update the classpath variable cache
 	 */
@@ -1566,6 +1590,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			this.indexManager = new IndexManager();
 			this.nonChainingJars = loadClasspathListCache(NON_CHAINING_JARS_CACHE);
 			this.invalidArchives = loadClasspathListCache(INVALID_ARCHIVES_CACHE);
+			this.externalFiles = loadClasspathListCache(EXTERNAL_FILES_CACHE);
 			String includeContainerReferencedLib = System.getProperty(RESOLVE_REFERENCED_LIBRARIES_FOR_CONTAINERS);
 			this.resolveReferencedLibrariesForContainers = TRUE.equalsIgnoreCase(includeContainerReferencedLib);
 		}
@@ -1591,6 +1616,16 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		}
 		if(this.invalidArchives != null) {
 			this.invalidArchives.add(path);
+		}
+	}
+
+	public void addExternalFile(IPath path) {
+		// unlikely to be null
+		if (this.externalFiles == null) {
+			this.externalFiles = Collections.synchronizedSet(new HashSet());
+		}
+		if(this.externalFiles != null) {
+			this.externalFiles.add(path);
 		}
 	}
 
@@ -1657,6 +1692,18 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			option = Platform.getDebugOption(DELTA_DEBUG_VERBOSE);
 			if(option != null) DeltaProcessor.VERBOSE = option.equalsIgnoreCase(TRUE) ;
 
+			option = Platform.getDebugOption(DOM_AST_DEBUG);
+			if(option != null) SourceRangeVerifier.DEBUG = option.equalsIgnoreCase(TRUE) ;
+
+			option = Platform.getDebugOption(DOM_AST_DEBUG_THROW);
+			if(option != null) {
+				SourceRangeVerifier.DEBUG_THROW = option.equalsIgnoreCase(TRUE) ;
+				SourceRangeVerifier.DEBUG |= SourceRangeVerifier.DEBUG_THROW;
+			}
+			
+			option = Platform.getDebugOption(DOM_REWRITE_DEBUG);
+			if(option != null) RewriteEventStore.DEBUG = option.equalsIgnoreCase(TRUE) ;
+			
 			option = Platform.getDebugOption(HIERARCHY_DEBUG);
 			if(option != null) TypeHierarchy.DEBUG = option.equalsIgnoreCase(TRUE) ;
 
@@ -3072,6 +3119,10 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		}
 	}
 
+	public boolean isExternalFile(IPath path) {
+		return this.externalFiles != null && this.externalFiles.contains(path);
+	}
+
 	public void setClasspathBeingResolved(IJavaProject project, boolean classpathIsResolved) {
 	    if (classpathIsResolved) {
 	        getClasspathBeingResolved().add(project);
@@ -3140,7 +3191,9 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			return getNonChainingJarsCache();
 		else if (cacheName == INVALID_ARCHIVES_CACHE)
 			return this.invalidArchives;
-		else 
+		else if (cacheName == EXTERNAL_FILES_CACHE)
+			return this.externalFiles;
+		else
 			return null;
 	}
 	
@@ -3882,6 +3935,8 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			this.nonChainingJars.clear();
 		if (this.invalidArchives != null) 
 			this.invalidArchives.clear();
+		if (this.externalFiles != null)
+			this.externalFiles.clear();
 	}
 
 	/*
@@ -4227,9 +4282,10 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 
 		switch(context.getKind()) {
 			case ISaveContext.FULL_SAVE : {
-				// save non-chaining jar and invalid jar caches on full save
+				// save non-chaining jar, invalid jar and external file caches on full save
 				saveClasspathListCache(NON_CHAINING_JARS_CACHE);
 				saveClasspathListCache(INVALID_ARCHIVES_CACHE);
+				saveClasspathListCache(EXTERNAL_FILES_CACHE);
 	
 				// will need delta since this save (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=38658)
 				context.needDelta();

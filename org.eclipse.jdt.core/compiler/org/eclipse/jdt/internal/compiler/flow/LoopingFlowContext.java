@@ -1,9 +1,13 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
+ * 
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
  * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -16,6 +20,10 @@
  *								bug 385626 - @NonNull fails across loop boundaries
  *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
  *								bug 376263 - Bogus "Potential null pointer access" warning
+ *								bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
+ *								bug 406384 - Internal error with I20130413
+ *     Jesper S Moller - contributions for
+ *								bug 404657 - [1.8][compiler] Analysis for effectively final variables fails to consider loops
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.flow;
 
@@ -31,6 +39,7 @@ import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Scope;
+import org.eclipse.jdt.internal.compiler.lookup.TagBits;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
 import org.eclipse.jdt.internal.compiler.lookup.VariableBinding;
@@ -55,7 +64,7 @@ public class LoopingFlowContext extends SwitchFlowContext {
 	int assignCount = 0;
 
 	// the following three arrays are in sync regarding their indices:
-	LocalVariableBinding[] nullLocals;
+	LocalVariableBinding[] nullLocals; // slots can be null for checkType == IN_UNBOXING
 	ASTNode[] nullReferences;	// Expressions for null checking, Statements for resource analysis
 								// cast to Expression is safe if corresponding nullCheckType != EXIT_RESOURCE
 	int[] nullCheckTypes;
@@ -118,10 +127,13 @@ public void complainOnDeferredFinalChecks(BlockScope scope, FlowInfo flowInfo) {
 			}
 		} else {
 			if (flowInfo.isPotentiallyAssigned((LocalVariableBinding)variable)) {
-				complained = true;
-				scope.problemReporter().duplicateInitializationOfFinalLocal(
-					(LocalVariableBinding) variable,
-					this.finalAssignments[i]);
+				variable.tagBits &= ~TagBits.IsEffectivelyFinal;
+				if (variable.isFinal()) {
+					complained = true;
+					scope.problemReporter().duplicateInitializationOfFinalLocal(
+						(LocalVariableBinding) variable,
+						this.finalAssignments[i]);
+				}
 			}
 		}
 		// any reference reported at this level is removed from the parent context where it
@@ -276,6 +288,9 @@ public void complainOnDeferredNullChecks(BlockScope scope, FlowInfo callerFlowIn
 							}
 						}
 					break;
+				case IN_UNBOXING:
+					checkUnboxing(scope, (Expression) location, flowInfo);
+					continue; // delegation to parent already handled in the above.
 				default:
 					// never happens
 			}
@@ -395,6 +410,9 @@ public void complainOnDeferredNullChecks(BlockScope scope, FlowInfo callerFlowIn
 							continue;
 						}
 					}
+					break;
+				case IN_UNBOXING:
+					checkUnboxing(scope, (Expression) location, flowInfo);
 					break;
 				default:
 					// never happens
@@ -518,7 +536,7 @@ public void recordContinueFrom(FlowContext innerFlowContext, FlowInfo flowInfo) 
 	}
 
 protected void recordNullReference(LocalVariableBinding local,
-	ASTNode expression, int status) {
+	ASTNode expression, int checkType) {
 	if (this.nullCount == 0) {
 		this.nullLocals = new LocalVariableBinding[5];
 		this.nullReferences = new ASTNode[5];
@@ -534,7 +552,13 @@ protected void recordNullReference(LocalVariableBinding local,
 	}
 	this.nullLocals[this.nullCount] = local;
 	this.nullReferences[this.nullCount] = expression;
-	this.nullCheckTypes[this.nullCount++] = status;
+	this.nullCheckTypes[this.nullCount++] = checkType;
+}
+public void recordUnboxing(Scope scope, Expression expression, int nullStatus, FlowInfo flowInfo) {
+	if (nullStatus == FlowInfo.NULL)
+		super.recordUnboxing(scope, expression, nullStatus, flowInfo);
+	else // defer checking:
+		recordNullReference(null, expression, IN_UNBOXING);
 }
 
 /** Record the fact that we see an early exit (in 'reference') while 'trackingVar' is in scope and may be unclosed. */

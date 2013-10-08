@@ -16,7 +16,8 @@
  *								bug 374605 - Unreasonable warning for enum-based switch statements
  *								bug 382353 - [1.8][compiler] Implementation property modifiers should be accepted on default methods.
  *								bug 382354 - [1.8][compiler] Compiler silent on conflicting modifier
- *								bug 401030 - [1.8][null] Null analysis support for lambda methods. 
+ *								bug 401030 - [1.8][null] Null analysis support for lambda methods.
+ *								Bug 416176 - [1.8][compiler][null] null type annotations cause grief on type variables
  *     Jesper S Moller - Contributions for
  *							bug 382701 - [1.8][compiler] Implement semantic analysis of Lambda expressions & Reference expression
  *******************************************************************************/
@@ -179,10 +180,22 @@ private void checkAndSetModifiersForMethod(MethodBinding methodBinding) {
 	if (declaringClass.isInterface()) {
 		int expectedModifiers = ClassFileConstants.AccPublic | ClassFileConstants.AccAbstract;
 		boolean isDefaultMethod = (modifiers & ExtraCompilerModifiers.AccDefaultMethod) != 0; // no need to check validity, is done by the parser
+		boolean reportIllegalModifierCombination = false;
+		boolean isJDK18orGreater = false;
 		if (compilerOptions().sourceLevel >= ClassFileConstants.JDK1_8 && !declaringClass.isAnnotationType()) {
+			expectedModifiers |= ClassFileConstants.AccStrictfp
+					| ExtraCompilerModifiers.AccDefaultMethod | ClassFileConstants.AccStatic;
+			isJDK18orGreater = true;
 			if (!methodBinding.isAbstract()) {
-				expectedModifiers |= ClassFileConstants.AccStrictfp
-										| (isDefaultMethod ?  ExtraCompilerModifiers.AccDefaultMethod : ClassFileConstants.AccStatic);
+				reportIllegalModifierCombination = isDefaultMethod && methodBinding.isStatic();
+			} else {
+				reportIllegalModifierCombination = isDefaultMethod || methodBinding.isStatic();
+				if (methodBinding.isStrictfp()) {
+					problemReporter().illegalAbstractModifierCombinationForMethod((AbstractMethodDeclaration) this.referenceContext);
+				}
+			}
+			if (reportIllegalModifierCombination) {
+				problemReporter().illegalModifierCombinationForInterfaceMethod((AbstractMethodDeclaration) this.referenceContext);
 			}
 			// Kludge - The AccDefaultMethod bit is outside the lower 16 bits and got removed earlier. Putting it back.
 			if (isDefaultMethod) {
@@ -193,7 +206,7 @@ private void checkAndSetModifiersForMethod(MethodBinding methodBinding) {
 			if ((declaringClass.modifiers & ClassFileConstants.AccAnnotation) != 0)
 				problemReporter().illegalModifierForAnnotationMember((AbstractMethodDeclaration) this.referenceContext);
 			else
-				problemReporter().illegalModifierForInterfaceMethod((AbstractMethodDeclaration) this.referenceContext, isDefaultMethod);
+				problemReporter().illegalModifierForInterfaceMethod((AbstractMethodDeclaration) this.referenceContext, isJDK18orGreater);
 		}
 		return;
 	}
@@ -545,5 +558,9 @@ public MethodBinding referenceMethodBinding() {
 public TypeDeclaration referenceType() {
 	ClassScope scope = enclosingClassScope();
 	return scope == null ? null : scope.referenceContext;
+}
+
+void resolveTypeParameter(TypeParameter typeParameter) {
+	typeParameter.resolve(this);
 }
 }

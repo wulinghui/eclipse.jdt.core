@@ -13,13 +13,13 @@
  *     IBM Corporation - initial API and implementation
  *     Jesper S Moller - Contributions for
  *							bug 382701 - [1.8][compiler] Implement semantic analysis of Lambda expressions & Reference expression
+ *							Bug 405066 - [1.8][compiler][codegen] Implement code generation infrastructure for JSR335        
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
 import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.DefaultErrorHandlingPolicies;
 import org.eclipse.jdt.internal.compiler.IErrorHandlingPolicy;
-import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
@@ -37,8 +37,9 @@ import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
 public abstract class FunctionalExpression extends Expression {
 	
 	TypeBinding expectedType;
-	MethodBinding descriptor;
-	public MethodBinding binding;
+	public MethodBinding descriptor;
+	public MethodBinding binding;                 // Code generation binding. May include synthetics. See getMethodBinding()
+	protected MethodBinding actualMethodBinding;  // void of synthetics.
 	boolean ignoreFurtherInvestigation;
 	protected ExpressionContext expressionContext = VANILLA_CONTEXT;
 	protected SimpleLookupTable resultExpressions;
@@ -51,7 +52,10 @@ public abstract class FunctionalExpression extends Expression {
 	public FunctionalExpression(CompilationResult compilationResult) {
 		this.compilationResult = compilationResult;
 	}
-
+	// Return the actual (non-code generation) method binding that is void of synthetics.
+	public MethodBinding getMethodBinding() {
+		return null;
+	}
 	public void setExpectedType(TypeBinding expectedType) {
 		this.expectedType = this.ellipsisArgument ? ((ArrayBinding) expectedType).elementsType() : expectedType;
 	}
@@ -168,13 +172,5 @@ public abstract class FunctionalExpression extends Expression {
 
 	public int nullStatus(FlowInfo flowInfo) {
 		return FlowInfo.NON_NULL;
-	}
-
-	public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
-		int pc = codeStream.position;
-		if (valueRequired) {
-			codeStream.aconst_null(); // TODO: Real code
-		}
-		codeStream.recordPositionsFrom(pc, this.sourceStart);
 	}
 }

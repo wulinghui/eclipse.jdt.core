@@ -14,6 +14,9 @@
  *     Stephan Herrmann - Contribution for
  *								bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
  *								bug 331649 - [compiler][null] consider null annotations for fields
+ *								bug 400761 - [compiler][null] null may be return as boolean without a diagnostic
+ *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *								Bug 409250 - [1.8][compiler] Various loose ends in 308 code generation
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -94,6 +97,7 @@ public FlowInfo analyseCode(MethodScope initializationScope, FlowContext flowCon
 				initializationScope.problemReporter().nullityMismatch(this.initialization, this.initialization.resolvedType, this.binding.type, nullStatus, annotationName);
 			}
 		}
+		this.initialization.checkNPEbyUnboxing(initializationScope, flowContext, flowInfo);
 	}
 	return flowInfo;
 }
@@ -130,7 +134,7 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream) {
 	codeStream.recordPositionsFrom(pc, this.sourceStart);
 }
 public void getAllAnnotationContexts(int targetType, List allAnnotationContexts) {
-	AnnotationCollector collector = new AnnotationCollector(this, targetType, allAnnotationContexts);
+	AnnotationCollector collector = new AnnotationCollector(this.type, targetType, allAnnotationContexts);
 	for (int i = 0, max = this.annotations.length; i < max; i++) {
 		Annotation annotation = this.annotations[i];
 		annotation.traverse(collector, (BlockScope) null);
@@ -223,6 +227,17 @@ public void resolve(MethodScope initializationScope) {
 		initializationScope.lastVisibleFieldID = this.binding.id;
 
 		resolveAnnotations(initializationScope, this.annotations, this.binding);
+		// Check if this declaration should now have the type annotations bit set
+		if (this.annotations != null) {
+			for (int i = 0, max = this.annotations.length; i < max; i++) {
+				TypeBinding resolvedAnnotationType = this.annotations[i].resolvedType;
+				if (resolvedAnnotationType != null && (resolvedAnnotationType.getAnnotationTagBits() & TagBits.AnnotationForTypeUse) != 0) {
+					this.bits |= ASTNode.HasTypeAnnotations;
+					break;
+				}
+			}
+		}
+		
 		// check @Deprecated annotation presence
 		if ((this.binding.getAnnotationTagBits() & TagBits.AnnotationDeprecated) == 0
 				&& (this.binding.modifiers & ClassFileConstants.AccDeprecated) != 0
@@ -248,7 +263,7 @@ public void resolve(MethodScope initializationScope) {
 				}
 			} else if ((initializationType = this.initialization.resolveType(initializationScope)) != null) {
 
-				if (fieldType != initializationType) // must call before computeConversion() and typeMismatchError()
+				if (TypeBinding.notEquals(fieldType, initializationType)) // must call before computeConversion() and typeMismatchError()
 					initializationScope.compilationUnitScope().recordTypeConversion(fieldType, initializationType);
 				if (this.initialization.isConstantValueOfTypeAssignableToType(initializationType, fieldType)
 						|| initializationType.isCompatibleWith(fieldType, classScope)) {
