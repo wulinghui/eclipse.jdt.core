@@ -222,20 +222,11 @@ public class InferenceContext18 {
 					}
 					if (tmpBoundSet.incorporate(this))
 						continue;
+					// Otherwise, a second attempt is made...
 					tmpBoundSet = prevBoundSet;
-					final TypeVariableBinding[] zs = new TypeVariableBinding[numVars];
-					for (int j = 0; j < numVars; j++) {
-						InferenceVariable variable = variables[j];
-						TypeBinding typeParameter = variable.typeParameter;
-						int rank = 0;
-						Binding declaringElement = typeParameter;
-						if (typeParameter instanceof TypeVariableBinding) {
-							rank = ((TypeVariableBinding)typeParameter).rank;
-							declaringElement = ((TypeVariableBinding)typeParameter).declaringElement;
-						}
-						zs[j] = new TypeVariableBinding(CharOperation.concat("Z-".toCharArray(), variable.sourceName),
-														declaringElement, rank, this.environment);
-					}
+					final CaptureBinding[] zs = new CaptureBinding[numVars];
+					for (int j = 0; j < numVars; j++)
+						zs[j] = freshCapture(variables[j]);
 					Substitution theta = new Substitution() {
 						public LookupEnvironment environment() { 
 							return InferenceContext18.this.environment;
@@ -252,60 +243,23 @@ public class InferenceContext18 {
 					};
 					for (int j = 0; j < numVars; j++) {
 						InferenceVariable variable = variables[j];
-						// try lower bounds:
+						CaptureBinding zsj = zs[j];
+						// add lower bounds:
 						TypeBinding[] lowerBounds = tmpBoundSet.lowerBounds(variable, false/*onlyProper*/);
 						if (lowerBounds != Binding.NO_TYPES) {
 							lowerBounds = Scope.substitute(theta, lowerBounds);
 							TypeBinding lub = this.scope.lowerUpperBound(lowerBounds);
 							if (lub != TypeBinding.VOID && lub != null)
-								tmpBoundSet.addBound(new TypeBound(variable, lub, ReductionResult.SUPERTYPE));
+								zsj.lowerBound = lub;
 						}
-						// try upper bounds:
+						// add upper bounds:
 						TypeBinding[] upperBounds = tmpBoundSet.upperBounds(variable, false/*onlyProper*/);
 						if (upperBounds != Binding.NO_TYPES) {
 							for (int k = 0; k < upperBounds.length; k++)
 								upperBounds[k] = Scope.substitute(theta, upperBounds[k]);
-							TypeBinding glb;
-							if (upperBounds.length == 1) {
-								glb = upperBounds[0];
-							} else {
-								ReferenceBinding[] glbs = Scope.greaterLowerBound((ReferenceBinding[])upperBounds);
-								if (glbs == null) {
-									throw new UnsupportedOperationException("no glb for "+Arrays.asList(upperBounds));
-								} else if (glbs.length == 1) {
-									glb = glbs[0];
-									if (glb.isInterface())
-										zs[j].superInterfaces = new ReferenceBinding[] { (ReferenceBinding)glb };
-									else
-										zs[j].superclass = (ReferenceBinding)glb;
-									zs[j].firstBound = glb;
-								} else {
-									glb = new IntersectionCastTypeBinding(glbs, this.environment);
-									int classIdx = -1;
-									for (int k = 0; k < glbs.length; k++) {
-										if (!glbs[k].isInterface() && !glbs[k].isTypeVariable()) {
-											classIdx = k;
-											break;
-										}
-									}
-									if (classIdx == -1) {
-										zs[j].superInterfaces = glbs;
-										zs[j].firstBound = glbs[0];
-									} else {
-										zs[j].superclass = glbs[classIdx];
-										ReferenceBinding[] superIntefaces = new ReferenceBinding[glbs.length-1];
-										int l = 0;
-										for (int k = 0; k < glbs.length; k++) {
-											if (k != classIdx)
-												superIntefaces[l++] = glbs[k];
-										}
-										zs[j].superInterfaces = superIntefaces;
-										zs[j].firstBound = glbs[classIdx];
-									}
-								}
-							}
+							setUpperBounds(zsj, upperBounds);
 						}
-						tmpBoundSet.addBound(new TypeBound(variable, zs[j], ReductionResult.SAME));
+						tmpBoundSet.addBound(new TypeBound(variable, zsj, ReductionResult.SAME));
 					}
 					if (tmpBoundSet.incorporate(this))
 						continue;
@@ -314,6 +268,72 @@ public class InferenceContext18 {
 			}
 		}
 		return tmpBoundSet;
+	}
+	
+	// === FIXME(stephan): all this capture business is quite drafty: ===
+	int captureId = 0;
+	
+	/** For 18.4: "Let Z1, ..., Zn be fresh type variables" use capture bindings. */
+	CaptureBinding freshCapture(InferenceVariable variable) {
+		ReferenceBinding declaringType = null;
+		TypeVariableBinding typeVariable = null;
+		int rank = 0;
+		if (variable.typeParameter instanceof TypeVariableBinding) {
+			typeVariable = (TypeVariableBinding) variable.typeParameter;
+			rank = typeVariable.rank;
+			if (typeVariable.declaringElement instanceof ReferenceBinding)
+				declaringType = (ReferenceBinding) typeVariable.declaringElement;
+		}
+		WildcardBinding wildcard = new WildcardBinding(null, rank, null, Binding.NO_PARAMETERS, 0, this.environment);
+		wildcard.typeVariable = typeVariable;
+		CaptureBinding capture = new CaptureBinding(wildcard, declaringType, 0, this.captureId++);
+		capture.sourceName = CharOperation.concat("Z-".toCharArray(), variable.sourceName);
+		return capture;
+	}
+	// === ===
+	
+	void setUpperBounds(CaptureBinding typeVariable, TypeBinding[] substitutedUpperBounds) {
+		// 18.4: ... define the upper bound of Zi as glb(L1θ, ..., Lkθ)
+		TypeBinding singleGlb;
+		if (substitutedUpperBounds.length == 1) {
+			singleGlb = substitutedUpperBounds[0];
+		} else {
+			ReferenceBinding[] glbs = Scope.greaterLowerBound((ReferenceBinding[])substitutedUpperBounds); // TODO: cast safe?
+			if (glbs == null) {
+				throw new UnsupportedOperationException("no glb for "+Arrays.asList(substitutedUpperBounds));
+			} else if (glbs.length == 1) {
+				singleGlb = glbs[0];
+			} else {
+				singleGlb = new IntersectionCastTypeBinding(glbs, this.environment);
+				int classIdx = -1;
+				for (int k = 0; k < glbs.length; k++) {
+					if (!glbs[k].isInterface() && !glbs[k].isTypeVariable()) {
+						classIdx = k;
+						break;
+					}
+				}
+				if (classIdx == -1) {
+					typeVariable.superInterfaces = glbs;
+					typeVariable.firstBound = glbs[0];
+				} else {
+					typeVariable.superclass = glbs[classIdx];
+					ReferenceBinding[] superIntefaces = new ReferenceBinding[glbs.length-1];
+					int l = 0;
+					for (int k = 0; k < glbs.length; k++) {
+						if (k != classIdx)
+							superIntefaces[l++] = glbs[k];
+					}
+					typeVariable.superInterfaces = superIntefaces;
+					typeVariable.firstBound = glbs[classIdx];
+				}
+				return;
+			}
+		}
+		if (singleGlb.isInterface())
+			typeVariable.superInterfaces = new ReferenceBinding[] { (ReferenceBinding)singleGlb };
+		else
+			typeVariable.superclass = (ReferenceBinding)singleGlb;
+		typeVariable.firstBound = singleGlb;
 	}
 
 	/** 18.5.2: before Invocation Type Inference purge all instantiations.
