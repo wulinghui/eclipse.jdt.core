@@ -68,15 +68,24 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 				BoundSet result = infCtx18.solve();
 				if (result != null && (infCtx18.isResolved(result) || infCtx18.hasUnprocessedConstraints(result))) {
 					infCtx18.createInitialConstraintsForTargetType(originalMethod.returnType, invocationSite.expectedType());
+					boolean hasReturnProblem = false;
 					if (infCtx18.hasUnprocessedConstraints(result)) {
 						BoundSet provisionalResult = infCtx18.purgeInstantiations();
 						result = infCtx18.solve();
-						if (result == null)
+						if (result == null) {
+							hasReturnProblem = true;
 							result = provisionalResult; // we prefer a type error regarding the return type over reporting no match at all
+						}
 					}
 					TypeBinding[] solutions = infCtx18.getSolutions(typeVariables, result);
 					if (solutions != null) {
-						return scope.environment().createParameterizedGenericMethod(originalMethod, solutions);
+						ParameterizedGenericMethodBinding parameterizedMethod = scope.environment().createParameterizedGenericMethod(originalMethod, solutions);
+						if (hasReturnProblem) {
+							ProblemMethodBinding problemMethod = new ProblemMethodBinding(parameterizedMethod, parameterizedMethod.selector, parameters, ProblemReasons.ParameterizedMethodExpectedTypeProblem);
+							problemMethod.returnType = invocationSite.expectedType();
+							return problemMethod;
+						}
+						return parameterizedMethod;
 					}
 				} else {
 					return null;

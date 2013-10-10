@@ -4167,6 +4167,21 @@ public void invalidMethod(MessageSend messageSend, MethodBinding method) {
 				(int) (messageSend.nameSourcePosition >>> 32),
 				(int) messageSend.nameSourcePosition);
 			return;
+		case ProblemReasons.ParameterizedMethodExpectedTypeProblem:
+			// FIXME(stephan): construct suitable message
+			problemMethod = (ProblemMethodBinding) method;
+			shownMethod = problemMethod.closestMatch;
+			this.handle(
+				IProblem.TypeMismatch,
+				new String[] {
+				        String.valueOf(shownMethod.returnType.readableName()),
+				        String.valueOf(problemMethod.returnType.readableName())},
+				new String[] {
+				        String.valueOf(shownMethod.returnType.shortReadableName()),
+				        String.valueOf(problemMethod.returnType.shortReadableName())},
+				messageSend.sourceStart,
+				messageSend.sourceEnd);			
+			return;
 		case ProblemReasons.VarargsElementTypeNotVisible: // https://bugs.eclipse.org/bugs/show_bug.cgi?id=346042
 			problemMethod = (ProblemMethodBinding) method;
 			if (problemMethod.closestMatch != null) {
