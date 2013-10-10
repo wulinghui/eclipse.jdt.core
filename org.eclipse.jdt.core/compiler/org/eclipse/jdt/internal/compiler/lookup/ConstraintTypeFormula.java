@@ -176,28 +176,36 @@ class ConstraintTypeFormula extends ConstraintFormula {
 				}
 				return FALSE;
 			case Binding.ARRAY_TYPE:
-				InferenceContext18.missingImplementation(InferenceContext18.JLS_18_2_3_INCOMPLETE_TO_DO_DEFINE_THE_MOST_SPECIFIC_ARRAY_SUPERTYPE_OF_A_TYPE_T);
-				return FALSE;
-			case Binding.PARAMETERIZED_TYPE:
-				// 18.2.3: "To do: define the parameterization of a class C for a type T;"
-				// BEGIN GUESS WORK:
-				TypeBinding[] superArgs = ((ParameterizedTypeBinding) superCandidate).arguments;
-				TypeBinding substitutedSub = subCandidate.findSuperTypeOriginatingFrom(superCandidate);
-				if (substitutedSub == null) return FALSE;
-				TypeBinding[] subArgs = ((ParameterizedTypeBinding) substitutedSub).arguments;
-				if (superArgs == null || subArgs == null || superArgs.length != subArgs.length) {
-					if (substitutedSub.isRawType()) {
-						// FIXME: this integration is not yet sanctioned by the spec (0.6.2)
-						return inferUncheckedConversion(scope, substitutedSub, superCandidate);
-					}
-					// bail out only if our guess work produced a useless result
-					InferenceContext18.missingImplementation(InferenceContext18.JLS_18_2_3_INCOMPLETE_TO_DEFINE_THE_PARAMETERIZATION_OF_A_CLASS_C_FOR_A_TYPE_T);
-					return FALSE; // TODO
+				// FIXME: WTF?
+				// let S'[] be the most specific array type that is a supertype of S (or S itself)
+				if (subCandidate.kind() != Binding.ARRAY_TYPE)
+					return FALSE;
+				ArrayBinding subArray = (ArrayBinding) subCandidate;				
+				TypeBinding superElement = ((ArrayBinding)superCandidate).elementsType();
+				TypeBinding subElement = subArray.leafComponentType();
+				if (!superElement.isBaseType() && !subElement.isBaseType()) {
+					return new ConstraintTypeFormula(subElement, superElement, SUBTYPE);
 				}
-				// END GUESS WORK
+				return superElement == subElement ? TRUE : FALSE;
+			case Binding.PARAMETERIZED_TYPE:
+				TypeBinding[] superArgs = ((ParameterizedTypeBinding) superCandidate).arguments;
+				TypeBinding substitutedSuper = subCandidate.findSuperTypeOriginatingFrom(superCandidate); // C<B1,B2,...>
+				if (substitutedSuper == null || substitutedSuper.isRawType()) return FALSE;
+				TypeBinding[] substitutedArgs = ((ParameterizedTypeBinding) substitutedSuper).arguments;
+//				// BEGIN GUESS WORK:
+//				if (superArgs == null || subArgs == null || superArgs.length != subArgs.length) {
+//					if (substitutedSub.isRawType()) {
+//						// FIXME: this integration is not yet sanctioned by the spec (0.6.2)
+//						return inferUncheckedConversion(scope, substitutedSub, superCandidate);
+//					}
+//					// bail out only if our guess work produced a useless result
+//					InferenceContext18.missingImplementation(InferenceContext18.JLS_18_2_3_INCOMPLETE_TO_DEFINE_THE_PARAMETERIZATION_OF_A_CLASS_C_FOR_A_TYPE_T);
+//					return FALSE; // TODO
+//				}
+//				// END GUESS WORK
 				ConstraintFormula[] results = new ConstraintFormula[superArgs.length];
 				for (int i = 0; i < superArgs.length; i++) {
-					results[i] = new ConstraintTypeFormula(subArgs[i], superArgs[i], TYPE_ARGUMENT_CONTAINED);
+					results[i] = new ConstraintTypeFormula(substitutedArgs[i], superArgs[i], TYPE_ARGUMENT_CONTAINED);
 				}
 				return results;
 			case Binding.WILDCARD_TYPE:

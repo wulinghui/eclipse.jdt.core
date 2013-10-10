@@ -35,7 +35,8 @@ public abstract class ReductionResult {
 	protected static final int SUPERTYPE = 3;
 	protected static final int SAME = 4;
 	protected static final int TYPE_ARGUMENT_CONTAINED = 5;
-	static final int EXCEPTIONS_CONTAINED = 6;
+	protected static final int CAPTURE = 6;
+	static final int EXCEPTIONS_CONTAINED = 7;
 	
 	protected TypeBinding right; // note that the LHS differs between sub-classes.
 	protected int relation;
@@ -48,6 +49,8 @@ public abstract class ReductionResult {
 			case SUPERTYPE: 	return " :> "; //$NON-NLS-1$
 			case TYPE_ARGUMENT_CONTAINED:
 								return " <= "; //$NON-NLS-1$
+			case CAPTURE:
+								return " captureOf "; //$NON-NLS-1$
 			default:
 				throw new IllegalArgumentException("Unknown type relation "+relation); //$NON-NLS-1$
 		}

@@ -366,9 +366,7 @@ public class InferenceContext18 {
 	}
 	
 	public boolean hasUnprocessedConstraints(BoundSet boundSet) {
-		if (this.initialConstraints != null)
-			return true;
-		return boundSet.constraintCount > 0;
+		return this.initialConstraints != null;
 	}
 
 	/**
@@ -424,7 +422,6 @@ public class InferenceContext18 {
 
 	// INTERIM: infrastructure for detecting failures caused by specific known incompleteness:
 	static final String JLS_18_2_3_INCOMPLETE_TO_DO_DEFINE_THE_MOST_SPECIFIC_ARRAY_SUPERTYPE_OF_A_TYPE_T = "JLS 18.2.3 incomplete: \"To do: [...] define the most specific array supertype of a type T.\""; //$NON-NLS-1$
-	static final String JLS_18_2_3_INCOMPLETE_TO_DEFINE_THE_PARAMETERIZATION_OF_A_CLASS_C_FOR_A_TYPE_T = "JLS 18.2.3 incomplete: \"To do: define the parameterization of a class C for a type T\""; //$NON-NLS-1$
 	public static void missingImplementation(String msg) {
 //		if (msg == JLS_18_2_3_INCOMPLETE_TO_DO_DEFINE_THE_MOST_SPECIFIC_ARRAY_SUPERTYPE_OF_A_TYPE_T)
 //			return; // without this return we see 58 distinct errors in GenericTypeTest

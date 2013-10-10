@@ -211,10 +211,8 @@ class BoundSet {
 	}
 	// main storage of type bounds:
 	HashMap/*<InferenceVariable,ThreeSets>*/ boundsPerVariable = new HashMap();
-
-	// TypeBounds of the form Expression -> T
-	ConstraintExpressionFormula[] delayedExpressionConstraints = new ConstraintExpressionFormula[2];
-	int constraintCount = 0;
+	
+	HashMap/*<ParameterizedTypeBinding,ParameterizedTypeBinding>*/ captures = new HashMap();
 
 	// avoid attempts to incorporate the same pair of type bounds more than once:
 	Set/*<TypeBound>*/ incorporatedBounds = new HashSet();
@@ -263,8 +261,6 @@ class BoundSet {
 			Map.Entry entry = (Entry) setsIterator.next();
 			copy.boundsPerVariable.put(entry.getKey(), ((ThreeSets)entry.getValue()).copy(purgeInstantiations));
 		}
-		copy.delayedExpressionConstraints = this.delayedExpressionConstraints;
-		copy.constraintCount = this.constraintCount;
 		return copy;
 	}
 
@@ -277,20 +273,14 @@ class BoundSet {
 		TypeBinding typeBinding = bound.right;
 		if (bound.relation == ReductionResult.SAME && typeBinding.isProperType()) {
 			three.instantiation = typeBinding;
-			recheckDelayedConstraints(bound.left, typeBinding);
+// FIXME: obsolete, what now?
+//			recheckDelayedConstraints(bound.left, typeBinding);
 		}
 	}
 
 	private void addBounds(TypeBound[] newBounds) {
 		for (int i = 0; i < newBounds.length; i++)
 			addBound(newBounds[i]);
-	}
-	
-	void addFormula(ConstraintExpressionFormula formula) {
-		int oldLength = this.delayedExpressionConstraints.length;
-		if (this.constraintCount + 1 >= oldLength) 
-			System.arraycopy(this.delayedExpressionConstraints, 0, this.delayedExpressionConstraints = new ConstraintExpressionFormula[oldLength+4], 0, oldLength);
-		this.delayedExpressionConstraints[this.constraintCount++] = formula;
 	}
 
 	public boolean isInstantiated(InferenceVariable inferenceVariable) {
@@ -305,17 +295,6 @@ class BoundSet {
 		if (three != null)
 			return three.instantiation;
 		return null;
-	}
-
-	private void recheckDelayedConstraints(InferenceVariable inferenceVariable, TypeBinding typeBinding) {
-		// 18.1.3: A bound of the form Expression → T represents a constraint formula that cannot be further reduced
-		//         until one or more inference variables in T are instantiated.
-		// This method is trigger in the event an inference variable is marked as instantiated.
-		for (int i = 0; i < this.constraintCount; i++) {
-			ConstraintExpressionFormula constraint = this.delayedExpressionConstraints[i];
-			if (constraint.right.mentionsAny(new TypeBinding[]{inferenceVariable}, -1))
-				throw new UnsupportedOperationException("NYI");
-		}
 	}
 
 	/**
@@ -486,8 +465,7 @@ class BoundSet {
 			ConstraintExpressionFormula formula = (ConstraintExpressionFormula) result;
 			if (formula.relation != ReductionResult.COMPATIBLE)
 				throw new IllegalStateException("only compatibility constraint should be un-reduceable");
-			// store formula as is, to be interpreted as a special type bound 'Expression -> T'
-			addFormula(formula);
+			// FIXME delayed constraint removed, what now?
 			return true;
 		}
 		if (result == ReductionResult.FALSE)
