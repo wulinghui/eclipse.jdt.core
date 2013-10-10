@@ -79,4 +79,17 @@ public class InferenceVariable extends TypeVariableBinding {
 	public String toString() {
 		return debugName();
 	}
+	
+	public int hashCode() {
+		if (this.sourceName != null)
+			return this.sourceName.hashCode();
+		return super.hashCode();
+	}
+	public boolean equals(Object obj) {
+		if (!(obj instanceof InferenceVariable))
+			return false;
+		if (this.sourceName != null)
+			return this.sourceName.equals(((InferenceVariable)obj).sourceName);
+		return super.equals(obj);
+	}
 }
