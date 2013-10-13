@@ -623,7 +623,7 @@ public final class CompletionEngine
 		public int sourceStart() { return 0; 	}
 		public TypeBinding expectedType() { return null; }
 		public boolean receiverIsImplicitThis() { return false; }
-		public InferenceContext18 inferenceContext() {
+		public InferenceContext18 inferenceContext(Scope scope) {
 			// FIXME Auto-generated method stub
 			return null;
 		}

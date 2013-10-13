@@ -1417,15 +1417,6 @@ public MethodBinding getSingleAbstractMethod(Scope scope) {
 	return null;
 }
 
-/**
- * Compute the initial type bounds as per JLS8 sect 18.1.3.
- * TODO: replace other arguments with use of the InferenceContext18,
- * which should provide all information necessary for this computation.
- */
-TypeBound[] getTypeBounds(TypeBinding[] parameters, InferenceVariable variable, int idx, InferenceContext18 context) {
-	return new TypeBound[] { new TypeBound(variable, this, ReductionResult.SAME) };
-}
-
 public ReferenceBinding[] getIntersectingTypes() {
 	return null;
 }

@@ -55,7 +55,7 @@ public FieldBinding lastFieldBinding() {
 	return null;
 }
 
-public InferenceContext18 inferenceContext() {
+public InferenceContext18 inferenceContext(Scope scope) {
 	// FIXME Auto-generated method stub
 	return null;
 }

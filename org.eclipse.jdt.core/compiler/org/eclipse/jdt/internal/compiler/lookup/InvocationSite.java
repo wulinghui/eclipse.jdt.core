@@ -34,7 +34,7 @@ public interface InvocationSite {
 	int sourceStart();
 	TypeBinding expectedType();
 	boolean receiverIsImplicitThis();
-	InferenceContext18 inferenceContext();
+	InferenceContext18 inferenceContext(Scope scope);
 	
 	static class EmptyWithAstNode implements InvocationSite {
 		ASTNode node;
@@ -51,6 +51,6 @@ public interface InvocationSite {
 		public int sourceStart() {return this.node.sourceStart; }
 		public TypeBinding expectedType() { return null; }
 		public boolean receiverIsImplicitThis() { return false; }
-		public InferenceContext18 inferenceContext() { return null; }
+		public InferenceContext18 inferenceContext(Scope scope) { return null; }
 	}
 }

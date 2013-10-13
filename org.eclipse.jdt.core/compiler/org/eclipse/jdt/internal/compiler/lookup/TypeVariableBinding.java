@@ -374,23 +374,19 @@ public class TypeVariableBinding extends ReferenceBinding {
 		return this.genericTypeSignature = CharOperation.concat('T', this.sourceName, ';');
 	}
 
-	TypeBound[] getTypeBounds(TypeBinding[] parameters, InferenceVariable variable, int idx, InferenceContext18 context) {
+	/**
+	 * Compute the initial type bounds for one inference variable as per JLS8 sect 18.1.3.
+	 */
+	TypeBound[] getTypeBounds(InferenceVariable variable, InferenceContext18 context) {
         // JLS8 sect 18.1.3:
 		int n = boundsCount();
         if (n == 0)
         	return NO_TYPE_BOUNDS;
         TypeBound[] bounds = new TypeBound[n];
-        bounds[0] = TypeBound.createBoundOrDependency(context, this.firstBound, parameters, variable, idx);
-       	boolean hasBound = bounds[0].isBound();
+        bounds[0] = TypeBound.createBoundOrDependency(context, this.firstBound, variable);
         int ifcOffset = (this.firstBound == this.superclass) ? -1 : 0;
-        for (int i = 1; i < n; i++) {
-			bounds[i] = TypeBound.createBoundOrDependency(context, this.superInterfaces[i+ifcOffset], parameters, variable, idx);
-			hasBound |= bounds[i].isBound();
-		}
-        if (!hasBound) {
-        	System.arraycopy(bounds, 0, bounds = new TypeBound[n+1], 0, n);
-        	bounds[n] = new TypeBound(variable, context.object, ReductionResult.SUBTYPE);
-        }
+        for (int i = 1; i < n; i++)
+			bounds[i] = TypeBound.createBoundOrDependency(context, this.superInterfaces[i+ifcOffset], variable);
         return bounds;
 	}
 

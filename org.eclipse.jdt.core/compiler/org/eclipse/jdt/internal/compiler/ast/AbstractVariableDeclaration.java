@@ -20,6 +20,7 @@ import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
+import org.eclipse.jdt.internal.compiler.lookup.Scope;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 
 public abstract class AbstractVariableDeclaration extends Statement implements InvocationSite, ExpressionContext {
@@ -65,7 +66,7 @@ public abstract class AbstractVariableDeclaration extends Statement implements I
 	 */
 	public abstract int getKind();
 
-	public InferenceContext18 inferenceContext() {
+	public InferenceContext18 inferenceContext(Scope scope) {
 		// FIXME Auto-generated method stub
 		return null;
 	}

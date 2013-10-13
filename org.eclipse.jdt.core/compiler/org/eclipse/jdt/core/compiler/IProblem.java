@@ -1788,4 +1788,7 @@ void setSourceStart(int sourceStart);
 	int IllegalStrictfpForAbstractInterfaceMethod = MethodRelated + 1057;
 	/** @since 3.9 BETA_JAVA8 */
 	int IllegalDefaultModifierSpecification = MethodRelated + 1058;
+
+	/** @since 3.9 BETA_JAVA8 */
+	int GenericInferenceError = 1100; 	// FIXME: be more specific
 }

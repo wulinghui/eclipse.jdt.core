@@ -9866,4 +9866,9 @@ public void disallowedTargetForContainerAnnotation(Annotation annotation, TypeBi
 		annotation.sourceStart,
 		annotation.sourceEnd);
 }
+
+public void genericInferenceError(String message, InvocationSite invocationSite) {
+	String[] args = new String[]{message};
+	this.handle( IProblem.GenericInferenceError, args, args, invocationSite.sourceStart(), invocationSite.sourceEnd());	
+}
 }

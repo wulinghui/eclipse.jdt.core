@@ -21,27 +21,18 @@ public class TypeBound extends ReductionResult {
 	
 	InferenceVariable left;
 	
-	static TypeBound createBoundOrDependency(InferenceContext18 context, TypeBinding type, TypeBinding[] parameters, InferenceVariable variable, int idx) {
+	static TypeBound createBoundOrDependency(InferenceContext18 context, TypeBinding type, InferenceVariable variable) {
         // Part of JLS8 sect 18.1.3:
-		if (type.mentionsAny(parameters, idx))
-			return new TypeBound(context.environment, type, context.inferenceVariables, idx, SUBTYPE);
-		else
-			return new TypeBound(variable, context.substitute(type), SUBTYPE);		
+		return new TypeBound(variable, context.substitute(type), SUBTYPE);
 	}
 
-	/** Create a true type bound. */
+	/** Create a true type bound or a dependency. */
 	TypeBound(InferenceVariable inferenceVariable, TypeBinding typeBinding, int relation) {
 		this.left = inferenceVariable;
 		this.right = typeBinding;
 		this.relation = relation;
 	}
 
-	/** Create a type dependency. */
-	private TypeBound(LookupEnvironment env, TypeBinding type, InferenceVariable[] variables, int idx, int relation) {
-		this.left = variables[idx];
-		this.right = Scope.substitute(new InferenceSubstitution(env, variables), type);
-		this.relation = relation;
-	}
 
 	/** distinguish bounds from dependencies. */
 	boolean isBound() {

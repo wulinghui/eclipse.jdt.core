@@ -15,23 +15,16 @@
 package org.eclipse.jdt.internal.compiler.lookup;
 
 /**
- * Implementation of 18.1.2 in JLS8
+ * Thrown when a definite compile error is detected deep within the type inference.
  */
-abstract class ConstraintFormula extends ReductionResult {
+public class InferenceFailureException extends Exception {
 
-	public abstract Object reduce(InferenceContext18 inferenceContext) throws InferenceFailureException;
+	private static final long serialVersionUID = 1L;
 
-	/** 5.3: compatibility check which includes the option of boxing/unboxing. */
-	protected boolean isCompatibleWithInLooseInvocationContext(TypeBinding one, TypeBinding two, InferenceContext18 context) {
-		if (one.isCompatibleWith(two, context.scope))
-			return true;
-		if (one.isBaseType()) {
-			if (one != TypeBinding.NULL && !two.isBaseType())
-				return context.environment.computeBoxingType(one) != one;
-		} else if (two.isBaseType() && two != TypeBinding.NULL) {
-			return context.environment.computeBoxingType(two) != two;
-		}
-		return false;
+	// TODO(stephan); add more details so that ProblemReported can eventually manufacture an appropriate message
+	
+	public InferenceFailureException(String message) {
+		super(message);
 	}
-
+	
 }

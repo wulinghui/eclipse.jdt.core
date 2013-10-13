@@ -3954,7 +3954,7 @@ public abstract class Scope {
 			public int sourceEnd() { return invocationSite.sourceStart(); }
 			public TypeBinding expectedType() { return invocationSite.expectedType(); }
 			public boolean receiverIsImplicitThis() { return invocationSite.receiverIsImplicitThis();}
-			public InferenceContext18 inferenceContext() {
+			public InferenceContext18 inferenceContext(Scope scope) {
 				// FIXME Auto-generated method stub
 				return null;
 			}

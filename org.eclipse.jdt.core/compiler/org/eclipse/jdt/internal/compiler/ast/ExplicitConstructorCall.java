@@ -40,6 +40,7 @@ import org.eclipse.jdt.internal.compiler.lookup.MethodScope;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.RawTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
+import org.eclipse.jdt.internal.compiler.lookup.Scope;
 import org.eclipse.jdt.internal.compiler.lookup.SourceTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TagBits;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
@@ -192,7 +193,7 @@ public class ExplicitConstructorCall extends Statement implements InvocationSite
 		return this.genericTypeArguments;
 	}
 
-	public InferenceContext18 inferenceContext() {
+	public InferenceContext18 inferenceContext(Scope scope) {
 		return this.inferenceContext;
 	}
 
@@ -423,7 +424,7 @@ public class ExplicitConstructorCall extends Statement implements InvocationSite
 			if (receiverType == null) {
 				return;
 			}
-			this.inferenceContext = new InferenceContext18(scope, this.arguments, this.genericTypeArguments);
+			this.inferenceContext = new InferenceContext18(scope, this.arguments);
 			this.binding = scope.getConstructor(receiverType, argumentTypes, this);
 			if (polyExpressionSeen && polyExpressionsHaveErrors(scope, this.binding, this.arguments, argumentTypes))
 				return;

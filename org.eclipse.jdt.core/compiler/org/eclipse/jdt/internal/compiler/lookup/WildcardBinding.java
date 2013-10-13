@@ -463,28 +463,6 @@ public class WildcardBinding extends ReferenceBinding {
         return this.genericSignature;
     }
 
-	TypeBound[] getTypeBounds(TypeBinding[] parameters, InferenceVariable variable, int idx, InferenceContext18 context) {
-		int relation = 0;
-        switch (this.boundKind) {
-            case Wildcard.SUPER :
-                relation = ReductionResult.SUPERTYPE;
-                break;
-            case Wildcard.EXTENDS :
-                relation = ReductionResult.SUBTYPE;
-				break;
-			default: // UNBOUND
-			    return NO_TYPE_BOUNDS;
-        }
-        int n = this.otherBounds == null ? 1 : this.otherBounds.length+1;
-        TypeBound[] bounds = new TypeBound[n];
-        InferenceVariable inferenceVariable = context.createInferenceVariable(this);
-        bounds[0] = new TypeBound(inferenceVariable, this.bound, relation);
-        for (int i = 1; i < n; i++) {
-			bounds[i] = new TypeBound(inferenceVariable, this.otherBounds[i-1], relation);
-		}
-        return bounds;
-	}
-
 	public int hashCode() {
 		return this.genericType.hashCode();
 	}

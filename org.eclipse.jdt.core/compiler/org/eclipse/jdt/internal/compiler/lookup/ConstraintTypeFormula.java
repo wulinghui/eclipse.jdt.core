@@ -65,7 +65,7 @@ class ConstraintTypeFormula extends ConstraintFormula {
 			return reduceTypeEquality();
 		case TYPE_ARGUMENT_CONTAINED:
 			// 18.2.3:
-			if (this.right.kind() != Binding.WILDCARD_TYPE) {
+			if (this.right.kind() != Binding.WILDCARD_TYPE) { // "If T is a type" ... all alternatives require "wildcard"
 				if (this.left.kind() != Binding.WILDCARD_TYPE) {
 					return new ConstraintTypeFormula(this.left, this.right, SUBTYPE);						
 				} else {
@@ -99,8 +99,8 @@ class ConstraintTypeFormula extends ConstraintFormula {
 					}
 				}
 			}
+		default: throw new IllegalStateException("Unexpected relation kind "+this.relation); //$NON-NLS-1$
 		}
-		return this;
 	}
 
 	private Object reduceTypeEquality() {
@@ -114,14 +114,14 @@ class ConstraintTypeFormula extends ConstraintFormula {
 				if ((leftWC.boundKind == Wildcard.EXTENDS && rightWC.boundKind == Wildcard.EXTENDS)
 					||(leftWC.boundKind == Wildcard.SUPER && rightWC.boundKind == Wildcard.SUPER))
 				{
-					return new ConstraintTypeFormula(leftWC.bound, rightWC.bound, SAME); // TODO more bounds?
+					return new ConstraintTypeFormula(leftWC.bound, rightWC.bound, SAME);
 				}						
 			}
 		} else {
 			if (this.right.kind() != Binding.WILDCARD_TYPE) {
-				// left and right are types
+				// left and right are types (vs. wildcards)
 				if (this.left.isProperType() && this.right.isProperType()) {
-					if (this.left == this.right)
+					if (TypeBinding.equalsEquals(this.left, this.right))
 						return TRUE;
 					return FALSE;
 				}
@@ -131,11 +131,15 @@ class ConstraintTypeFormula extends ConstraintFormula {
 				if (this.right instanceof InferenceVariable) {
 					return new TypeBound((InferenceVariable) this.right, this.left, SAME);
 				}
-				if (this.left.original() == this.right.original()) {
-					throw new UnsupportedOperationException("NYI");
+				if (TypeBinding.equalsEquals(this.left.original(), this.right.original())) {
+					InferenceContext18.missingImplementation("NYI");
 				}
 				if (this.left.isArrayType() && this.right.isArrayType() && this.left.dimensions() == this.right.dimensions()) {
+					// checking dimensions already now is an optimization over reducing one dim at a time
 					return new ConstraintTypeFormula(this.left.leafComponentType(), this.right.leafComponentType(), SAME);
+				}
+				if (this.left.kind() == Binding.INTERSECTION_TYPE && this.right.kind() == Binding.INTERSECTION_TYPE) {
+					InferenceContext18.missingImplementation("Intersection type equality NYI");
 				}
 			}
 		}
@@ -155,59 +159,71 @@ class ConstraintTypeFormula extends ConstraintFormula {
 			return new TypeBound((InferenceVariable)superCandidate, subCandidate, SUPERTYPE); // normalize to have variable on LHS
 		if (subCandidate.id == TypeIds.T_null)
 			return TRUE;
-		ReferenceBinding c;
 		switch (superCandidate.kind()) {
 			case Binding.GENERIC_TYPE:
 			case Binding.TYPE:
 			case Binding.RAW_TYPE: // TODO: check special handling of raw types?
-				c = (ReferenceBinding) superCandidate;
-				if (subCandidate instanceof ReferenceBinding) {
-					ReferenceBinding s = (ReferenceBinding) subCandidate;
-					if (s.original() == c)
-						return TRUE;
-					if (s.superclass() == c)
-						return TRUE;
-					ReferenceBinding[] superInterfaces = s.superInterfaces();
-					if (superInterfaces != null) {
-						for (int i=0, l=superInterfaces.length; i<l; i++)
-							if (superInterfaces[i] == c)
-								return TRUE;
+				{
+					ReferenceBinding c = (ReferenceBinding) superCandidate;
+					if (subCandidate instanceof ReferenceBinding) {
+						ReferenceBinding s = (ReferenceBinding) subCandidate;
+						if (TypeBinding.equalsEquals(s.original(), c))
+							return TRUE;
+						if (TypeBinding.equalsEquals(s.superclass(), c))
+							return TRUE;
+						ReferenceBinding[] superInterfaces = s.superInterfaces();
+						if (superInterfaces != null) {
+							for (int i=0, l=superInterfaces.length; i<l; i++)
+								if (TypeBinding.equalsEquals(superInterfaces[i], c))
+									return TRUE;
+						}
 					}
-				}
-				return FALSE;
-			case Binding.ARRAY_TYPE:
-				// FIXME: WTF?
-				// let S'[] be the most specific array type that is a supertype of S (or S itself)
-				if (subCandidate.kind() != Binding.ARRAY_TYPE)
 					return FALSE;
-				ArrayBinding subArray = (ArrayBinding) subCandidate;				
-				TypeBinding superElement = ((ArrayBinding)superCandidate).elementsType();
-				TypeBinding subElement = subArray.leafComponentType();
-				if (!superElement.isBaseType() && !subElement.isBaseType()) {
-					return new ConstraintTypeFormula(subElement, superElement, SUBTYPE);
 				}
-				return superElement == subElement ? TRUE : FALSE;
 			case Binding.PARAMETERIZED_TYPE:
-				TypeBinding[] superArgs = ((ParameterizedTypeBinding) superCandidate).arguments;
-				TypeBinding substitutedSuper = subCandidate.findSuperTypeOriginatingFrom(superCandidate); // C<B1,B2,...>
-				if (substitutedSuper == null || substitutedSuper.isRawType()) return FALSE;
-				TypeBinding[] substitutedArgs = ((ParameterizedTypeBinding) substitutedSuper).arguments;
-//				// BEGIN GUESS WORK:
-//				if (superArgs == null || subArgs == null || superArgs.length != subArgs.length) {
-//					if (substitutedSub.isRawType()) {
-//						// FIXME: this integration is not yet sanctioned by the spec (0.6.2)
-//						return inferUncheckedConversion(scope, substitutedSub, superCandidate);
-//					}
-//					// bail out only if our guess work produced a useless result
-//					InferenceContext18.missingImplementation(InferenceContext18.JLS_18_2_3_INCOMPLETE_TO_DEFINE_THE_PARAMETERIZATION_OF_A_CLASS_C_FOR_A_TYPE_T);
-//					return FALSE; // TODO
-//				}
-//				// END GUESS WORK
-				ConstraintFormula[] results = new ConstraintFormula[superArgs.length];
-				for (int i = 0; i < superArgs.length; i++) {
-					results[i] = new ConstraintTypeFormula(substitutedArgs[i], superArgs[i], TYPE_ARGUMENT_CONTAINED);
+				{
+					ParameterizedTypeBinding ca = (ParameterizedTypeBinding) superCandidate;	// C<A1,A2,...>
+					TypeBinding[] ai = ca.arguments;
+					TypeBinding cb = subCandidate.findSuperTypeOriginatingFrom(superCandidate);	// C<B1,B2,...>
+					if (cb == null || cb.isRawType()) return FALSE;
+					TypeBinding[] bi = ((ParameterizedTypeBinding) cb).arguments;
+					ConstraintFormula[] results = new ConstraintFormula[ai.length];
+					for (int i = 0; i < ai.length; i++)
+						results[i] = new ConstraintTypeFormula(bi[i], ai[i], TYPE_ARGUMENT_CONTAINED);
+					return results;
 				}
-				return results;
+			case Binding.ARRAY_TYPE:
+				TypeBinding tPrime = ((ArrayBinding)superCandidate).elementsType();
+				// let S'[] be the most specific array type that is a supertype of S (or S itself)
+				ArrayBinding sPrimeArray = null;
+				switch(subCandidate.kind()) {
+				case Binding.INTERSECTION_TYPE:
+					{
+						WildcardBinding intersection = (WildcardBinding) subCandidate;
+						int numArrayBounds = 0;
+						if (intersection.bound.isArrayType()) numArrayBounds++;
+						for (int i = 0; i < intersection.otherBounds.length; i++) {
+							if (intersection.otherBounds[i].isArrayType()) numArrayBounds++;
+						}
+						if (numArrayBounds == 0)
+							return FALSE;
+						InferenceContext18.missingImplementation("Cannot filter most specific array type");
+						// FIXME assign sPrime
+						break;
+					}
+				case Binding.ARRAY_TYPE:
+					sPrimeArray = (ArrayBinding) subCandidate;
+					break;
+				default:					
+					return FALSE;
+				}
+				TypeBinding sPrime = sPrimeArray.elementsType();
+				if (!tPrime.isBaseType() && !sPrime.isBaseType()) {
+					return new ConstraintTypeFormula(sPrime, tPrime, SUBTYPE);
+				}
+				return TypeBinding.equalsEquals(tPrime, sPrime) ? TRUE : FALSE; // same primitive type?
+
+			// "type variable" has two implementations in JDT:
 			case Binding.WILDCARD_TYPE:
 				// TODO If S is an intersection type of which T is an element, the constraint reduces to true. 
 				if (subCandidate.kind() == Binding.INTERSECTION_TYPE)
@@ -225,10 +241,12 @@ class ConstraintTypeFormula extends ConstraintFormula {
 			case Binding.INTERSECTION_TYPE:
 				InferenceContext18.missingImplementation("NYI");
 		}
-		return this;// TODO
+		if (superCandidate.id == TypeIds.T_null)
+			return FALSE;
+		throw new IllegalStateException("Unexpected RHS "+superCandidate); //$NON-NLS-1$
 	}
 
-	private Object inferUncheckedConversion(Scope scope, TypeBinding subCandidate, TypeBinding superCandidate) {
+	private Object inferUncheckedConversion(Scope scope, TypeBinding subCandidate, TypeBinding superCandidate) throws InferenceFailureException {
 		// 18.5.5
 		ReferenceBinding subOriginal = (ReferenceBinding) subCandidate.original();
 		TypeVariableBinding[] typeVariables = subOriginal.typeVariables();
@@ -241,7 +259,7 @@ class ConstraintTypeFormula extends ConstraintFormula {
 		if (s1.isCompatibleWith(superCandidate))
 			return TRUE;
 		
-		InferenceContext18 infCtx18 = new InferenceContext18(scope, null, null);
+		InferenceContext18 infCtx18 = new InferenceContext18(scope, null);
 		typeParameters = infCtx18.createInitialBoundSet(typeVariables); // creates initial bound set B
 		ReferenceBinding s2 = scope.environment().createParameterizedType(subOriginal, typeParameters, subOriginal.enclosingType());
 		infCtx18.setInitialConstraint(new ConstraintTypeFormula(s2, superCandidate, ReductionResult.SUBTYPE));

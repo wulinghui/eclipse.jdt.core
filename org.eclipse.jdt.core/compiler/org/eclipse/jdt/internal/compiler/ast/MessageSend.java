@@ -99,7 +99,6 @@ public class MessageSend extends Expression implements InvocationSite {
 	public TypeReference[] typeArguments;
 	public TypeBinding[] genericTypeArguments;
 	private ExpressionContext expressionContext = VANILLA_CONTEXT;
-	private InferenceContext18 inferenceContext;
 
 public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo) {
 	boolean nonStatic = !this.binding.isStatic();
@@ -453,8 +452,8 @@ public TypeBinding[] genericTypeArguments() {
 	return this.genericTypeArguments;
 }
 
-public InferenceContext18 inferenceContext() {
-	return this.inferenceContext;
+public InferenceContext18 inferenceContext(Scope scope) {
+	return new InferenceContext18(scope, this.arguments);
 }
 
 public boolean isSuperAccess() {
@@ -675,9 +674,6 @@ public TypeBinding resolveType(BlockScope scope) {
 		scope.problemReporter().errorNoMethodFor(this, this.actualReceiverType, argumentTypes);
 		return null;
 	}
-	// FIXME: calculate this flag:
-	this.isPolyExpression = true;
-	this.inferenceContext = new InferenceContext18(scope, this.arguments, this.genericTypeArguments);
 
 	this.binding = this.receiver.isImplicitThis()
 			? scope.getImplicitMethod(this.selector, argumentTypes, this)

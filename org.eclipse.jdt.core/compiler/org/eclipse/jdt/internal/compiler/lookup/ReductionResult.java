@@ -29,7 +29,7 @@ public abstract class ReductionResult {
 		public String toString() { return "FALSE"; } //$NON-NLS-1$
 	};
 	
-	// Relation kinds, mimic and enum:
+	// Relation kinds, mimic an enum:
 	protected static final int COMPATIBLE = 1;
 	protected static final int SUBTYPE = 2;
 	protected static final int SUPERTYPE = 3;

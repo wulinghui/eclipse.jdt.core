@@ -15,6 +15,7 @@ import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
+import org.eclipse.jdt.internal.compiler.lookup.Scope;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 
 /**
@@ -40,7 +41,7 @@ public TypeBinding resolveType(BlockScope scope) {
 	scope.problemReporter().cannotUseSuperInCodeSnippet(this.sourceStart, this.sourceEnd);
 	return null;
 }
-public InferenceContext18 inferenceContext() {
+public InferenceContext18 inferenceContext(Scope scope) {
 	// FIXME Auto-generated method stub
 	return null;
 }

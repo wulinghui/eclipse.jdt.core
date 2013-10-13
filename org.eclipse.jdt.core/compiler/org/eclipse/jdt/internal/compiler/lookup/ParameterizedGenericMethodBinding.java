@@ -59,36 +59,43 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 			// initializes the map of substitutes (var --> type[][]{ equal, extends, super}
 			TypeBinding[] parameters = originalMethod.parameters;
 // 1.8
-			InferenceContext18 infCtx18 = invocationSite.inferenceContext();
+			InferenceContext18 infCtx18 = invocationSite.inferenceContext(scope);
 			if (infCtx18 != null) {
-				// 18.5.1
-				infCtx18.createInitialBoundSet(typeVariables); // creates initial bound set B
-				infCtx18.createInitialConstraintsForParameters(parameters);
-//				if (invocationSite.isPolyExpression()) TODO
-				BoundSet result = infCtx18.solve();
-				if (result != null && (infCtx18.isResolved(result) || infCtx18.hasUnprocessedConstraints(result))) {
-					infCtx18.createInitialConstraintsForTargetType(originalMethod.returnType, invocationSite.expectedType());
-					boolean hasReturnProblem = false;
-					if (infCtx18.hasUnprocessedConstraints(result)) {
+				// 18.5.1 (Applicability):
+				infCtx18.inferInvocationApplicability(originalMethod, arguments);
+				try {
+					BoundSet result = infCtx18.solve();
+					if (result != null /*&& infCtx18.isResolved(result)*/) { // FIXME(stephan): second condition breaks BatchCompilerTest.test032
+						// 18.5.2 (Invocation type):
 						BoundSet provisionalResult = infCtx18.purgeInstantiations();
-						result = infCtx18.solve();
-						if (result == null) {
-							hasReturnProblem = true;
-							result = provisionalResult; // we prefer a type error regarding the return type over reporting no match at all
+						boolean hasReturnProblem = false;
+						TypeBinding expectedType = invocationSite.expectedType();
+						if (expectedType != null
+								&& expectedType != TypeBinding.VOID) 
+						{
+							if (infCtx18.inferPolyInvocationType(invocationSite, originalMethod)) {
+								result = infCtx18.solve();
+								if (result == null) {
+									hasReturnProblem = true;
+									result = provisionalResult; // we prefer a type error regarding the return type over reporting no match at all
+								}
+							}
 						}
-					}
-					TypeBinding[] solutions = infCtx18.getSolutions(typeVariables, result);
-					if (solutions != null) {
-						ParameterizedGenericMethodBinding parameterizedMethod = scope.environment().createParameterizedGenericMethod(originalMethod, solutions);
-						if (hasReturnProblem) {
-							ProblemMethodBinding problemMethod = new ProblemMethodBinding(parameterizedMethod, parameterizedMethod.selector, parameters, ProblemReasons.ParameterizedMethodExpectedTypeProblem);
-							problemMethod.returnType = invocationSite.expectedType();
-							return problemMethod;
+						TypeBinding[] solutions = infCtx18.getSolutions(typeVariables, result);
+						if (solutions != null) {
+							ParameterizedGenericMethodBinding parameterizedMethod = scope.environment().createParameterizedGenericMethod(originalMethod, solutions);
+							if (hasReturnProblem) {
+								ProblemMethodBinding problemMethod = new ProblemMethodBinding(parameterizedMethod, parameterizedMethod.selector, parameters, ProblemReasons.ParameterizedMethodExpectedTypeProblem);
+								problemMethod.returnType = invocationSite.expectedType();
+								return problemMethod;
+							}
+							return parameterizedMethod;
 						}
-						return parameterizedMethod;
+					} else {
+						return null;
 					}
-				} else {
-					return null;
+				} catch (InferenceFailureException e) {
+					scope.problemReporter().genericInferenceError(e.getMessage(), invocationSite);
 				}
 			}
 // 1.8

@@ -23,6 +23,7 @@ import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
+import org.eclipse.jdt.internal.compiler.lookup.Scope;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 
 /**
@@ -93,7 +94,7 @@ public void generateStoreSaveValueIfNecessary(CodeStream codeStream){
 public TypeBinding[] genericTypeArguments() {
 	return null;
 }
-public InferenceContext18 inferenceContext() {
+public InferenceContext18 inferenceContext(Scope scope) {
 	// FIXME Auto-generated method stub
 	return null;
 }
