@@ -13,22 +13,15 @@
  *     IBM Corporation - initial API and implementation
  *     Benjamin Muskalla - Contribution for bug 239066
  *     Stephan Herrmann - Contribution for
-<<<<<<< BETA_JAVA8
- *     								bug 382347 - [1.8][compiler] Compiler accepts incorrect default method inheritance
- *									bug 388954 - [1.8][compiler] detect default methods in class files
- *									bug 388281 - [compiler][null] inheritance of null annotations as an option
- *									bug 388739 - [1.8][compiler] consider default methods when detecting whether a class needs to be declared abstract
- *									bug 390883 - [1.8][compiler] Unable to override default method
- *									bug 401796 - [1.8][compiler] don't treat default methods as overriding an independent inherited abstract method
- *									bug 388281 - [compiler][null] inheritance of null annotations as an option
- *									bug 395681 - [compiler] Improve simulation of javac6 behavior from bug 317719 after fixing bug 388795
- *									bug 406928 - computation of inherited methods seems damaged (affecting @Overrides)
-=======
+ *     							bug 382347 - [1.8][compiler] Compiler accepts incorrect default method inheritance
+ *								bug 388954 - [1.8][compiler] detect default methods in class files
  *								bug 388281 - [compiler][null] inheritance of null annotations as an option
+ *								bug 388739 - [1.8][compiler] consider default methods when detecting whether a class needs to be declared abstract
+ *								bug 390883 - [1.8][compiler] Unable to override default method
+ *								bug 401796 - [1.8][compiler] don't treat default methods as overriding an independent inherited abstract method
  *								bug 395681 - [compiler] Improve simulation of javac6 behavior from bug 317719 after fixing bug 388795
  *								bug 406928 - computation of inherited methods seems damaged (affecting @Overrides)
  *								bug 409473 - [compiler] JDT cannot compile against JRE 1.8
->>>>>>> 760ef9b Fix for bug 409473 - [compiler] JDT cannot compile against JRE 1.8
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -49,7 +42,6 @@ public abstract class MethodVerifier extends ImplicitNullAnnotationVerifier {
 	SourceTypeBinding type;
 	HashtableOfObject inheritedMethods;
 	HashtableOfObject currentMethods;
-	LookupEnvironment environment;
 	/*
 Binding creation is responsible for reporting all problems with types:
 	- all modifier problems (duplicates & multiple visibility modifiers + incompatible combinations - abstract/final)
@@ -68,11 +60,10 @@ Binding creation is responsible for reporting all problems with types:
 		- defining an interface as a local type (local types can only be classes)
 */
 MethodVerifier(LookupEnvironment environment) {
-	super(environment.globalOptions);
+	super(environment);
 	this.type = null;  // Initialized with the public method verify(SourceTypeBinding)
 	this.inheritedMethods = null;
 	this.currentMethods = null;
-	this.environment = environment;
 }
 boolean areMethodsCompatible(MethodBinding one, MethodBinding two) {
 	return areMethodsCompatible(one, two, this.environment);
@@ -703,31 +694,26 @@ static MethodBinding computeSubstituteMethod(MethodBinding inheritedMethod, Meth
 		environment.createParameterizedGenericMethod(inheritedMethod, arguments);
 	for (int i = 0; i < inheritedLength; i++) {
 		TypeVariableBinding inheritedTypeVariable = inheritedTypeVariables[i];
-		TypeBinding argument = arguments[i];
-		if (argument instanceof TypeVariableBinding) {
-			TypeVariableBinding typeVariable = (TypeVariableBinding) argument;
-			if (typeVariable.firstBound == inheritedTypeVariable.firstBound) {
-				if (typeVariable.firstBound == null)
-					continue; // both are null
-			} else if (typeVariable.firstBound != null && inheritedTypeVariable.firstBound != null) {
-				if (typeVariable.firstBound.isClass() != inheritedTypeVariable.firstBound.isClass())
-					return inheritedMethod; // not a match
-			}
-			if (Scope.substitute(substitute, inheritedTypeVariable.superclass) != typeVariable.superclass)
+		TypeVariableBinding typeVariable = (TypeVariableBinding) arguments[i]; // cast is safe by construction: arguments is copied from TypeVariableBinding[]
+		if (typeVariable.firstBound == inheritedTypeVariable.firstBound) {
+			if (typeVariable.firstBound == null)
+				continue; // both are null
+		} else if (typeVariable.firstBound != null && inheritedTypeVariable.firstBound != null) {
+			if (typeVariable.firstBound.isClass() != inheritedTypeVariable.firstBound.isClass())
 				return inheritedMethod; // not a match
-			int interfaceLength = inheritedTypeVariable.superInterfaces.length;
-			ReferenceBinding[] interfaces = typeVariable.superInterfaces;
-			if (interfaceLength != interfaces.length)
-				return inheritedMethod; // not a match
-			next : for (int j = 0; j < interfaceLength; j++) {
-				TypeBinding superType = Scope.substitute(substitute, inheritedTypeVariable.superInterfaces[j]);
-				for (int k = 0; k < interfaceLength; k++)
-					if (superType == interfaces[k])
-						continue next;
-				return inheritedMethod; // not a match
-			}
-		} else if (inheritedTypeVariable.boundCheck(substitute, argument, null) != TypeConstants.OK) {
-	    	return inheritedMethod;
+		}
+		if (Scope.substitute(substitute, inheritedTypeVariable.superclass) != typeVariable.superclass)
+			return inheritedMethod; // not a match
+		int interfaceLength = inheritedTypeVariable.superInterfaces.length;
+		ReferenceBinding[] interfaces = typeVariable.superInterfaces;
+		if (interfaceLength != interfaces.length)
+			return inheritedMethod; // not a match
+		next : for (int j = 0; j < interfaceLength; j++) {
+			TypeBinding superType = Scope.substitute(substitute, inheritedTypeVariable.superInterfaces[j]);
+			for (int k = 0; k < interfaceLength; k++)
+				if (superType == interfaces[k])
+					continue next;
+			return inheritedMethod; // not a match
 		}
 	}
    return substitute;

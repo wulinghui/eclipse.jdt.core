@@ -11,6 +11,9 @@
  *
  * Contributors:
  *     Stephan Herrmann - initial API and implementation
+ *     Till Brychcy <register.eclipse@brychcy.de> - Contribution for
+ *								Bug 415413 - [compiler][null] NullpointerException in Null Analysis caused by interaction of LoopingFlowContext and FinallyFlowContext
+ *								Bug 415269 - [compiler][null] NonNullByDefault is not always inherited to nested classes
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -6444,6 +6447,210 @@ public void testBug417295_7() {
 		"	aann.s3 = null;\n" + 
 		"	          ^^^^\n" + 
 		"Null type mismatch: required \'@NonNull String\' but the provided value is null\n" + 
+			"----------\n");
+}		
+// Bug 415413 - [compiler][null] NullpointerException in Null Analysis caused by interaction of LoopingFlowContext and FinallyFlowContext
+public void testBug415413() {
+	Map options = getCompilerOptions();
+	runNegativeTestWithLibs(
+		new String[]{
+			"ClassF.java",		
+			"import org.eclipse.jdt.annotation.NonNull;\n" + 
+			"public class ClassF {\n" + 
+			"  public static void needNonNull(@NonNull Object o) {\n" + 
+			"    o.hashCode();\n" + 
+			"  }\n" + 
+			"  public void method() {\n" + 
+			"    for (int j = 0; j < 1; j++) {\n" + 
+			"      try {\n" + 
+			"        this.hashCode();\n" + 
+			"      } finally {\n" + 
+			"        for (int i = 0; i < 1; i++) {\n" + 
+			"          Object o = null;\n" + 
+			"          needNonNull(o);\n" + 
+			"        }\n" + 
+			"      }\n" + 
+			"    }\n" + 
+			"  }\n" + 
+			"}\n"
+		}, 
+		options,
+		"----------\n" + 
+		"1. ERROR in ClassF.java (at line 13)\n" + 
+		"	needNonNull(o);\n" + 
+		"	            ^\n" + 
+		"Null type mismatch: required \'@NonNull Object\' but the provided value is inferred as @Nullable\n" + 
 		"----------\n");
+}
+// Bug 415413 - [compiler][null] NullpointerException in Null Analysis caused by interaction of LoopingFlowContext and FinallyFlowContext
+// Variant: non-null before the loop and at the end of the loop body
+public void testBug415413a() {
+ Map options = getCompilerOptions();
+ runConformTestWithLibs(
+     new String[]{
+         "ClassF.java",      
+         "import org.eclipse.jdt.annotation.NonNull;\n" + 
+         "public class ClassF {\n" + 
+         "  public static void needNonNull(@NonNull Object o) {\n" + 
+         "    o.hashCode();\n" + 
+         "  }\n" + 
+         "  public void method() {\n" + 
+         "    for (int j = 0; j < 1; j++) {\n" + 
+         "      try {\n" + 
+         "        this.hashCode();\n" + 
+         "      } finally {\n" + 
+         "        Object o = new Object();\n" + 
+         "        for (int i = 0; i < 1; i++) {\n" + 
+         "          needNonNull(o);\n" +
+         "          o = new Object();\n" + 
+         "        }\n" + 
+         "      }\n" + 
+         "    }\n" + 
+         "  }\n" + 
+         "}\n"
+     }, 
+     options,
+     "");
+}
+// Bug 415413 - [compiler][null] NullpointerException in Null Analysis caused by interaction of LoopingFlowContext and FinallyFlowContext
+// Variant: null before the loop and non-null at the end of the loop body
+public void testBug415413b() {
+ Map options = getCompilerOptions();
+ runNegativeTestWithLibs(
+     new String[]{
+         "ClassF.java",      
+         "import org.eclipse.jdt.annotation.NonNull;\n" + 
+         "public class ClassF {\n" + 
+         "  public static void needNonNull(@NonNull Object o) {\n" + 
+         "    o.hashCode();\n" + 
+         "  }\n" + 
+         "  public void method() {\n" + 
+         "    for (int j = 0; j < 1; j++) {\n" + 
+         "      try {\n" + 
+         "        this.hashCode();\n" + 
+         "      } finally {\n" + 
+         "        Object o = null;\n" + 
+         "        for (int i = 0; i < 1; i++) {\n" + 
+         "          needNonNull(o);\n" +
+         "          o = new Object();\n" + 
+         "        }\n" + 
+         "      }\n" + 
+         "    }\n" + 
+         "  }\n" + 
+         "}\n"
+     }, 
+     options,
+     "----------\n" + 
+     "1. ERROR in ClassF.java (at line 13)\n" + 
+     "	needNonNull(o);\n" + 
+     "	            ^\n" + 
+     "Null type mismatch: required \'@NonNull Object\' but the provided value is inferred as @Nullable\n" + 
+     "----------\n");
+}
+// Bug 415413 - [compiler][null] NullpointerException in Null Analysis caused by interaction of LoopingFlowContext and FinallyFlowContext
+// Variant: non-null before the loop and null at the end of the loop body
+public void testBug415413c() {
+ Map options = getCompilerOptions();
+ runNegativeTestWithLibs(
+     new String[]{
+         "ClassF.java",      
+         "import org.eclipse.jdt.annotation.NonNull;\n" + 
+         "public class ClassF {\n" + 
+         "  public static void needNonNull(@NonNull Object o) {\n" + 
+         "    o.hashCode();\n" + 
+         "  }\n" + 
+         "  public void method() {\n" + 
+         "    for (int j = 0; j < 1; j++) {\n" + 
+         "      try {\n" + 
+         "        this.hashCode();\n" + 
+         "      } finally {\n" + 
+         "        Object o = new Object();\n" + 
+         "        for (int i = 0; i < 1; i++) {\n" + 
+         "          needNonNull(o);\n" +
+         "          o = null;\n" + 
+         "        }\n" + 
+         "      }\n" + 
+         "    }\n" + 
+         "  }\n" + 
+         "}\n"
+     }, 
+     options,
+     "----------\n" + 
+     "1. ERROR in ClassF.java (at line 13)\n" + 
+     "	needNonNull(o);\n" + 
+     "	            ^\n" + 
+     "Null type mismatch: required \'@NonNull Object\' but the provided value is inferred as @Nullable\n" + 
+     "----------\n");
+}
+public void testBug_415269() {
+	Map options = getCompilerOptions();
+	runConformTestWithLibs(
+		new String[]{
+			"Y.java",
+			"import org.eclipse.jdt.annotation.NonNull;\n"+
+			"public class Y {\n"+
+			"  public static class C implements X.I {\n"+
+			"    public void method(@NonNull Object arg) {\n"+
+			"    }\n"+
+			"  }\n"+
+			"}\n",
+			"X.java",
+			"import org.eclipse.jdt.annotation.NonNullByDefault;\n"+
+			"@NonNullByDefault\n"+
+			"public class X {\n"+
+			"  public interface I {\n"+
+			"    public void method(Object arg);\n"+
+			"  }\n"+
+			"}\n"
+		}, 
+		options,
+		"");
+}
+public void testBug416267() {
+	runNegativeTestWithLibs(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"	void test() {\n" +
+			"		Missing m = new Missing() { };\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 3)\n" + 
+		"	Missing m = new Missing() { };\n" + 
+		"	^^^^^^^\n" + 
+		"Missing cannot be resolved to a type\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 3)\n" + 
+		"	Missing m = new Missing() { };\n" + 
+		"	                ^^^^^^^\n" + 
+		"Missing cannot be resolved to a type\n" + 
+		"----------\n");
+}
+public void testBug418235() {
+    runNegativeTestWithLibs(
+            new String[] {
+                    "GenericInterface.java",
+                    "public interface GenericInterface<T> {\n" + 
+                    "       T doSomethingGeneric(T o);\n" + 
+                    "}",
+                    "Implementation.java",
+                    "import org.eclipse.jdt.annotation.NonNullByDefault;\n" + 
+                    "@NonNullByDefault\n" + 
+                    "public class Implementation implements GenericInterface<Object> {\n" + 
+                    "\n" + 
+                    (this.complianceLevel < ClassFileConstants.JDK1_6 ? "\n" : "      @Override\n" ) +
+                    "       public Object doSomethingGeneric(Object o) {\n" + 
+                    "               return o;\n" + 
+                    "       }\n" + 
+                    "}\n"
+            },
+            "----------\n" + 
+            "1. ERROR in Implementation.java (at line 6)\n" + 
+    		"	public Object doSomethingGeneric(Object o) {\n" + 
+    		"	                                 ^^^^^^\n" + 
+            "Illegal redefinition of parameter o, inherited method from GenericInterface<Object> does not constrain this parameter\n" + 
+            "----------\n");
 }
 }

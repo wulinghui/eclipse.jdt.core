@@ -24,6 +24,7 @@
  *								Bug 415850 - [1.8] Ensure RunJDTCoreTests can cope with null annotations enabled
  *								Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
  *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
+ *								Bug 416267 - NPE in QualifiedAllocationExpression.resolveType
  *     Jesper S Moller <jesper@selskabet.org> - Contributions for
  *								bug 378674 - "The method can be declared as static" is wrong
  *     Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
@@ -282,7 +283,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 		if(result != null && this.binding != null) {
 			final CompilerOptions compilerOptions = scope.compilerOptions();
 			if (compilerOptions.isAnnotationBasedNullAnalysisEnabled && (this.binding.tagBits & TagBits.IsNullnessKnown) == 0) {
-				new ImplicitNullAnnotationVerifier(compilerOptions.inheritNullAnnotations)
+				new ImplicitNullAnnotationVerifier(scope.environment(), compilerOptions.inheritNullAnnotations)
 						.checkImplicitNullAnnotations(this.binding, null/*srcMethod*/, false, scope);
 			}
 		}

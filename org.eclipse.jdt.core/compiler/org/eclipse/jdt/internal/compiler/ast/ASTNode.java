@@ -26,6 +26,7 @@
  *								bug 382721 - [1.8][compiler] Effectively final variables needs special treatment
  *								bug 412153 - [1.8][compiler] Check validity of annotations which may be repeatable
  *								bug 412153 - [1.8][compiler] Check validity of annotations which may be repeatable
+ *								bug 412149 - [1.8][compiler] Emit repeated annotations into the designated container
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -246,8 +247,8 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 	// for if statement
 	public static final int IsElseIfStatement = Bit30;
 	public static final int ThenExit = Bit31;
-	public static final int IsElseStatementUnreachable = Bit8;
-	public static final int IsThenStatementUnreachable = Bit9;
+	public static final int IsElseStatementUnreachable = Bit8; // as computed by control flow analysis or null analysis.
+	public static final int IsThenStatementUnreachable = Bit9; // as computed by control flow analysis or null analysis
 
 	// for type reference
 	public static final int IsSuperType = Bit5;
@@ -739,6 +740,8 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 						break;
 					case Binding.FIELD :
 						FieldBinding field = (FieldBinding) recipient;
+						if (!(annotationRecipient instanceof FieldBinding))
+							break;
 						field.tagBits = ((FieldBinding) annotationRecipient).tagBits;
 						if (annotations != null) {
 							// need to fill the instances array
@@ -750,6 +753,8 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 						break;
 					case Binding.LOCAL :
 						LocalVariableBinding local = (LocalVariableBinding) recipient;
+						if (!(annotationRecipient instanceof LocalVariableBinding))
+							break;
 						long otherLocalTagBits = ((LocalVariableBinding) annotationRecipient).tagBits;
 						local.tagBits = otherLocalTagBits;
 						if ((otherLocalTagBits & TagBits.AnnotationSuppressWarnings) == 0) {
@@ -783,11 +788,6 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 							}
 						}
 						break;
-					default:
-						if (annotations != null) {
-							annotations[i] = annotation.getCompilerAnnotation();
-						}
-						break;
 				}
 				return annotations;
 			} else {
@@ -803,15 +803,15 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 		if (copySE8AnnotationsToType)
 			copySE8AnnotationsToType(scope, recipient, sourceAnnotations);
 
+		/* See if the recipient is meta-annotated with @Repeatable and if so validate constraints. We can't do this during resolution of @Repeatable itself as @Target and 
+		   @Retention etc could come later
+		*/   
 		if (annotations != null && length > 0 && recipient != null && recipient.isAnnotationType()) {
-			// See if this is meta-annotated as repeatable and if so validate constraints.
 			for (int i = 0; i < length; i++) {
 				Annotation annotation = sourceAnnotations[i];
-				MemberValuePair[] valuePairs = annotation.memberValuePairs();
 				ReferenceBinding annotationType = annotations[i] != null ? annotations[i].getAnnotationType() : null;
-				if (annotationType != null && annotationType.id == TypeIds.T_JavaLangAnnotationRepeatable && valuePairs != null && valuePairs.length > 0) {
-					annotation.checkRepeatableAnnotation(valuePairs[0], scope, valuePairs[0].compilerElementPair.value);
-				}
+				if (annotationType != null && annotationType.id == TypeIds.T_JavaLangAnnotationRepeatable)
+					annotation.checkRepeatableMetaAnnotation(scope);
 			}
 		}
 		
@@ -824,29 +824,34 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 				if (annotation == null) continue;
 				ReferenceBinding annotationType = annotation.getAnnotationType();
 				boolean foundDuplicate = false;
+				ContainerAnnotation container = null;
 				for (int j = i+1; j < length; j++) {
 					AnnotationBinding otherAnnotation = distinctAnnotations[j];
 					if (otherAnnotation == null) continue;
 					if (otherAnnotation.getAnnotationType() == annotationType) {
-						if (annotationType.isRepeatableAnnotation()) {
-							ReferenceBinding resolvedContainer = annotationType.resolveContainerAnnotation();
-							if (resolvedContainer != null) {
-								// Since this is a repeated annotation, we need to check if the container is also used - so store it
-								// in a map of (container's ReferenceBinding -> the repeated source Annotation)
+						if (distinctAnnotations == annotations) {
+							System.arraycopy(distinctAnnotations, 0, distinctAnnotations = new AnnotationBinding[length], 0, length);
+						}
+						distinctAnnotations[j] = null; // report/process it only once
+						if (annotationType.isRepeatableAnnotationType()) {
+							Annotation persistibleAnnotation = sourceAnnotations[i].getPersistibleAnnotation();
+							if (persistibleAnnotation instanceof ContainerAnnotation)
+								container = (ContainerAnnotation) persistibleAnnotation;
+							if (container == null) {  // first encounter with a duplicate.
+								ReferenceBinding containerAnnotationType = annotationType.containerAnnotationType();
+								container = new ContainerAnnotation(sourceAnnotations[i], containerAnnotationType, scope);
 								if (implicitContainerAnnotations == null) implicitContainerAnnotations = new HashMap(3);
-								implicitContainerAnnotations.put(resolvedContainer, sourceAnnotations[i]);
-								// Validate the repeated *use* of a repeatable annotation.
-								Annotation.checkContainingAnnotation(sourceAnnotations[i], scope, resolvedContainer, annotationType);
+								implicitContainerAnnotations.put(containerAnnotationType, sourceAnnotations[i]);
 							}
+							container.addContainee(sourceAnnotations[j]);
 						} else {
 							foundDuplicate = true;
-							if (distinctAnnotations == annotations) {
-								System.arraycopy(distinctAnnotations, 0, distinctAnnotations = new AnnotationBinding[length], 0, length);
-							}
-							distinctAnnotations[j] = null; // report it only once
 							scope.problemReporter().duplicateAnnotation(sourceAnnotations[j], scope.compilerOptions().sourceLevel);
 						}
 					}
+				}
+				if (container != null) {
+					container.resolveType(scope);
 				}
 				if (foundDuplicate) {
 					scope.problemReporter().duplicateAnnotation(sourceAnnotations[i], scope.compilerOptions().sourceLevel);
