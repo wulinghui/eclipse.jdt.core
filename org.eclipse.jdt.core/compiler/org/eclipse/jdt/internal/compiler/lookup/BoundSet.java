@@ -415,6 +415,8 @@ class BoundSet {
 									TypeBound bound = (TypeBound) it.next();
 									if (!(bound.right instanceof InferenceVariable)) {
 										TypeBinding r = bound.right;
+										// FIXME: create intersection type from bounds of pi to use as Bi instead of "forall Bij"
+										// did Srikanth mention plans to improve representation of intersection types?
 										TypeBinding bij = pi.firstBound;
 										addTypeBoundsFromWildcardBound(context, wildcardBinding, t, r, bij);
 										TypeBinding[] otherBounds = wildcardBinding.superInterfaces;
