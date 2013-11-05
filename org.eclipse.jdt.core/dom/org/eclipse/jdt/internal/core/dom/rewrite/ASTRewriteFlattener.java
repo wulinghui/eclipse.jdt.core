@@ -22,6 +22,9 @@ import org.eclipse.jdt.internal.compiler.util.Util;
 public class ASTRewriteFlattener extends ASTVisitor {
 
 	/** @deprecated using deprecated code */
+	private static final ChildPropertyDescriptor INTERNAL_ARRAY_COMPONENT_TYPE_PROPERTY = ArrayType.COMPONENT_TYPE_PROPERTY;
+
+	/** @deprecated using deprecated code */
 	private static final SimplePropertyDescriptor INTERNAL_FIELD_MODIFIERS_PROPERTY = FieldDeclaration.MODIFIERS_PROPERTY;
 
 	/** @deprecated using deprecated code */
@@ -238,16 +241,16 @@ public class ASTRewriteFlattener extends ASTVisitor {
 		// get the element type and count dimensions
 		Type elementType;
 		int dimensions;
-		boolean astLevelGTE8 = node.getAST().apiLevel() >= AST.JLS8 ? true : false;
+		boolean astLevelGTE8 = node.getAST().apiLevel() >= AST.JLS8;
 		if (astLevelGTE8) {
 			elementType = (Type) getChildNode(arrayType, ArrayType.ELEMENT_TYPE_PROPERTY);
 			dimensions = getChildList(arrayType, ArrayType.DIMENSIONS_PROPERTY).size();
 		} else {
-			elementType = (Type) getChildNode(arrayType, ArrayType.COMPONENT_TYPE_PROPERTY);
+			elementType = (Type) getChildNode(arrayType, INTERNAL_ARRAY_COMPONENT_TYPE_PROPERTY);
 			dimensions = 1; // always include this array type
 			while (elementType.isArrayType()) {
 				dimensions++;
-				elementType = (Type) getChildNode(elementType, ArrayType.COMPONENT_TYPE_PROPERTY);
+				elementType = (Type) getChildNode(elementType, INTERNAL_ARRAY_COMPONENT_TYPE_PROPERTY);
 			}
 		}
 
@@ -255,8 +258,9 @@ public class ASTRewriteFlattener extends ASTVisitor {
 
 		// add "<annotations> [ <dimension> ]" for each dimension expression
 		List list= getChildList(node, ArrayCreation.DIMENSIONS_PROPERTY);
-		for (int i= 0; i < list.size(); i++) {
-			internalVisitExtraDimensionAnnotations(arrayType, i, astLevelGTE8);
+		int size = list.size();
+		for (int i= 0; i < size; i++) {
+			internalVisitDimensionAnnotations(arrayType, i, astLevelGTE8);
 			this.result.append('[');
 			((ASTNode) list.get(i)).accept(this);
 			this.result.append(']');
@@ -264,7 +268,7 @@ public class ASTRewriteFlattener extends ASTVisitor {
 
 		// add "<annotations> []" for each extra array dimension
 		for (int i= list.size(); i < dimensions; i++) {
-			internalVisitExtraDimensionAnnotations(arrayType, i, astLevelGTE8);
+			internalVisitDimensionAnnotations(arrayType, i, astLevelGTE8);
 			this.result.append("[]"); //$NON-NLS-1$
 		}
 
@@ -275,10 +279,10 @@ public class ASTRewriteFlattener extends ASTVisitor {
 		return false;
 	}
 
-	private void internalVisitExtraDimensionAnnotations(ArrayType arrayType, int index, boolean astLevelGTE8) {
+	private void internalVisitDimensionAnnotations(ArrayType arrayType, int index, boolean astLevelGTE8) {
 		if (astLevelGTE8) {
-			ExtraDimension extraDimension = (ExtraDimension) arrayType.dimensions().get(index);
-			visitList(extraDimension, ExtraDimension.ANNOTATIONS_PROPERTY, String.valueOf(' '), Util.EMPTY_STRING, String.valueOf(' '));
+			Dimension dimension = (Dimension) arrayType.dimensions().get(index);
+			visitList(dimension, Dimension.ANNOTATIONS_PROPERTY, String.valueOf(' '), Util.EMPTY_STRING, String.valueOf(' '));
 		}
 	}
 
@@ -297,7 +301,7 @@ public class ASTRewriteFlattener extends ASTVisitor {
 	 */
 	public boolean visit(ArrayType node) {
 		if (node.getAST().apiLevel() < AST.JLS8) {
-			getChildNode(node, ArrayType.COMPONENT_TYPE_PROPERTY).accept(this);
+			getChildNode(node, INTERNAL_ARRAY_COMPONENT_TYPE_PROPERTY).accept(this);
 			this.result.append("[]"); //$NON-NLS-1$
 		} else {
 			getChildNode(node, ArrayType.ELEMENT_TYPE_PROPERTY).accept(this);
@@ -490,6 +494,12 @@ public class ASTRewriteFlattener extends ASTVisitor {
 		return false;
 	}
 
+	public boolean visit(Dimension node) {
+		visitList(node, Dimension.ANNOTATIONS_PROPERTY, String.valueOf(' '), String.valueOf(' '), String.valueOf(' '));
+		this.result.append("[]"); //$NON-NLS-1$
+		return false;
+	}
+
 	/*
 	 * @see ASTVisitor#visit(DoStatement)
 	 */
@@ -516,12 +526,6 @@ public class ASTRewriteFlattener extends ASTVisitor {
 	public boolean visit(ExpressionStatement node) {
 		getChildNode(node, ExpressionStatement.EXPRESSION_PROPERTY).accept(this);
 		this.result.append(';');
-		return false;
-	}
-
-	public boolean visit(ExtraDimension node) {
-		visitList(node, ExtraDimension.ANNOTATIONS_PROPERTY, String.valueOf(' '), String.valueOf(' '), String.valueOf(' '));
-		this.result.append("[]"); //$NON-NLS-1$
 		return false;
 	}
 

@@ -478,7 +478,7 @@ public ReferenceBinding convertToParameterizedType(ReferenceBinding originalType
 			convertedEnclosingType = originalType.isStatic()
 				? (ReferenceBinding) convertToRawType(originalEnclosingType, false /*do not force conversion of enclosing types*/)
 				: convertToParameterizedType(originalEnclosingType);
-			needToConvert |= originalEnclosingType != convertedEnclosingType;
+			needToConvert |= TypeBinding.notEquals(originalEnclosingType, convertedEnclosingType);
 		}
 		if (needToConvert) {
 			return createParameterizedType(originalType, isGeneric ? originalType.typeVariables() : null, convertedEnclosingType);
@@ -539,7 +539,7 @@ public TypeBinding convertToRawType(TypeBinding type, boolean forceRawEnclosingT
 			convertedEnclosing = originalEnclosing;
 		} else if (forceRawEnclosingType && !needToConvert/*stop recursion when conversion occurs*/) {
 			convertedEnclosing = (ReferenceBinding) convertToRawType(originalEnclosing, forceRawEnclosingType);
-			needToConvert = originalEnclosing != convertedEnclosing; // only convert generic or parameterized types
+			needToConvert = TypeBinding.notEquals(originalEnclosing, convertedEnclosing); // only convert generic or parameterized types
 		} else if (needToConvert || ((ReferenceBinding)originalType).isStatic()) {
 			convertedEnclosing = (ReferenceBinding) convertToRawType(originalEnclosing, false);
 		} else {
@@ -547,13 +547,13 @@ public TypeBinding convertToRawType(TypeBinding type, boolean forceRawEnclosingT
 		}
 		if (needToConvert) {
 			convertedType = createRawType((ReferenceBinding) originalType.erasure(), convertedEnclosing);
-		} else if (originalEnclosing != convertedEnclosing) {
+		} else if (TypeBinding.notEquals(originalEnclosing, convertedEnclosing)) {
 			convertedType = createParameterizedType((ReferenceBinding) originalType.erasure(), null, convertedEnclosing);
 		} else {
 			convertedType = originalType;
 		}
 	}
-	if (originalType != convertedType) {
+	if (TypeBinding.notEquals(originalType, convertedType)) {
 		return dimension > 0 ? (TypeBinding)createArrayType(convertedType, dimension) : convertedType;
 	}
 	return type;
@@ -569,7 +569,7 @@ public ReferenceBinding[] convertToRawTypes(ReferenceBinding[] originalTypes, bo
     for (int i = 0, length = originalTypes.length; i < length; i++) {
         ReferenceBinding originalType = originalTypes[i];
         ReferenceBinding convertedType = (ReferenceBinding) convertToRawType(forceErasure ? originalType.erasure() : originalType, forceRawEnclosingType);
-        if (convertedType != originalType) {        
+        if (TypeBinding.notEquals(convertedType, originalType)) {        
             if (convertedTypes == originalTypes) {
                 System.arraycopy(originalTypes, 0, convertedTypes = new ReferenceBinding[length], 0, i);
             }
@@ -623,18 +623,18 @@ public TypeBinding convertUnresolvedBinaryToRawType(TypeBinding type) {
 		convertedType = needToConvert ? createRawType((ReferenceBinding)originalType.erasure(), null) : originalType;
 	} else {
 		ReferenceBinding convertedEnclosing = (ReferenceBinding) convertUnresolvedBinaryToRawType(originalEnclosing);
-		if (convertedEnclosing != originalEnclosing) {
+		if (TypeBinding.notEquals(convertedEnclosing, originalEnclosing)) {
 			needToConvert |= !((ReferenceBinding)originalType).isStatic();
 		}
 		if (needToConvert) {
 			convertedType = createRawType((ReferenceBinding) originalType.erasure(), convertedEnclosing);
-		} else if (originalEnclosing != convertedEnclosing) {
+		} else if (TypeBinding.notEquals(originalEnclosing, convertedEnclosing)) {
 			convertedType = createParameterizedType((ReferenceBinding) originalType.erasure(), null, convertedEnclosing);
 		} else {
 			convertedType = originalType;
 		}
 	}
-	if (originalType != convertedType) {
+	if (TypeBinding.notEquals(originalType, convertedType)) {
 		return dimension > 0 ? (TypeBinding)createArrayType(convertedType, dimension) : convertedType;
 	}
 	return type;
@@ -775,7 +775,7 @@ public ParameterizedGenericMethodBinding createParameterizedGenericMethod(Method
 				ParameterizedGenericMethodBinding cachedMethod = cachedInfo[index];
 				if (cachedMethod == null) break nextCachedMethod;
 				if (!cachedMethod.isRaw) continue nextCachedMethod;
-				if (cachedMethod.declaringClass != (rawType == null ? genericMethod.declaringClass : rawType)) continue nextCachedMethod;
+				if (cachedMethod.declaringClass != (rawType == null ? genericMethod.declaringClass : rawType)) continue nextCachedMethod; //$IDENTITY-COMPARISON$
 				return cachedMethod;
 		}
 		needToGrow = true;
@@ -812,7 +812,7 @@ public ParameterizedGenericMethodBinding createParameterizedGenericMethod(Method
 				int cachedArgLength = cachedArguments == null ? 0 : cachedArguments.length;
 				if (argLength != cachedArgLength) continue nextCachedMethod;
 				for (int j = 0; j < cachedArgLength; j++){
-					if (typeArguments[j] != cachedArguments[j]) continue nextCachedMethod;
+					if (typeArguments[j] != cachedArguments[j]) continue nextCachedMethod; //$IDENTITY-COMPARISON$
 				}
 				// all arguments match, reuse current
 				return cachedMethod;
@@ -962,10 +962,7 @@ public TypeBinding createAnnotatedType(TypeBinding type, AnnotationBinding[] new
 		System.arraycopy(newbies, 0, newbies = new AnnotationBinding[newLength + oldLength], 0, newLength);
 		System.arraycopy(oldies, 0, newbies, newLength, oldLength);
 	}
-	
-	TypeBinding annotatedType = this.typeSystem.getAnnotatedType(type, new AnnotationBinding [][] { newbies });
-	annotatedType.tagBits |= type.tagBits & TagBits.AnnotationNullMASK; // carry over any synthesized null bits e.g new Object() unless the annotation binding themselves are synthesized.
-	return annotatedType;
+	return this.typeSystem.getAnnotatedType(type, new AnnotationBinding [][] { newbies });
 }
 
 public RawTypeBinding createRawType(ReferenceBinding genericType, ReferenceBinding enclosingType) {
@@ -1194,7 +1191,7 @@ private ReferenceBinding getTypeFromCompoundName(char[][] compoundName, boolean 
 *
 * NOTE: Does NOT answer base types nor array types!
 */
-ReferenceBinding getTypeFromConstantPoolName(char[] signature, int start, int end, boolean isParameterized, char[][][] missingTypeNames) {
+ReferenceBinding getTypeFromConstantPoolName(char[] signature, int start, int end, boolean isParameterized, char[][][] missingTypeNames, TypeAnnotationWalker walker) {
 	if (end == -1)
 		end = signature.length;
 	char[][] compoundName = CharOperation.splitOn('/', signature, start, end);
@@ -1207,7 +1204,27 @@ ReferenceBinding getTypeFromConstantPoolName(char[] signature, int start, int en
 			}
 		}
 	}
-	return getTypeFromCompoundName(compoundName, isParameterized, wasMissingType);
+	ReferenceBinding binding = getTypeFromCompoundName(compoundName, isParameterized, wasMissingType);
+	if (walker != TypeAnnotationWalker.EMPTY_ANNOTATION_WALKER) {
+		final int depth = binding.depth();
+		AnnotationBinding [][] annotations = null;
+		for (int i = 0; i <= depth; i++) {
+			AnnotationBinding[] annots = BinaryTypeBinding.createAnnotations(walker.getAnnotationsAtCursor(), this, missingTypeNames);
+			if (annots != null && annots.length > 0) {
+				if (annotations == null)
+					annotations = new AnnotationBinding[depth + 1][];
+				annotations[i] = annots;
+			}
+			walker = walker.toNextNestedType();
+		}
+		if (annotations != null)
+			binding = (ReferenceBinding) createAnnotatedType(binding, annotations);
+	}
+	return binding;
+}
+
+ReferenceBinding getTypeFromConstantPoolName(char[] signature, int start, int end, boolean isParameterized, char[][][] missingTypeNames) {
+	return getTypeFromConstantPoolName(signature, start, end, isParameterized, missingTypeNames, TypeAnnotationWalker.EMPTY_ANNOTATION_WALKER);
 }
 
 /* Answer the type corresponding to the signature from the binary file.

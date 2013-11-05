@@ -196,7 +196,7 @@ public TypeBinding elementsType() {
  */
 public TypeBinding erasure() {
     TypeBinding erasedType = this.leafComponentType.erasure();
-    if (this.leafComponentType != erasedType)
+    if (TypeBinding.notEquals(this.leafComponentType, erasedType))
         return this.environment.createArrayType(erasedType, this.dimensions);
     return this;
 }
@@ -392,7 +392,7 @@ public char[] sourceName() {
 	return CharOperation.concat(this.leafComponentType.sourceName(), brackets);
 }
 public void swapUnresolved(UnresolvedReferenceBinding unresolvedType, ReferenceBinding resolvedType, LookupEnvironment env) {
-	if (this.leafComponentType == unresolvedType) {
+	if (this.leafComponentType == unresolvedType) { //$IDENTITY-COMPARISON$
 		this.leafComponentType = env.convertUnresolvedBinaryToRawType(resolvedType);
 		this.tagBits |= this.leafComponentType.tagBits & (TagBits.HasTypeVariable | TagBits.HasDirectWildcard | TagBits.HasMissingType);
 	}

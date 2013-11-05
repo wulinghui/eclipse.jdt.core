@@ -2791,7 +2791,6 @@ protected void consumeClassInstanceCreationExpressionQualifiedWithTypeArguments(
 			allocationExpression.sourceStart = this.intStack[this.intPtr--];
 			checkForDiamond(allocationExpression.type);
 		}
-		rejectIllegalLeadingTypeAnnotations(allocationExpression.type);
 	}
 	
 	QualifiedAllocationExpression qae =
@@ -2858,7 +2857,6 @@ protected void consumeClassInstanceCreationExpressionWithTypeArguments() {
 			allocationExpression.sourceStart = this.intStack[this.intPtr--];
 			checkForDiamond(allocationExpression.type);
 		}
-		rejectIllegalLeadingTypeAnnotations(allocationExpression.type);
 	}
 }
 protected void consumeClassOrInterface() {
@@ -5063,7 +5061,8 @@ protected void consumeMethodHeaderNameWithTypeParameters(boolean isAnnotationMet
 	this.identifierLengthPtr--;
 	//type
 	TypeReference returnType = getTypeReference(this.intStack[this.intPtr--]);
-	rejectIllegalLeadingTypeAnnotations(returnType);
+	if (isAnnotationMethod)
+		rejectIllegalLeadingTypeAnnotations(returnType);
 	md.returnType = returnType;
 	md.bits |= (returnType.bits & ASTNode.HasTypeAnnotations);
 
@@ -5608,7 +5607,7 @@ protected void consumePrimaryNoNewArrayArrayType() {
 	ClassLiteralAccess cla;
 	pushOnExpressionStack(
 		cla = new ClassLiteralAccess(this.intStack[this.intPtr--], getTypeReference(this.intStack[this.intPtr--])));
-	rejectIllegalTypeAnnotations(cla.type);
+	rejectIllegalTypeAnnotations(cla.type); // javac correctly rejects annotations on dimensions here.
 }
 protected void consumePrimaryNoNewArrayName() {
 	// PrimaryNoNewArray ::= Name '.' 'class'
@@ -5633,6 +5632,9 @@ protected void rejectIllegalLeadingTypeAnnotations(TypeReference typeReference) 
 	}
 }
 private void rejectIllegalTypeAnnotations(TypeReference typeReference) {
+	rejectIllegalTypeAnnotations(typeReference, false);
+}
+private void rejectIllegalTypeAnnotations(TypeReference typeReference, boolean tolerateAnnotationsOnDimensions) {
 	// Reject misplaced annotations on type reference; Used when grammar is permissive enough to allow them in the first place.
 	Annotation [][]  annotations = typeReference.annotations;
 	Annotation[] misplacedAnnotations;
@@ -5646,7 +5648,10 @@ private void rejectIllegalTypeAnnotations(TypeReference typeReference) {
 	for (int i = 0, length = annotations == null ? 0 : annotations.length; i < length; i++) {
 		misplacedAnnotations = annotations[i];
 		if (misplacedAnnotations != null) {
-			problemReporter().misplacedTypeAnnotations(misplacedAnnotations[0], misplacedAnnotations[misplacedAnnotations.length - 1]);
+			if (tolerateAnnotationsOnDimensions)
+				problemReporter().toleratedMisplacedTypeAnnotations(misplacedAnnotations[0], misplacedAnnotations[misplacedAnnotations.length - 1]);
+			else 
+				problemReporter().misplacedTypeAnnotations(misplacedAnnotations[0], misplacedAnnotations[misplacedAnnotations.length - 1]);
 		}
 	}
 	typeReference.annotations = null;
@@ -5687,7 +5692,7 @@ protected void consumePrimaryNoNewArrayPrimitiveArrayType() {
 	ClassLiteralAccess cla;
 	pushOnExpressionStack(
 		cla = new ClassLiteralAccess(this.intStack[this.intPtr--], getTypeReference(this.intStack[this.intPtr--])));
-	rejectIllegalTypeAnnotations(cla.type);
+	rejectIllegalTypeAnnotations(cla.type, true /* tolerate annotations on dimensions for bug compatibility for now */);
 }
 protected void consumePrimaryNoNewArrayPrimitiveType() {
 	// PrimaryNoNewArray ::= PrimitiveType '.' 'class'

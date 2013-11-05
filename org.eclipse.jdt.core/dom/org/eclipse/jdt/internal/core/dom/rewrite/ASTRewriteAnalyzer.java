@@ -65,6 +65,9 @@ import org.eclipse.text.edits.TextEditGroup;
 public final class ASTRewriteAnalyzer extends ASTVisitor {
 
 	/** @deprecated using deprecated code */
+	private static final ChildPropertyDescriptor INTERNAL_ARRAY_COMPONENT_TYPE_PROPERTY = ArrayType.COMPONENT_TYPE_PROPERTY;
+
+	/** @deprecated using deprecated code */
 	private static final SimplePropertyDescriptor INTERNAL_FIELD_MODIFIERS_PROPERTY = FieldDeclaration.MODIFIERS_PROPERTY;
 
 	/** @deprecated using deprecated code */
@@ -1910,11 +1913,11 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 		return offset;
 	}
 
-	public boolean visit(ExtraDimension node) {
+	public boolean visit(Dimension node) {
 		if (!hasChildrenChanges(node)) {
 			return doVisitUnchangedChildren(node);
 		}
-		rewriteNodeList(node, ExtraDimension.ANNOTATIONS_PROPERTY, node.getStartPosition(), Util.EMPTY_STRING, " "); //$NON-NLS-1$
+		rewriteNodeList(node, Dimension.ANNOTATIONS_PROPERTY, node.getStartPosition(), Util.EMPTY_STRING, " "); //$NON-NLS-1$
 		return false;
 	}
 
@@ -2077,7 +2080,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 			RewriteEvent dimEvent= getEvent(node, ArrayCreation.DIMENSIONS_PROPERTY);
 			boolean hasDimensionChanges= (dimEvent != null && dimEvent.getChangeKind() != RewriteEvent.UNCHANGED);
 			RewriteEvent[] events= hasDimensionChanges ? dimEvent.getChildren() : null;
-			boolean astLevelGTE8 = node.getAST().apiLevel() >= AST.JLS8 ? true : false;
+			boolean astLevelGTE8 = node.getAST().apiLevel() >= AST.JLS8;
 			ArrayType currentLevel = astLevelGTE8 ? null : (ArrayType) replacingType.getElementType().getParent();
 			int replacingTypeDimensions = replacingType.getDimensions();
 			int i=0, dimSize= (events == null) ? 0 : events.length;
@@ -2085,7 +2088,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 			int offset= elementType.getStartPosition() + elementType.getLength();
 			while(currentLevel != null || astLevelGTE8) {
 				if (i < dimSize) {
-					if (astLevelGTE8) internalExtraDimensionRewrite(replacingType, i, offset);
+					if (astLevelGTE8) rewriteAnnotationsOnDimension(replacingType, i, offset);
 					 offset= getScanner().getTokenEndOffset(TerminalTokens.TokenNameLBRACKET, offset);
 					if (hasDimensionChanges) {
 						RewriteEvent event= events[i];
@@ -2120,10 +2123,10 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 						offset= retrieveRightBracketEndPosition(offset, 1, true);
 					}
 				} else if (i < nOldBrackets) {
-					if (astLevelGTE8) internalExtraDimensionRewrite(replacingType, i, offset);
+					if (astLevelGTE8) rewriteAnnotationsOnDimension(replacingType, i, offset);
 					offset= retrieveRightBracketEndPosition(offset, 1, false);
 				} else {
-					internalExtraDimensionAddition(replacingType, i, offset, editGroup, astLevelGTE8);
+					insertAnnotationsOnDimension(replacingType, i, offset, editGroup, astLevelGTE8);
 					doTextInsert(offset, "[]", editGroup); //$NON-NLS-1$
 				}
 				i++;
@@ -2152,13 +2155,14 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 		return false;
 	}
 
-	private void internalExtraDimensionAddition(ArrayType replacingType, int index, int pos, TextEditGroup editGroup,
+	private void insertAnnotationsOnDimension(ArrayType replacingType, int index, int pos, TextEditGroup editGroup,
 			boolean astLevelGTE8) {
 		if (astLevelGTE8) {
-			ExtraDimension dim = (ExtraDimension) replacingType.dimensions().get(index);
+			Dimension dim = (Dimension) replacingType.dimensions().get(index);
 			List annotations = dim.annotations();
 			if (annotations != null) {
-				for (int j = 0; j < annotations.size(); j++) {
+				int size = annotations.size();
+				for (int j = 0; j < size; j++) {
 					Annotation annotation = (Annotation) annotations.get(j);
 					doTextInsert(pos, annotation.toString() + " ", editGroup); //$NON-NLS-1$
 				}
@@ -2167,9 +2171,9 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 		}
 	}
 
-	private void internalExtraDimensionRewrite(ArrayType replacingType, int index, int pos) {
-		ExtraDimension dim = (ExtraDimension) replacingType.dimensions().get(index);
-		rewriteTypeAnnotations(dim, ExtraDimension.ANNOTATIONS_PROPERTY, pos);
+	private void rewriteAnnotationsOnDimension(ArrayType replacingType, int index, int pos) {
+		Dimension dim = (Dimension) replacingType.dimensions().get(index);
+		rewriteTypeAnnotations(dim, Dimension.ANNOTATIONS_PROPERTY, pos);
 	}
 
 	/**
@@ -2204,9 +2208,9 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 		if (parent.getAST().apiLevel() >= AST.JLS8) {
 			return (Type) getOriginalValue(parent, ArrayType.ELEMENT_TYPE_PROPERTY);
 		}
-		Type t = (Type) getOriginalValue(parent, ArrayType.COMPONENT_TYPE_PROPERTY);
+		Type t = (Type) getOriginalValue(parent, INTERNAL_ARRAY_COMPONENT_TYPE_PROPERTY);
 		while (t.isArrayType()) {
-			t = (Type) getOriginalValue(t, ArrayType.COMPONENT_TYPE_PROPERTY);
+			t = (Type) getOriginalValue(t, INTERNAL_ARRAY_COMPONENT_TYPE_PROPERTY);
 		}
 		return t;
 	}
@@ -2215,11 +2219,11 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 		if (parent.getAST().apiLevel() >= AST.JLS8) {
 			return ((List) getOriginalValue(parent, ArrayType.DIMENSIONS_PROPERTY)).size();
 		}
-		Type t = (Type) getOriginalValue(parent, ArrayType.COMPONENT_TYPE_PROPERTY);
+		Type t = (Type) getOriginalValue(parent, INTERNAL_ARRAY_COMPONENT_TYPE_PROPERTY);
 		int dimensions = 1; // always include this array type
 		while (t.isArrayType()) {
 			dimensions++;
-			t = (Type) getOriginalValue(t, ArrayType.COMPONENT_TYPE_PROPERTY);
+			t = (Type) getOriginalValue(t, INTERNAL_ARRAY_COMPONENT_TYPE_PROPERTY);
 		}
 		return dimensions;
 	}
@@ -2247,7 +2251,7 @@ public final class ASTRewriteAnalyzer extends ASTVisitor {
 			return doVisitUnchangedChildren(node);
 		}
 		if (node.getAST().apiLevel() < AST.JLS8) {
-			rewriteRequiredNode(node, ArrayType.COMPONENT_TYPE_PROPERTY);
+			rewriteRequiredNode(node, INTERNAL_ARRAY_COMPONENT_TYPE_PROPERTY);
 		} else {
 			int pos = rewriteRequiredNode(node, ArrayType.ELEMENT_TYPE_PROPERTY);
 			rewriteNodeList(node, ArrayType.DIMENSIONS_PROPERTY, pos, Util.EMPTY_STRING, " "); //$NON-NLS-1$

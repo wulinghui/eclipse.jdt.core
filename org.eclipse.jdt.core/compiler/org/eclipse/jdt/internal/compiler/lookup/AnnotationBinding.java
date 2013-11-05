@@ -14,6 +14,8 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import java.util.Arrays;
+
 import org.eclipse.jdt.internal.compiler.ast.Annotation;
 
 /**
@@ -143,6 +145,11 @@ private static AnnotationBinding buildTargetAnnotation(long bits, LookupEnvironm
 		arraysize++;
 	if ((bits & TagBits.AnnotationForType) != 0)
 		arraysize++;
+	if ((bits & TagBits.AnnotationForTypeUse) != 0)
+		arraysize++;
+	if ((bits & TagBits.AnnotationForTypeParameter) != 0)
+		arraysize++;
+	
 	Object[] value = new Object[arraysize];
 	if (arraysize > 0) {
 		ReferenceBinding elementType = env.getResolvedType(TypeConstants.JAVA_LANG_ANNOTATION_ELEMENTTYPE, null);
@@ -163,6 +170,11 @@ private static AnnotationBinding buildTargetAnnotation(long bits, LookupEnvironm
 			value[index++] = elementType.getField(TypeConstants.UPPER_PARAMETER, true);
 		if ((bits & TagBits.AnnotationForType) != 0)
 			value[index++] = elementType.getField(TypeConstants.TYPE, true);
+		if ((bits & TagBits.AnnotationForTypeUse) != 0)
+			value[index++] = elementType.getField(TypeConstants.TYPE_USE_TARGET, true);
+		if ((bits & TagBits.AnnotationForTypeParameter) != 0)
+			value[index++] = elementType.getField(TypeConstants.TYPE_PARAMETER_TARGET, true);
+		
 	}
 	return env.createAnnotation(
 			target,
@@ -230,5 +242,51 @@ public String toString() {
 		buffer.append('}');
 	}
 	return buffer.toString();
+}
+
+public int hashCode() {
+	return this.type.hashCode();
+}
+public boolean equals(Object object) {
+	if (this == object)
+		return true;
+	if (!(object instanceof AnnotationBinding))
+		return false;
+
+	AnnotationBinding that = (AnnotationBinding) object;
+	if (this.getAnnotationType() != that.getAnnotationType()) 
+		return false;
+
+	final ElementValuePair[] thisElementValuePairs = this.getElementValuePairs();
+	final ElementValuePair[] thatElementValuePairs = that.getElementValuePairs();
+	final int length = thisElementValuePairs.length;
+	if (length != thatElementValuePairs.length) 
+		return false;
+	loop: for (int i = 0; i < length; i++) {
+		ElementValuePair thisPair = thisElementValuePairs[i];
+		for (int j = 0; j < length; j++) {
+			ElementValuePair thatPair = thatElementValuePairs[j];
+			if (thisPair.binding == thatPair.binding) {
+				if (thisPair.value == null) {
+					if (thatPair.value == null) {
+						continue loop;
+					}
+					return false;
+				} else {
+					if (thatPair.value == null) return false;
+					if (thatPair.value instanceof Object[] && thisPair.value instanceof Object[]) {
+						if (!Arrays.equals((Object[]) thisPair.value, (Object[]) thatPair.value)) {
+							return false;
+						}
+					} else if (!thatPair.value.equals(thisPair.value)) {
+						return false;
+					}
+				}
+				continue loop;
+			}
+		}
+		return false;
+	}
+	return true;
 }
 }

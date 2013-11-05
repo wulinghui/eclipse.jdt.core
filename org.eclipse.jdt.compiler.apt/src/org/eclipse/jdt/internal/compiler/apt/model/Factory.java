@@ -74,7 +74,6 @@ public class Factory {
 	public static final Short DUMMY_SHORT = 0;
 
 	private final BaseProcessingEnvImpl _env;
-	public static Annotation[] EMPTY_ANNOTATIONS = new Annotation[0];
 	public static List<? extends AnnotationMirror> EMPTY_ANNOTATION_MIRRORS = Collections.emptyList();
 	
 	/**
@@ -103,7 +102,7 @@ public class Factory {
 	@SuppressWarnings("unchecked") // for the cast to A
 	public <A extends Annotation> A[] getAnnotationsByType(AnnotationBinding[] annoInstances, Class<A> annotationClass) {
 		A[] result = getAnnotations(annoInstances, annotationClass, false);
-		return result == null ? (A[]) EMPTY_ANNOTATIONS : result;
+		return result == null ? (A[]) Array.newInstance(annotationClass, 0) : result;
 	}
 	
 	
@@ -131,7 +130,8 @@ public class Factory {
 				if (justTheFirst) break;
 			}
 		}
-		return list.size() > 0 ? (A[]) list.toArray(new Annotation[list.size()]) :  null;
+		A [] result = (A[]) Array.newInstance(annotationClass, list.size());
+		return list.size() > 0 ? (A[]) list.toArray(result) :  null;
 	}
 
 	private AnnotationMirrorImpl createAnnotationMirror(String annoTypeName, AnnotationBinding annoInstance) {
@@ -328,6 +328,8 @@ public class Factory {
 	 * Create a new element that knows what kind it is even if the binding is unresolved.
 	 */
 	public Element newElement(Binding binding, ElementKind kindHint) {
+		if (binding == null)
+			return null;
 		switch (binding.kind()) {
 		case Binding.FIELD:
 		case Binding.LOCAL:
@@ -761,8 +763,7 @@ public class Factory {
 	}
 
 	/* Wrap repeating annotations into their container, return an array of bindings.
-	   Second and subsequent repeating annotations are replaced with nulls. Caller
-	   must be prepared to handle with nulls. Incoming array is not modified.
+	   Incoming array is not modified.
 	*/
 	public static AnnotationBinding [] getPackedAnnotationBindings(AnnotationBinding [] annotations) {
 		
@@ -784,7 +785,7 @@ public class Factory {
 			if (values == null || values.length != 1)
 				continue; // FUBAR.
 			MethodBinding value = values[0];
-			if (value.returnType == null || value.returnType.leafComponentType() != annotationType)
+			if (value.returnType == null || value.returnType.dimensions() != 1 || value.returnType.leafComponentType() != annotationType)
 				continue; // FUBAR
 			
 			// We have a kosher repeatable annotation with a kosher containing type. See if actually repeats.
@@ -808,12 +809,25 @@ public class Factory {
 				repackagedBindings[i] = new AnnotationBinding(containerType, elementValuePairs);
 			}
 		}
-		return repackagedBindings;
+		if (repackagedBindings == annotations)
+			return annotations;
+		
+		int finalTally = 0;
+		for (int i = 0; i < length; i++) {
+			if (repackagedBindings[i] != null)
+				finalTally++;
+		}
+		annotations = new AnnotationBinding [finalTally];
+		for (int i = 0, j = 0; i < length; i++) {
+			if (repackagedBindings[i] != null)
+				annotations[j++] = repackagedBindings[i];
+		}
+		return annotations;
 	}
 	
-	/* Unwrap container annotations into the repeated annotations, return an array of bindings. non-contained annotations are not returned.
+	/* Unwrap container annotations into the repeated annotations, return an array of bindings that includes the container and the containees.
 	*/
-	public static AnnotationBinding [] getOnlyUnpackedAnnotationBindings(AnnotationBinding [] annotations) {
+	public static AnnotationBinding [] getUnpackedAnnotationBindings(AnnotationBinding [] annotations) {
 		
 		int length = annotations == null ? 0 : annotations.length;
 		if (length == 0)
@@ -823,12 +837,16 @@ public class Factory {
 		for (int i = 0; i < length; i++) {
 			AnnotationBinding annotation = annotations[i];
 			if (annotation == null) continue;
+			unpackedAnnotations.add(annotation);
 			ReferenceBinding annotationType = annotation.getAnnotationType();
 			
 			MethodBinding [] values = annotationType.getMethods(TypeConstants.VALUE);
 			if (values == null || values.length != 1)
 				continue;
 			MethodBinding value = values[0];
+			
+			if (value.returnType.dimensions() != 1)
+				continue;
 			
 			TypeBinding containeeType = value.returnType.leafComponentType();
 			if (containeeType == null || !containeeType.isAnnotationType() || !containeeType.isRepeatableAnnotationType())

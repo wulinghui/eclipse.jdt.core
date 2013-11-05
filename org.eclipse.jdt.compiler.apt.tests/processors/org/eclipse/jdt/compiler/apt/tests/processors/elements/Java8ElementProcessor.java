@@ -47,6 +47,8 @@ import org.eclipse.jdt.compiler.apt.tests.annotations.FooContainer;
 import org.eclipse.jdt.compiler.apt.tests.annotations.FooNonContainer;
 import org.eclipse.jdt.compiler.apt.tests.annotations.Goo;
 import org.eclipse.jdt.compiler.apt.tests.annotations.GooNonContainer;
+import org.eclipse.jdt.compiler.apt.tests.annotations.IFoo;
+import org.eclipse.jdt.compiler.apt.tests.annotations.IFooContainer;
 import org.eclipse.jdt.compiler.apt.tests.annotations.TFoo;
 import org.eclipse.jdt.compiler.apt.tests.annotations.TFooContainer;
 import org.eclipse.jdt.compiler.apt.tests.annotations.Type;
@@ -61,6 +63,7 @@ import org.eclipse.jdt.compiler.apt.tests.processors.base.BaseProcessor;
  */
 @SupportedAnnotationTypes({"org.eclipse.jdt.compiler.apt.tests.annotations.Type", "org.eclipse.jdt.compiler.apt.tests.annotations.Type$1", 
 	                       "org.eclipse.jdt.compiler.apt.tests.annotations.Foo", "org.eclipse.jdt.compiler.apt.tests.annotations.FooContainer",
+	                       "org.eclipse.jdt.compiler.apt.tests.annotations.IFoo", "org.eclipse.jdt.compiler.apt.tests.annotations.IFooContainer",
 	                       "org.eclipse.jdt.compiler.apt.tests.annotations.Goo", "org.eclipse.jdt.compiler.apt.tests.annotations.GooNonContainer",
 	                       "org.eclipse.jdt.compiler.apt.tests.annotations.FooNonContainer"})
 
@@ -149,6 +152,9 @@ public class Java8ElementProcessor extends BaseProcessor {
 		testRepeatedAnnotations20();
 		testRepeatedAnnotations21();
 		testRepeatedAnnotations22();
+		testTypeAnnotations23();
+		testRepeatedAnnotations24();
+		testRepeatedAnnotations25();
 	}
 	
 	public void testLambdaSpecifics() {
@@ -250,7 +256,7 @@ public class Java8ElementProcessor extends BaseProcessor {
 		assertNotNull("Java8ElementProcessor#examineSE8Specifics: Element for method noAnnotationHere should not be null", typeMirror);
 		Type annot = typeMirror.getAnnotation(Type.class);
 		assertNull("Annotation should not be present", annot);
-		Annotation[] annots = typeMirror.getAnnotationsByType(Type.class);
+		Type[] annots = typeMirror.getAnnotationsByType(Type.class);
 		assertEquals("Annotation is not empty list", 0, annots.length);
 	}
 	
@@ -447,6 +453,20 @@ public class Java8ElementProcessor extends BaseProcessor {
 		typeMirror = typeParam.asType();
 		verifyAnnotations(typeParam, new String[]{"@Type(value=tp2)"});
 		verifyAnnotations(typeMirror, new String[]{"@Type(value=tp2)"});
+
+		// public <T> Z(@Type T t){}
+		List<? extends Element> members = _elementUtils.getAllMembers(typeZ);
+		for (ExecutableElement method : ElementFilter.constructorsIn(members)) {
+			ExecutableType executabletype = (ExecutableType) method.asType();
+			List<? extends TypeMirror> list = executabletype.getParameterTypes();
+			List<? extends VariableElement> list1 = method.getParameters();
+			for(int i = 0; i < list1.size(); i++) {
+				VariableElement variableelement = list1.get(i);
+				if (method.getSimpleName().toString().equals("<init>")) {
+					assertEquals("Trouble!", list.get(i), variableelement.asType());
+				}
+			}
+		}
 	}
 	
 	public void testTypeAnnotations8() {
@@ -600,6 +620,10 @@ public class Java8ElementProcessor extends BaseProcessor {
 		typeMirror = constr.getReceiverType();
 		assertNotNull("TypeMirror should not be null", typeMirror);
 		assertSame("Should be no type", TypeKind.NONE, typeMirror.getKind());
+
+		Type[] annotations = typeMirror.getAnnotationsByType(Type.class);
+		assertEquals("Annotations arrays should be empty", 0, annotations.length);
+
 		type = (ExecutableType) constr.asType();
 		typeMirror = type.getReceiverType();
 		assertNotNull("TypeMirror should not be null", typeMirror);
@@ -800,6 +824,77 @@ public class Java8ElementProcessor extends BaseProcessor {
 		}
 	}
 	
+	public void testTypeAnnotations23() {
+		Set<? extends Element> allElements = roundEnv.getRootElements();
+		for (Element element : allElements) {
+			List<? extends AnnotationMirror> list = _elementUtils.getAllAnnotationMirrors(element);
+			List<? extends AnnotationMirror> list1 = element.getAnnotationMirrors();
+			assertTrue("Annotations mirrors returned by getAllAnnotationMirrors() must contain directly declared annotation mirrors", list.containsAll(list1));
+		}
+	}
+	
+	public void testRepeatedAnnotations24() {
+		Set<? extends Element> actualElments = roundEnv.getElementsAnnotatedWith(IFoo.class); // discovery is always in terms of container
+		assertNotNull("RoundEnvironment#getElementsAnnotatedWith returned null", actualElments);
+		assertTrue("Found unexpected elements", actualElments.size() == 3);		
+		for (Element e : actualElments) {
+			if ("SubClass2".equals(e.getSimpleName().toString())) {
+				IFoo annotation = e.getAnnotation(IFoo.class);
+				assertTrue("Wrong annotation", annotation.value() == 5);
+				IFooContainer container = e.getAnnotation(IFooContainer.class);
+				assertTrue("Wrong annotation", container.value()[0].value() == 2);
+				IFoo [] annotations = e.getAnnotationsByType(IFoo.class);
+				assertTrue("Wrong count", annotations.length == 1);
+				assertTrue("Wrong annotation", annotations[0].value() == 5);
+				IFooContainer [] containers = e.getAnnotationsByType(IFooContainer.class);
+				assertTrue("Wrong count", containers.length == 1);
+				assertTrue("Wrong annotation", containers[0].value()[0].value() == 2);
+			} else if ("SubClass".equals(e.getSimpleName().toString())) {
+				IFoo annotation = e.getAnnotation(IFoo.class);
+				assertTrue("Wrong annotation", annotation.value() == 1);
+				IFooContainer container = e.getAnnotation(IFooContainer.class);
+				assertTrue("Messed up", container.value().length == 2);
+				assertTrue("Wrong annotation", container.value()[0].value() == 3);
+				assertTrue("Wrong annotation", container.value()[1].value() == 4);
+				IFoo [] annotations = e.getAnnotationsByType(IFoo.class);
+				assertTrue("Wrong count", annotations.length == 2);
+				assertTrue("Wrong annotation", annotations[0].value() == 3);
+				assertTrue("Wrong annotation", annotations[1].value() == 4);
+				IFooContainer [] containers = e.getAnnotationsByType(IFooContainer.class);
+				assertTrue("Wrong count", containers.length == 1);
+				assertTrue("Wrong annotation", containers[0].value()[0].value() == 3);
+				assertTrue("Wrong annotation", containers[0].value()[1].value() == 4);
+			} else if ("JEP120_6".equals(e.getSimpleName().toString())) {
+				IFoo annotation = e.getAnnotation(IFoo.class);
+				assertTrue("Wrong annotation", annotation.value() == 1);
+				IFooContainer container = e.getAnnotation(IFooContainer.class);
+				assertTrue("Messed up", container.value().length == 1);
+				assertTrue("Wrong annotation", container.value()[0].value() == 2);
+				IFoo [] annotations = e.getAnnotationsByType(IFoo.class);
+				assertTrue("Wrong count", annotations.length == 2);
+				assertTrue("Wrong annotation", annotations[0].value() == 1);
+				assertTrue("Wrong annotation", annotations[1].value() == 2);
+				IFooContainer [] containers = e.getAnnotationsByType(IFooContainer.class);
+				assertTrue("Wrong count", containers.length == 1);
+				assertTrue("Wrong annotation", containers[0].value()[0].value() == 2);
+			}
+		}
+	}
+	public void testRepeatedAnnotations25() {
+		Set<? extends Element> actualElments = roundEnv.getElementsAnnotatedWith(IFooContainer.class); // discovery is always in terms of container
+		assertNotNull("RoundEnvironment#getElementsAnnotatedWith returned null", actualElments);
+		assertTrue("Found unexpected elements", actualElments.size() == 2);
+		IFooContainer annotationOnSubclass = null, annotationOnJep7 = null;
+		for (Element e : actualElments) {
+			if ("SubClass3".equals(e.getSimpleName().toString())) {
+				annotationOnSubclass = e.getAnnotation(IFooContainer.class);
+			} else if ("JEP120_7".equals(e.getSimpleName().toString())) {
+				annotationOnJep7 = e.getAnnotation(IFooContainer.class);
+			}
+		}
+		assertTrue("Should be equals", annotationOnJep7.equals(annotationOnSubclass));
+	}
+	
 	private String getExceptionStackTrace(Throwable t) {
 		StringBuffer buf = new StringBuffer(t.getMessage());
 		StackTraceElement[] traces = t.getStackTrace();
@@ -853,7 +948,7 @@ public class Java8ElementProcessor extends BaseProcessor {
 		assertSame(msg + "Invalid annotation type" , Type.class, annot.annotationType());
 		assertEquals(msg + "Invalid annotation value", value, annot.value());
 		
-		Annotation[] annots = construct.getAnnotationsByType(Type.class);
+		Type[] annots = construct.getAnnotationsByType(Type.class);
 		assertEquals(msg + "Incorrect no of annotations", 1, annots.length);
 		annot = (Type) annots[0];
 		assertSame(msg + "Invalid annotation type" , Type.class, annots[0].annotationType());

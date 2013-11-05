@@ -51,6 +51,7 @@
  *								bug 384567 - [1.5][compiler] Compiler accepts illegal modifiers on package declaration
  *								bug 412153 - [1.8][compiler] Check validity of annotations which may be repeatable
  *								bug 412151 - [1.8][compiler] Check repeating annotation's collection type
+ *								bug 419209 - [1.8] Repeating container annotations should be rejected in the presence of annotation it contains
  ********************************************************************************/
 package org.eclipse.jdt.internal.compiler.problem;
 
@@ -878,7 +879,7 @@ public void annotationCannotOverrideMethod(MethodBinding overrideMethod, MethodB
 		location.sourceEnd);
 }
 public void annotationCircularity(TypeBinding sourceType, TypeBinding otherType, TypeReference reference) {
-	if (sourceType == otherType)
+	if (TypeBinding.equalsEquals(sourceType, otherType))
 		this.handle(
 			IProblem.AnnotationCircularitySelfReference,
 			new String[] {new String(sourceType.readableName())},
@@ -1539,6 +1540,11 @@ public int computeSeverity(int problemID){
 				return ProblemSeverities.Ignore;
 			}
 			break;
+		// For compatibility with javac 8b111 for now.	
+		case IProblem.RepeatableAnnotationWithRepeatingContainerAnnotation:
+		case IProblem.IllegalUseOfUnderscoreAsAnIdentifier:
+		case IProblem.ToleratedMisplacedTypeAnnotations:	
+			return ProblemSeverities.Warning;
 	}
 	int irritant = getIrritant(problemID);
 	if (irritant != 0) {
@@ -1787,7 +1793,7 @@ public void duplicateImport(ImportReference importRef) {
 }
 
 public void duplicateInheritedMethods(SourceTypeBinding type, MethodBinding inheritedMethod1, MethodBinding inheritedMethod2) {
-	if (inheritedMethod1.declaringClass != inheritedMethod2.declaringClass) {
+	if (TypeBinding.notEquals(inheritedMethod1.declaringClass, inheritedMethod2.declaringClass)) {
 		int problemID = (inheritedMethod1.isDefaultMethod() && inheritedMethod2.isDefaultMethod())
 				? IProblem.DuplicateInheritedDefaultMethods
 				: IProblem.DuplicateInheritedMethods;
@@ -2123,7 +2129,7 @@ public void fieldHiding(FieldDeclaration fieldDecl, Binding hiddenVariable) {
 			&& field.isStatic()
 			&& field.isPrivate()
 			&& field.isFinal()
-			&& TypeBinding.LONG == field.type) {
+			&& TypeBinding.equalsEquals(TypeBinding.LONG, field.type)) {
 		ReferenceBinding referenceBinding = field.declaringClass;
 		if (referenceBinding != null) {
 			if (referenceBinding.findSuperTypeOriginatingFrom(TypeIds.T_JavaIoSerializable, false /*Serializable is not a class*/) != null) {
@@ -2404,7 +2410,7 @@ public void hierarchyCircularity(SourceTypeBinding sourceType, ReferenceBinding 
 		end = reference.sourceEnd;
 	}
 
-	if (sourceType == superType)
+	if (TypeBinding.equalsEquals(sourceType, superType))
 		this.handle(
 			IProblem.HierarchyCircularitySelfReference,
 			new String[] {new String(sourceType.readableName()) },
@@ -2427,7 +2433,7 @@ public void hierarchyCircularity(TypeVariableBinding type, ReferenceBinding supe
 	start = reference.sourceStart;
 	end = reference.sourceEnd;
 
-	if (type == superType)
+	if (TypeBinding.equalsEquals(type, superType))
 		this.handle(
 			IProblem.HierarchyCircularitySelfReference,
 			new String[] {new String(type.readableName()) },
@@ -3062,7 +3068,7 @@ public void importProblem(ImportReference importRef, Binding expectedImport) {
 	invalidType(importRef, (TypeBinding)expectedImport);
 }
 public void incompatibleExceptionInThrowsClause(SourceTypeBinding type, MethodBinding currentMethod, MethodBinding inheritedMethod, ReferenceBinding exceptionType) {
-	if (type == currentMethod.declaringClass) {
+	if (TypeBinding.equalsEquals(type, currentMethod.declaringClass)) {
 		int id;
 		if (currentMethod.declaringClass.isInterface()
 				&& !inheritedMethod.isPublic()){ // interface inheriting Object protected method
@@ -4532,7 +4538,14 @@ public void invalidUsageOfTypeAnnotations(Annotation annotation) {
 			annotation.sourceStart,
 			annotation.sourceEnd);
 }
-
+public void toleratedMisplacedTypeAnnotations(Annotation first, Annotation last) {
+	this.handle(
+			IProblem.ToleratedMisplacedTypeAnnotations,
+			NoArgument,
+			NoArgument,
+			first.sourceStart,
+			last.sourceEnd);	
+}
 public void misplacedTypeAnnotations(Annotation first, Annotation last) {
 	this.handle(
 			IProblem.MisplacedTypeAnnotations,
@@ -6657,13 +6670,13 @@ public void parameterAssignment(LocalVariableBinding local, ASTNode location) {
 }
 private String parameterBoundAsString(TypeVariableBinding typeVariable, boolean makeShort) {
     StringBuffer nameBuffer = new StringBuffer(10);
-    if (typeVariable.firstBound == typeVariable.superclass) {
+    if (TypeBinding.equalsEquals(typeVariable.firstBound, typeVariable.superclass)) {
         nameBuffer.append(makeShort ? typeVariable.superclass.shortReadableName() : typeVariable.superclass.readableName());
     }
     int length;
     if ((length = typeVariable.superInterfaces.length) > 0) {
 	    for (int i = 0; i < length; i++) {
-	        if (i > 0 || typeVariable.firstBound == typeVariable.superclass) nameBuffer.append(" & "); //$NON-NLS-1$
+	        if (i > 0 || TypeBinding.equalsEquals(typeVariable.firstBound, typeVariable.superclass)) nameBuffer.append(" & "); //$NON-NLS-1$
 	        nameBuffer.append(makeShort ? typeVariable.superInterfaces[i].shortReadableName() : typeVariable.superInterfaces[i].readableName());
 	    }
 	}
@@ -7085,71 +7098,72 @@ public void repeatedAnnotationWithContainer(Annotation annotation, Annotation co
 		annotation.sourceStart,
 		annotation.sourceEnd);
 }
-public void containingAnnotationMustHaveValue(ASTNode markerNode, ReferenceBinding containerAnnotationType) {
+public void containerAnnotationTypeMustHaveValue(ASTNode markerNode, ReferenceBinding containerAnnotationType) {
 	this.handle(
-		IProblem.ContainingAnnotationMustHaveValue,
+		IProblem.ContainerAnnotationTypeMustHaveValue,
 		new String[] {new String(containerAnnotationType.readableName())},
 		new String[] {new String(containerAnnotationType.shortReadableName())},
 		markerNode.sourceStart,
 		markerNode.sourceEnd);
 }
-public void containingAnnotationHasWrongValueType(ASTNode markerNode, ReferenceBinding containerAnnotationType, ReferenceBinding annotationType, TypeBinding returnType) {
+public void containerAnnotationTypeHasWrongValueType(ASTNode markerNode, ReferenceBinding containerAnnotationType, ReferenceBinding annotationType, TypeBinding returnType) {
 	this.handle(
-		IProblem.ContainingAnnotationHasWrongValueType,
+		IProblem.ContainerAnnotationTypeHasWrongValueType,
 		new String[] {new String(containerAnnotationType.readableName()), new String(annotationType.readableName()), new String(returnType.readableName())},
 		new String[] {new String(containerAnnotationType.shortReadableName()), new String(annotationType.shortReadableName()), new String(returnType.shortReadableName())},
 		markerNode.sourceStart,
 		markerNode.sourceEnd);
 }
-public void containingAnnotationHasNonDefaultMembers(ASTNode markerNode, ReferenceBinding containerAnnotationType, char[] selector) {
+public void containerAnnotationTypeHasNonDefaultMembers(ASTNode markerNode, ReferenceBinding containerAnnotationType, char[] selector) {
 	this.handle(
-		IProblem.ContainingAnnotationHasNonDefaultMembers,
+		IProblem.ContainerAnnotationTypeHasNonDefaultMembers,
 		new String[] {new String(containerAnnotationType.readableName()), new String(selector)},
 		new String[] {new String(containerAnnotationType.shortReadableName()), new String(selector)},
 		markerNode.sourceStart,
 		markerNode.sourceEnd);
 }
-public void containingAnnotationHasShorterRetention(ASTNode markerNode, ReferenceBinding annotationType, String annotationRetention, ReferenceBinding containerAnnotationType, String containerRetention) {
+public void containerAnnotationTypeHasShorterRetention(ASTNode markerNode, ReferenceBinding annotationType, String annotationRetention, ReferenceBinding containerAnnotationType, String containerRetention) {
 	this.handle(
-		IProblem.ContainingAnnotationHasShorterRetention,
+		IProblem.ContainerAnnotationTypeHasShorterRetention,
 		new String[] {new String(annotationType.readableName()), annotationRetention, new String(containerAnnotationType.readableName()), containerRetention},
 		new String[] {new String(annotationType.shortReadableName()), annotationRetention, new String(containerAnnotationType.shortReadableName()), containerRetention},
 		markerNode.sourceStart,
 		markerNode.sourceEnd);
 }
-public void repeatableAnnotationHasTargets(ASTNode markerNode, ReferenceBinding annotationType, ReferenceBinding containerAnnotationType) {
+public void repeatableAnnotationTypeTargetMismatch(ASTNode markerNode, ReferenceBinding annotationType, ReferenceBinding containerAnnotationType, String unmetTargets) {
 	this.handle(
-		IProblem.RepeatableAnnotationHasTargets,
-		new String[] {new String(annotationType.readableName()), new String(containerAnnotationType.readableName())},
-		new String[] {new String(annotationType.shortReadableName()), new String(containerAnnotationType.shortReadableName())},
-		markerNode.sourceStart,
-		markerNode.sourceEnd);
-}
-public void repeatableAnnotationTargetMismatch(ASTNode markerNode, ReferenceBinding annotationType, ReferenceBinding containerAnnotationType, String unmetTargets) {
-	this.handle(
-		IProblem.RepeatableAnnotationTargetMismatch,
+		IProblem.RepeatableAnnotationTypeTargetMismatch,
 		new String[] {new String(annotationType.readableName()), new String(containerAnnotationType.readableName()), unmetTargets},
 		new String[] {new String(annotationType.shortReadableName()), new String(containerAnnotationType.shortReadableName()), unmetTargets},
 		markerNode.sourceStart,
 		markerNode.sourceEnd);
 }
 
-public void repeatableAnnotationIsDocumented(ASTNode markerNode, ReferenceBinding annotationType, ReferenceBinding containerAnnotationType) {
+public void repeatableAnnotationTypeIsDocumented(ASTNode markerNode, ReferenceBinding annotationType, ReferenceBinding containerAnnotationType) {
 	this.handle(
-		IProblem.RepeatableAnnotationIsDocumented,
+		IProblem.RepeatableAnnotationTypeIsDocumented,
 		new String[] {new String(annotationType.readableName()), new String(containerAnnotationType.readableName())},
 		new String[] {new String(annotationType.shortReadableName()), new String(containerAnnotationType.shortReadableName())},
 		markerNode.sourceStart,
 		markerNode.sourceEnd);
 }
 
-public void repeatableAnnotationIsInherited(ASTNode markerNode, ReferenceBinding annotationType, ReferenceBinding containerAnnotationType) {
+public void repeatableAnnotationTypeIsInherited(ASTNode markerNode, ReferenceBinding annotationType, ReferenceBinding containerAnnotationType) {
 	this.handle(
-		IProblem.RepeatableAnnotationIsInherited,
+		IProblem.RepeatableAnnotationTypeIsInherited,
 		new String[] {new String(annotationType.readableName()), new String(containerAnnotationType.readableName())},
 		new String[] {new String(annotationType.shortReadableName()), new String(containerAnnotationType.shortReadableName())},
 		markerNode.sourceStart,
 		markerNode.sourceEnd);
+}
+
+public void repeatableAnnotationWithRepeatingContainer(Annotation annotation, ReferenceBinding containerType) {
+	this.handle(
+		IProblem.RepeatableAnnotationWithRepeatingContainerAnnotation,
+		new String[] {new String(annotation.resolvedType.readableName()), new String(containerType.readableName())},
+		new String[] {new String(annotation.resolvedType.shortReadableName()), new String(containerType.shortReadableName())},
+		annotation.sourceStart,
+		annotation.sourceEnd);
 }
 
 public void reset() {
@@ -8281,7 +8295,7 @@ public void unsafeReturnTypeOverride(MethodBinding currentMethod, MethodBinding 
 	if (severity == ProblemSeverities.Ignore) return;
 	int start = type.sourceStart();
 	int end = type.sourceEnd();
-	if (currentMethod.declaringClass == type) {
+	if (TypeBinding.equalsEquals(currentMethod.declaringClass, type)) {
 		ASTNode location = ((MethodDeclaration) currentMethod.sourceMethod()).returnType;
 		start = location.sourceStart();
 		end = location.sourceEnd();
@@ -8468,7 +8482,7 @@ public void unusedPrivateField(FieldDeclaration fieldDecl) {
 	if (CharOperation.equals(TypeConstants.SERIALVERSIONUID, field.name)
 			&& field.isStatic()
 			&& field.isFinal()
-			&& TypeBinding.LONG == field.type) {
+			&& TypeBinding.equalsEquals(TypeBinding.LONG, field.type)) {
 		ReferenceBinding referenceBinding = field.declaringClass;
 		if (referenceBinding != null) {
 			if (referenceBinding.findSuperTypeOriginatingFrom(TypeIds.T_JavaIoSerializable, false /*Serializable is not a class*/) != null) {
@@ -8724,8 +8738,8 @@ public void varargsConflict(MethodBinding method1, MethodBinding method2, Source
 		        typesAsString(method2, true),
 		        new String(method2.declaringClass.shortReadableName())
 		},
-		method1.declaringClass == type ? method1.sourceStart() : type.sourceStart(),
-		method1.declaringClass == type ? method1.sourceEnd() : type.sourceEnd());
+		TypeBinding.equalsEquals(method1.declaringClass, type) ? method1.sourceStart() : type.sourceStart(),
+		TypeBinding.equalsEquals(method1.declaringClass, type) ? method1.sourceEnd() : type.sourceEnd());
 }
 public void safeVarargsOnFixedArityMethod(MethodBinding method) {
 	String [] arguments = new String[] { new String(method.isConstructor() ? method.declaringClass.shortReadableName() : method.selector)}; 
@@ -9860,7 +9874,7 @@ public void illegalSuperCallBypassingOverride(InvocationSite location, MethodBin
 }
 public void disallowedTargetForContainerAnnotation(Annotation annotation, TypeBinding containerAnnotationType) {
 	this.handle(
-		IProblem.DisallowedTargetForContainerAnnotation,
+		IProblem.DisallowedTargetForContainerAnnotationType,
 		new String[] {new String(annotation.resolvedType.readableName()), new String(containerAnnotationType.readableName())},
 		new String[] {new String(annotation.resolvedType.shortReadableName()), new String(containerAnnotationType.shortReadableName())},
 		annotation.sourceStart,

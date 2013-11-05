@@ -207,6 +207,7 @@
  *									RepeatableAnnotationTargetMismatch
  *									RepeatableAnnotationIsDocumented
  *									RepeatableAnnotationIsInherited
+ *									RepeatableAnnotationWithRepeatingContainerAnnotation
 *******************************************************************************/
 package org.eclipse.jdt.core.compiler;
 
@@ -1434,6 +1435,8 @@ void setSourceStart(int sourceStart);
 	int InterfaceNotFunctionalInterface = Internal + TypeRelated + 664;
 	/** @since 3.9 BETA_JAVA8 */
 	int ConstructionTypeMismatch = Internal + TypeRelated + 665;
+    /** @since 3.9 BETA_JAVA8 */
+    int ToleratedMisplacedTypeAnnotations = Syntax + Internal + 666;
 
 
 	/**
@@ -1623,7 +1626,7 @@ void setSourceStart(int sourceStart);
 	/** @since 3.9 BETA_JAVA8 */
 	int DuplicateAnnotationNotMarkedRepeatable = TypeRelated + 897;
 	/** @since 3.9 BETA_JAVA8 */
-	int DisallowedTargetForContainerAnnotation = TypeRelated + 898;
+	int DisallowedTargetForContainerAnnotationType = TypeRelated + 898;
 	/** @since 3.9 BETA_JAVA8 */
 	int RepeatedAnnotationWithContainerAnnotation = TypeRelated + 899;
 	
@@ -1640,21 +1643,21 @@ void setSourceStart(int sourceStart);
 	int ExternalProblemFixable = 901;
 	
 	/** @since 3.9 BETA_JAVA8 */
-	int ContainingAnnotationHasWrongValueType = TypeRelated + 902;
+	int ContainerAnnotationTypeHasWrongValueType = TypeRelated + 902;
 	/** @since 3.9 BETA_JAVA8 */
-	int ContainingAnnotationMustHaveValue = TypeRelated + 903;
+	int ContainerAnnotationTypeMustHaveValue = TypeRelated + 903;
 	/** @since 3.9 BETA_JAVA8 */
-	int ContainingAnnotationHasNonDefaultMembers = TypeRelated + 904;
+	int ContainerAnnotationTypeHasNonDefaultMembers = TypeRelated + 904;
 	/** @since 3.9 BETA_JAVA8 */
-	int ContainingAnnotationHasShorterRetention = TypeRelated + 905;
+	int ContainerAnnotationTypeHasShorterRetention = TypeRelated + 905;
 	/** @since 3.9 BETA_JAVA8 */
-	int RepeatableAnnotationHasTargets = TypeRelated + 906;
+	int RepeatableAnnotationTypeTargetMismatch = TypeRelated + 906;
 	/** @since 3.9 BETA_JAVA8 */
-	int RepeatableAnnotationTargetMismatch = TypeRelated + 907;
+	int RepeatableAnnotationTypeIsDocumented = TypeRelated + 907;
 	/** @since 3.9 BETA_JAVA8 */
-	int RepeatableAnnotationIsDocumented = TypeRelated + 908;
+	int RepeatableAnnotationTypeIsInherited = TypeRelated + 908;
 	/** @since 3.9 BETA_JAVA8 */
-	int RepeatableAnnotationIsInherited = TypeRelated + 909;
+	int RepeatableAnnotationWithRepeatingContainerAnnotation = TypeRelated + 909;
 	
 	/**
 	 * Errors/warnings from annotation based null analysis

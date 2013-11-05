@@ -637,6 +637,28 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 			"----------\n");
 	}
 
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=420080
+	public void testDefaultNonclash5() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"public class X extends G implements I {\n" + 
+				"}\n" + 
+				"\n" + 
+				"interface I {\n" + 
+				"	default int foo (){\n" + 
+				"		return 0;\n" + 
+				"	}\n" + 
+				"}\n" + 
+				"\n" + 
+				"class G {\n" + 
+				"	public int foo() {\n" + 
+				"		return 0;\n" + 
+				"	}\n" + 
+				"}\n"
+			});
+	}
+
 	// JLS 9.4.1
 	// Bug 382347 - [1.8][compiler] Compiler accepts incorrect default method inheritance
 	// Don't report conflict between the same method inherited on two paths.
@@ -2081,5 +2103,24 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 			"Illegal modifier for the interface method bar; only public, abstract, default, static and strictfp are permitted\n" +
 			"----------\n");
 	}
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=420084,  [1.8] static interface method cannot be resolved without receiver when imported statically
+	public void testBug420084() {
+		runNegativeTest(
+			new String[] {
+				"p/J.java",
+				"package p;\n" +
+				"public interface J {\n" +
+				"	static int foo(){return 0;}\n" +
+				"}\n",
+				"I.java",
+				"import static p.J.foo;\n" +
+				"public interface I {\n" +
+				"	static int call() {\n" +
+				"		return foo();\n" +
+				"	}\n" +
+				"}\n"
+			}, 
+			"");
+	}	
 
 }

@@ -850,17 +850,17 @@ public class NegativeTypeAnnotationTest extends AbstractRegressionTest {
 				"}\n",
 		},
 		"----------\n" + 
-		"1. ERROR in X.java (at line 3)\n" + 
+		"1. WARNING in X.java (at line 3)\n" + 
 		"	System.out.println(int @NonEmpty [] [] @NonEmpty @Empty [] [] @NonEmpty[].class); // illegal!\n" + 
 		"	                       ^^^^^^^^^\n" + 
 		"Syntax error, type annotations are illegal here\n" + 
 		"----------\n" + 
-		"2. ERROR in X.java (at line 3)\n" + 
+		"2. WARNING in X.java (at line 3)\n" + 
 		"	System.out.println(int @NonEmpty [] [] @NonEmpty @Empty [] [] @NonEmpty[].class); // illegal!\n" + 
 		"	                                       ^^^^^^^^^^^^^^^^\n" + 
 		"Syntax error, type annotations are illegal here\n" + 
 		"----------\n" + 
-		"3. ERROR in X.java (at line 3)\n" + 
+		"3. WARNING in X.java (at line 3)\n" + 
 		"	System.out.println(int @NonEmpty [] [] @NonEmpty @Empty [] [] @NonEmpty[].class); // illegal!\n" + 
 		"	                                                              ^^^^^^^^^\n" + 
 		"Syntax error, type annotations are illegal here\n" + 
@@ -2125,7 +2125,7 @@ public class NegativeTypeAnnotationTest extends AbstractRegressionTest {
 				"1. ERROR in X.java (at line 2)\n" + 
 				"	public <T> @Marker Object foo() {\n" + 
 				"	           ^^^^^^^\n" + 
-				"Syntax error, type annotations are illegal here\n" + 
+				"Annotation types that do not specify explicit target element types cannot be applied here\n" + 
 				"----------\n");
 	}
 	public void test063() throws Exception {
@@ -2226,11 +2226,6 @@ public class NegativeTypeAnnotationTest extends AbstractRegressionTest {
 				"	Object o = x.new <String> @Marker X() {};\n" + 
 				"	           ^\n" + 
 				"x cannot be resolved to a variable\n" + 
-				"----------\n" + 
-				"2. ERROR in X.java (at line 2)\n" + 
-				"	Object o = x.new <String> @Marker X() {};\n" + 
-				"	                          ^^^^^^^\n" + 
-				"Syntax error, type annotations are illegal here\n" + 
 				"----------\n");
 	}
 	public void test068() throws Exception {
@@ -2252,7 +2247,7 @@ public class NegativeTypeAnnotationTest extends AbstractRegressionTest {
 				"2. ERROR in X.java (at line 2)\n" + 
 				"	Object o = new <String> @Marker X() {};\n" + 
 				"	                        ^^^^^^^\n" + 
-				"Syntax error, type annotations are illegal here\n" + 
+				"Annotation types that do not specify explicit target element types cannot be applied here\n" + 
 				"----------\n");
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=385293
@@ -4100,6 +4095,102 @@ public class NegativeTypeAnnotationTest extends AbstractRegressionTest {
 			"	@interface NonNull { int[].class value() default 0;}\n" + 
 			"	                          ^^^^^^\n" + 
 			"Syntax error on tokens, delete these tokens\n" + 
+			"----------\n");		
+	}	
+	public void testGenericConstructor() {
+		runNegativeTest(
+			new String[] {
+				"X.java",
+				"import java.lang.annotation.Annotation;\n" +
+				"import java.lang.annotation.ElementType;\n" +
+				"import java.lang.annotation.Target;\n" +
+				"@Target(ElementType.TYPE_USE)\n" +
+				"@interface T {\n" +
+				"} \n" +
+				"public class X { \n" +
+				"\n" +
+				"	<P> @T X() {\n" +
+				"	}\n" +
+				"   @T <P> X(X x) {\n" +
+				"   }\n" +
+				"}\n"
+			}, 
+			"----------\n" + 
+			"1. ERROR in X.java (at line 9)\n" + 
+			"	<P> @T X() {\n" + 
+			"	    ^\n" + 
+			"Syntax error on token \"@\", delete this token\n" + 
+			"----------\n");		
+	}
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=419833, [1.8] NPE in CompilationUnitProblemFinder and ASTNode
+	public void test419833() {
+		runNegativeTest(
+			new String[] {
+				"X.java",
+				"import java.lang.annotation.Target;\n" +
+				"import java.lang.annotation.ElementType;\n" +
+				"@Target(ElementType.TYPE_USE)\n" +
+				"@interface T {\n" +
+				"}\n" +
+				"class S {\n" +
+				"}\n" +
+				"interface I {\n" +
+				"}\n" +
+				"public class X extends @T S implements @T  {\n" +
+				"	public int foo() {\n" +
+				"       return 0;\n" +
+				"	}	\n" +
+				"}\n"
+			}, 
+			"----------\n" + 
+			"1. ERROR in X.java (at line 10)\n" + 
+			"	public class X extends @T S implements @T  {\n" + 
+			"	                                       ^\n" + 
+			"Syntax error on token \"@\", delete this token\n" + 
+			"----------\n");		
+	}
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=420038,  [1.8][compiler] Tolerate type annotations on array dimensions of class literals for now for compatibility. 
+	public void test420038() {
+		runNegativeTest(
+			new String[] {
+				"X.java",
+				"import java.lang.annotation.ElementType;\n" +
+				"import java.lang.annotation.Target;\n" +
+				"@Target(ElementType.TYPE_USE)\n" +
+				"@interface T {\n" +
+				"}\n" +
+				"public class X {\n" +
+				"	public static void main(String[] args) {\n" +
+				"		Class<?> c = int @T [].class; \n" +
+				"	}\n" +
+				"}\n"
+			}, 
+			"----------\n" + 
+			"1. WARNING in X.java (at line 8)\n" + 
+			"	Class<?> c = int @T [].class; \n" + 
+			"	                 ^^\n" + 
+			"Syntax error, type annotations are illegal here\n" + 
+			"----------\n");		
+	}
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=420284, [1.8][compiler] IllegalStateException from TypeSystem.cacheDerivedType 
+	public void test420284() {
+		runNegativeTest(
+			new String[] {
+				"X.java",
+				"import java.io.Serializable;\n" +
+				"import java.util.List;\n" +
+				"public class X {\n" +
+				"    void foo(Object o) {\n" +
+				"        Integer i = (Integer & Serializable) o;\n" +
+				"        List<@NonNull Integer> l;\n" +
+				"    }\n" +
+				"}\n"
+			}, 
+			"----------\n" + 
+			"1. ERROR in X.java (at line 6)\n" + 
+			"	List<@NonNull Integer> l;\n" + 
+			"	      ^^^^^^^\n" + 
+			"NonNull cannot be resolved to a type\n" + 
 			"----------\n");		
 	}	
 }

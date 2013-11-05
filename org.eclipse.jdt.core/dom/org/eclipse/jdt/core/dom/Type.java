@@ -20,7 +20,7 @@ package org.eclipse.jdt.core.dom;
  * Abstract base class of all type AST node types. A type node represents a
  * reference to a primitive type (including void), to an array type, or to a
  * simple named type (or type variable), to a qualified type, to a
- * parameterized type, to a union type, or to a wildcard type. Note that not all of these
+ * parameterized type, to a union type, to an intersection type, or to a wildcard type. Note that not all of these
  * are meaningful in all contexts; for example, a wildcard type is only
  * meaningful in the type argument position of a parameterized type.
  * UnionType got introduced in JLS4 to support common catch blocks for disjunctive types.
@@ -30,11 +30,11 @@ package org.eclipse.jdt.core.dom;
  * Type:
  *    AnnotatableType:
  *       PrimitiveType
- *       ArrayType
  *       SimpleType
  *       QualifiedType
  *       PackageQualifiedType
  *       WildcardType
+ *    ArrayType
  *    ParameterizedType
  *    UnionType
  *    IntersectionType
@@ -50,7 +50,7 @@ package org.eclipse.jdt.core.dom;
  *    { Annotation } <b>boolean</b>
  *    { Annotation } <b>void</b>
  * {@link ArrayType}:
- *    Type { Annotation } <b>'['</b> <b>']'</b>
+ *    Type Dimension <b>{</b> Dimension <b>}</b>
  * {@link SimpleType}:
  *    { Annotation } TypeName
  * {@link QualifiedType}:
