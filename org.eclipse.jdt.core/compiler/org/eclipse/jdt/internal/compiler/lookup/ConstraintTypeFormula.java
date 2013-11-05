@@ -246,38 +246,6 @@ class ConstraintTypeFormula extends ConstraintFormula {
 		throw new IllegalStateException("Unexpected RHS "+superCandidate); //$NON-NLS-1$
 	}
 
-	private Object inferUncheckedConversion(Scope scope, TypeBinding subCandidate, TypeBinding superCandidate) throws InferenceFailureException {
-		// 18.5.5
-		ReferenceBinding subOriginal = (ReferenceBinding) subCandidate.original();
-		TypeVariableBinding[] typeVariables = subOriginal.typeVariables();
-		int length = typeVariables.length;
-		TypeBinding[] typeParameters = new TypeBinding[length];
-		for (int i = 0; i < length; i++) {
-			typeParameters[i] = new WildcardBinding(subOriginal, i, null, null, Wildcard.UNBOUND, scope.environment());
-		}
-		ReferenceBinding s1 = scope.environment().createParameterizedType(subOriginal, typeParameters, subOriginal.enclosingType());
-		if (s1.isCompatibleWith(superCandidate))
-			return TRUE;
-		
-		InferenceContext18 infCtx18 = new InferenceContext18(scope, null);
-		typeParameters = infCtx18.createInitialBoundSet(typeVariables); // creates initial bound set B
-		ReferenceBinding s2 = scope.environment().createParameterizedType(subOriginal, typeParameters, subOriginal.enclosingType());
-		infCtx18.setInitialConstraint(new ConstraintTypeFormula(s2, superCandidate, ReductionResult.SUBTYPE));
-		BoundSet result = infCtx18.solve();
-		if (result != null && infCtx18.isResolved(result)) {
-			TypeBinding[] solutions = infCtx18.getSolutions(typeVariables, result);
-			if (solutions != null) {
-				// create new bounds
-				ConstraintFormula[] formulas = new ConstraintTypeFormula[length];
-				for (int i = 0; i < length; i++) {
-					formulas[i] = new ConstraintTypeFormula(typeParameters[i], solutions[i], ReductionResult.SAME);
-				}
-				return formulas;
-			}
-		}
-		return FALSE;
-	}
-
 	// debugging
 	public String toString() {
 		StringBuffer buf = new StringBuffer("Type Constraint:\n"); //$NON-NLS-1$
