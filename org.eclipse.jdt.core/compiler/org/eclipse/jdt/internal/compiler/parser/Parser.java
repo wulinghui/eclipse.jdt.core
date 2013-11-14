@@ -1010,6 +1010,7 @@ private boolean parsingJava8Plus;
 protected int unstackedAct = ERROR_ACTION;
 private boolean haltOnSyntaxError = false;
 private boolean tolerateDefaultClassMethods = false;
+private boolean processingLambdaParameterList = false;
 
 protected Parser () {
 	// Caveat Emptor: For inheritance purposes and then only in very special needs. Only minimal state is initialized !
@@ -7865,9 +7866,12 @@ protected void consumeLambdaExpression() {
 			length);
 	}
 	for (int i = 0; i < length; i++) {
-		if (arguments[i].isReceiver()) {
-			problemReporter().illegalThis(arguments[i]);
+		final Argument argument = arguments[i];
+		if (argument.isReceiver()) {
+			problemReporter().illegalThis(argument);
 		}
+		if (argument.name.length == 1 && argument.name[0] == '_')
+			problemReporter().illegalUseOfUnderscoreAsAnIdentifier(argument.sourceStart, argument.sourceEnd, true); // true == lambdaParameter
 	}
 	LambdaExpression lexp = new LambdaExpression(this.compilationUnit.compilationResult, arguments, body);
 	this.intPtr--;  // ')' position, discard for now.
@@ -8694,6 +8698,12 @@ protected void consumeToken(int type) {
 //	}
 	//System.out.println(this.scanner.toStringAction(type));
 	switch (type) {
+		case TokenNameBeginLambda:
+			this.processingLambdaParameterList = true;
+			break;
+		case TokenNameARROW:
+			this.processingLambdaParameterList = false;
+			break;
 		case TokenNameIdentifier :
 			pushIdentifier();
 			if (this.scanner.useAssertAsAnIndentifier  &&
@@ -10372,7 +10382,7 @@ protected void ignoreExpressionAssignment() {
 public void initialize() {
 	this.initialize(false);
 }
-public void initialize(boolean initializeNLS) {
+public void initialize(boolean parsingCompilationUnit) {
 	//positioning the parser for a new compilation unit
 	//avoiding stack reallocation and all that....
 	this.javadoc = null;
@@ -10419,7 +10429,8 @@ public void initialize(boolean initializeNLS) {
 	this.recordStringLiterals = true;
 	final boolean checkNLS = this.options.getSeverity(CompilerOptions.NonExternalizedString) != ProblemSeverities.Ignore;
 	this.checkExternalizeStrings = checkNLS;
-	this.scanner.checkNonExternalizedStringLiterals = initializeNLS && checkNLS;
+	this.scanner.checkNonExternalizedStringLiterals = parsingCompilationUnit && checkNLS;
+	this.scanner.checkUninternedIdentityComparison = parsingCompilationUnit && this.options.complainOnUninternedIdentityComparison;
 	this.scanner.lastPosition = -1;
 
 	resetModifiers();
@@ -10932,6 +10943,12 @@ try {
 	}
 
 	this.scanner.checkNonExternalizedStringLiterals = false;
+	
+	if (this.scanner.checkUninternedIdentityComparison) {
+		this.compilationUnit.validIdentityComparisonLines = this.scanner.getIdentityComparisonLines();
+		this.scanner.checkUninternedIdentityComparison = false;
+	}
+	
 	if (this.reportSyntaxErrorIsRequired && this.hasError && !this.statementRecoveryActivated) {
 		if(!this.options.performStatementsRecovery) {
 			reportSyntaxErrors(isDietParse, oldFirstToken);
@@ -11559,8 +11576,8 @@ protected void pushIdentifier(char [] identifier, long position) {
 			stackLength);
 	}
 	this.identifierLengthStack[this.identifierLengthPtr] = 1;
-	if (this.parsingJava8Plus && identifier.length == 1 && identifier[0] == '_') {
-		problemReporter().illegalUseOfUnderscoreAsAnIdentifier((int) (position >>> 32), (int) position);
+	if (this.parsingJava8Plus && identifier.length == 1 && identifier[0] == '_' && !this.processingLambdaParameterList) {
+		problemReporter().illegalUseOfUnderscoreAsAnIdentifier((int) (position >>> 32), (int) position, false /* not a lambda parameter */);
 	}
 }
 protected void pushIdentifier() {

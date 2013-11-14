@@ -32,6 +32,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.element.VariableElement;
@@ -61,7 +62,8 @@ import org.eclipse.jdt.compiler.apt.tests.processors.base.BaseProcessor;
  * -Aorg.eclipse.jdt.compiler.apt.tests.processors.elements.Java8ElementProcessor to the command line.
  * @since 3.9 BETA_JAVA8
  */
-@SupportedAnnotationTypes({"org.eclipse.jdt.compiler.apt.tests.annotations.Type", "org.eclipse.jdt.compiler.apt.tests.annotations.Type$1", 
+@SupportedAnnotationTypes({"targets.model8.TypeAnnot",
+							"org.eclipse.jdt.compiler.apt.tests.annotations.Type", "org.eclipse.jdt.compiler.apt.tests.annotations.Type$1", 
 	                       "org.eclipse.jdt.compiler.apt.tests.annotations.Foo", "org.eclipse.jdt.compiler.apt.tests.annotations.FooContainer",
 	                       "org.eclipse.jdt.compiler.apt.tests.annotations.IFoo", "org.eclipse.jdt.compiler.apt.tests.annotations.IFooContainer",
 	                       "org.eclipse.jdt.compiler.apt.tests.annotations.Goo", "org.eclipse.jdt.compiler.apt.tests.annotations.GooNonContainer",
@@ -155,6 +157,8 @@ public class Java8ElementProcessor extends BaseProcessor {
 		testTypeAnnotations23();
 		testRepeatedAnnotations24();
 		testRepeatedAnnotations25();
+		testTypeAnnotations26();
+		testTypeAnnotations27();
 	}
 	
 	public void testLambdaSpecifics() {
@@ -171,6 +175,8 @@ public class Java8ElementProcessor extends BaseProcessor {
 		}
 		assertNotNull("Java8ElementProcessor#examineLambdaSpecifics: Element for method foo should not be null", method);
 		assertFalse("Java8ElementProcessor#examineLambdaSpecifics: Method foo is not a default method", method.isDefault());
+		Set<Modifier> modifiers = method.getModifiers();
+		assertModifiers(modifiers, new String[]{});
 
 		annotatedType = _elementUtils.getTypeElement("targets.model8.DefaultInterface");
 		assertNotNull("Java8ElementProcessor#examineLambdaSpecifics: Type element for DefaultInterface should not be null", annotatedType);
@@ -186,7 +192,23 @@ public class Java8ElementProcessor extends BaseProcessor {
 		}
 		assertNotNull("Java8ElementProcessor#examineLambdaSpecifics: Element for method defaultMethod() should not be null", method);
 		assertTrue("Java8ElementProcessor#examineLambdaSpecifics: Method defaultMethod() should be a default method", method.isDefault());
+		modifiers = method.getModifiers();
+		assertModifiers(modifiers, new String[]{"public", "default"});
 
+		method = null;
+		members = _elementUtils.getAllMembers(annotatedType);
+		for (ExecutableElement member : ElementFilter.methodsIn(members)) {
+			if ("anotherDefault".equals(member.getSimpleName().toString())) {
+				method = member;
+				break;
+			}
+		}
+		assertNotNull("Java8ElementProcessor#examineLambdaSpecifics: Element for method anotherDefault() should not be null", method);
+		assertTrue("Java8ElementProcessor#examineLambdaSpecifics: Method anotherDefault() should be a default method", method.isDefault());
+		modifiers = method.getModifiers();
+		assertModifiers(modifiers, new String[]{"public", "default"});
+		
+		
 		method = null;
 		for (ExecutableElement member : ElementFilter.methodsIn(members)) {
 			if ("staticMethod".equals(member.getSimpleName().toString())) {
@@ -196,6 +218,8 @@ public class Java8ElementProcessor extends BaseProcessor {
 		}
 		assertNotNull("Java8ElementProcessor#examineLambdaSpecifics: Element for method staticMethod() should not be null", method);
 		assertFalse("Java8ElementProcessor#examineLambdaSpecifics: Method staticMethod() shoule not be a default method", method.isDefault());
+		modifiers = method.getModifiers();
+		assertModifiers(modifiers, new String[]{"public", "static"});
 
 		annotatedType = _elementUtils.getTypeElement("targets.model8.FunctionalInterface");
 		assertNotNull("Java8ElementProcessor#examineLambdaSpecifics: Type element for FunctionalInterface should not be null", annotatedType);
@@ -895,6 +919,37 @@ public class Java8ElementProcessor extends BaseProcessor {
 		assertTrue("Should be equals", annotationOnJep7.equals(annotationOnSubclass));
 	}
 	
+	public void testTypeAnnotations26() {
+		TypeElement annotatedType = _elementUtils.getTypeElement("targets.model8.Iface");
+		List<? extends Element> members = _elementUtils.getAllMembers(annotatedType);
+		ExecutableElement method = null;
+		for (Element member : members) {
+			if ("foo".equals(member.getSimpleName().toString())) {
+				method = (ExecutableElement) member;
+				
+				List<? extends VariableElement> list = method.getParameters();
+				VariableElement param = list.get(0);
+				verifyAnnotations(param, new String[]{});
+			}
+		}
+	}
+	
+	public void testTypeAnnotations27() {
+		TypeElement annotatedType = _elementUtils.getTypeElement("targets.model8.a.Test");
+		List<? extends Element> members = _elementUtils.getAllMembers(annotatedType);
+		for (Element member : members) {
+			if ("foo".equals(member.getSimpleName().toString())) {
+				ExecutableElement method = (ExecutableElement) member;
+				
+				List<? extends TypeParameterElement> list = method.getTypeParameters();
+				TypeParameterElement tParam = list.get(0);
+				verifyAnnotations(tParam, new String[]{"@MarkerContainer(value=[@targets.model8.a.Marker, @targets.model8.a.Marker])"});
+			}
+		}
+		
+	}
+	
+	
 	private String getExceptionStackTrace(Throwable t) {
 		StringBuffer buf = new StringBuffer(t.getMessage());
 		StackTraceElement[] traces = t.getStackTrace();
@@ -959,6 +1014,20 @@ public class Java8ElementProcessor extends BaseProcessor {
 		throw new AssertionFailedError(msg);
 	}
 	
+	public void assertModifiers(Set<Modifier> modifiers, String[] expected) {
+		assertEquals("Incorrect no of modifiers", modifiers.size(), expected.length);
+		Set<String> actual = new HashSet<String>(expected.length);
+		for (Modifier modifier : modifiers) {
+			actual.add(modifier.toString());
+		}
+		for(int i = 0, length = expected.length; i < length; i++) {
+			boolean result = actual.remove(expected[i]);
+			if (!result) reportError("Modifier not present :" + expected[i]);
+		}
+		if (!actual.isEmpty()) {
+			reportError("Unexpected modifiers present:" + actual.toString());
+		}
+	}
 	public void assertTrue(String msg, boolean value) {
 		if (!value) reportError(msg);
 	}

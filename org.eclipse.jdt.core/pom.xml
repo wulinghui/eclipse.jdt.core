@@ -37,6 +37,9 @@
 						<replace token="bundle_qualifier," value="${buildQualifier}," dir="${project.build.directory}/classes">
 							<include name="org/eclipse/jdt/internal/compiler/batch/messages.properties"/>
 						</replace>
+						<replace token="bundle_version" value="${unqualifiedVersion}" dir="${project.build.directory}/classes">
+							<include name="org/eclipse/jdt/internal/compiler/batch/messages.properties" />
+						</replace>
 					</tasks>
 				</configuration>
 				<goals>
@@ -170,6 +173,10 @@
         <groupId>org.eclipse.tycho</groupId>
         <artifactId>tycho-p2-plugin</artifactId>
         <version>${tycho.version}</version>
+        <configuration>
+          <baselineMode>warn</baselineMode>
+          <baselineReplace>common</baselineReplace>
+        </configuration>
         <executions>
           <execution>
             <id>attached-p2-metadata</id>

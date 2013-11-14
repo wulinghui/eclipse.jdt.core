@@ -1451,12 +1451,17 @@ public boolean isUnresolvedType() {
 	return false;
 }
 
+<<<<<<< HEAD
 /** Does this type mention any of the given type parameters, except the one at position 'idx'? */
 boolean mentionsAny(TypeBinding[] parameters, int idx) {
 	for (int i = 0; i < parameters.length; i++)
 		if (i != idx)
 			if (parameters[i] == this)
 				return true;
+=======
+/** Answer an additional bit characterizing this type, like {@link TypeIds#BitAutoCloseable}. */
+public boolean hasTypeBit(int bit) {
+>>>>>>> refs/remotes/origin/BETA_JAVA8
 	return false;
 }
 }

@@ -46,6 +46,7 @@ import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
 import org.eclipse.jdt.internal.compiler.lookup.BaseTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.ElementValuePair;
+import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.PackageBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedTypeBinding;
@@ -174,6 +175,13 @@ public class Factory {
 				case ClassFileConstants.AccAbstract :
 					appendModifier(result, modifiers, checkBits[i], Modifier.ABSTRACT);
 					break;
+				case ExtraCompilerModifiers.AccDefaultMethod :
+					try {
+						appendModifier(result, modifiers, checkBits[i], Modifier.valueOf("DEFAULT")); //$NON-NLS-1$
+					} catch(IllegalArgumentException iae) {
+						// Don't have JDK 1.8, just ignore and proceed.
+					}
+					break;
 				case ClassFileConstants.AccStatic :
 					appendModifier(result, modifiers, checkBits[i], Modifier.STATIC);
 					break;
@@ -260,7 +268,8 @@ public class Factory {
 					ClassFileConstants.AccFinal,
 					ClassFileConstants.AccSynchronized,
 					ClassFileConstants.AccNative,
-					ClassFileConstants.AccStrictfp
+					ClassFileConstants.AccStrictfp,
+					ExtraCompilerModifiers.AccDefaultMethod
 				});
 				break;
 			case FIELD :
@@ -785,7 +794,7 @@ public class Factory {
 			if (values == null || values.length != 1)
 				continue; // FUBAR.
 			MethodBinding value = values[0];
-			if (value.returnType == null || value.returnType.dimensions() != 1 || value.returnType.leafComponentType() != annotationType)
+			if (value.returnType == null || value.returnType.dimensions() != 1 || TypeBinding.notEquals(value.returnType.leafComponentType(), annotationType))
 				continue; // FUBAR
 			
 			// We have a kosher repeatable annotation with a kosher containing type. See if actually repeats.
@@ -793,7 +802,7 @@ public class Factory {
 			for (int j = i + 1; j < length; j++) {
 				AnnotationBinding otherAnnotation = repackagedBindings[j];
 				if (otherAnnotation == null) continue;
-				if (otherAnnotation.getAnnotationType() == annotationType) {
+				if (otherAnnotation.getAnnotationType() == annotationType) { //$IDENTITY-COMPARISON$
 					if (repackagedBindings == annotations)
 						System.arraycopy(repackagedBindings, 0, repackagedBindings = new AnnotationBinding[length], 0, length);
 					repackagedBindings[j] = null; // so it is not double packed.
@@ -852,7 +861,7 @@ public class Factory {
 			if (containeeType == null || !containeeType.isAnnotationType() || !containeeType.isRepeatableAnnotationType())
 				continue;
 			
-			if (containeeType.containerAnnotationType() != annotationType)
+			if (containeeType.containerAnnotationType() != annotationType) //$IDENTITY-COMPARISON$
 				continue;
 			
 			// We have a kosher container: unwrap the contained annotations.

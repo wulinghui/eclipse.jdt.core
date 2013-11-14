@@ -9880,9 +9880,50 @@ public void disallowedTargetForContainerAnnotation(Annotation annotation, TypeBi
 		annotation.sourceStart,
 		annotation.sourceEnd);
 }
+<<<<<<< HEAD
 
 public void genericInferenceError(String message, InvocationSite invocationSite) {
 	String[] args = new String[]{message};
 	this.handle( IProblem.GenericInferenceError, args, args, invocationSite.sourceStart(), invocationSite.sourceEnd());	
+=======
+public void uninternedIdentityComparison(EqualExpression expr, TypeBinding lhs, TypeBinding rhs, CompilationUnitDeclaration unit) {
+	
+	char [] lhsName = lhs.sourceName();
+	char [] rhsName = rhs.sourceName();
+	
+	if (CharOperation.equals(lhsName, "VoidTypeBinding".toCharArray())  //$NON-NLS-1$
+			|| CharOperation.equals(lhsName, "NullTypeBinding".toCharArray())  //$NON-NLS-1$
+			|| CharOperation.equals(lhsName, "ProblemReferenceBinding".toCharArray())) //$NON-NLS-1$
+		return;
+	
+	if (CharOperation.equals(rhsName, "VoidTypeBinding".toCharArray())  //$NON-NLS-1$
+			|| CharOperation.equals(rhsName, "NullTypeBinding".toCharArray())  //$NON-NLS-1$
+			|| CharOperation.equals(rhsName, "ProblemReferenceBinding".toCharArray())) //$NON-NLS-1$
+		return;
+	
+	boolean[] validIdentityComparisonLines = unit.validIdentityComparisonLines;
+	if (validIdentityComparisonLines != null) {
+		int problemStartPosition = expr.left.sourceStart;
+		int[] lineEnds;
+		int lineNumber = problemStartPosition >= 0
+				? Util.getLineNumber(problemStartPosition, lineEnds = unit.compilationResult().getLineSeparatorPositions(), 0, lineEnds.length-1)
+						: 0;
+		if (lineNumber <= validIdentityComparisonLines.length && validIdentityComparisonLines[lineNumber - 1])
+			return;
+	}
+	
+	this.handle(
+			IProblem.UninternedIdentityComparison,
+			new String[] {
+					new String(lhs.readableName()),
+					new String(rhs.readableName())
+			},
+			new String[] {
+					new String(lhs.shortReadableName()),
+					new String(rhs.shortReadableName())
+			},
+			expr.sourceStart,
+			expr.sourceEnd);
+>>>>>>> refs/remotes/origin/BETA_JAVA8
 }
 }

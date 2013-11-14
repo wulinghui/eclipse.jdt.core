@@ -14,6 +14,10 @@
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
+import java.util.Map;
+
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+
 import junit.framework.Test;
 public class LambdaExpressionsTest extends AbstractRegressionTest {
 
@@ -1699,6 +1703,100 @@ public void testGenericArrayCreation() {
 			},
 			"1024"
 		);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=421536, [1.8][compiler] Verify error with small program when preserved unused variables is off. 
+public void test421536() {
+	Map customOptions = getCompilerOptions();
+	customOptions.put(CompilerOptions.OPTION_PreserveUnusedLocal, CompilerOptions.OPTIMIZE_OUT);
+	runConformTest(
+		new String[] {
+			"X.java",
+			"interface I {\n" +
+			"	I foo();\n" +
+			"}\n" +
+			"public class X {\n" +
+			"	public static void main(String[] args) {\n" +
+			"		try {\n" +
+			"			I i = () -> null;\n" +
+			"		} catch (NullPointerException npe) {}\n" +
+			"       System.out.println(\"OK\");\n" +
+			"	}\n" +
+			"}\n"
+		}, 
+		"OK",
+		customOptions);		
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=421536, [1.8][compiler] Verify error with small program when preserved unused variables is off. 
+public void test421536a() {
+	Map customOptions = getCompilerOptions();
+	customOptions.put(CompilerOptions.OPTION_PreserveUnusedLocal, CompilerOptions.OPTIMIZE_OUT);
+	runConformTest(
+		new String[] {
+			"X.java",
+			"interface I {\n" +
+			"	void foo();\n" +
+			"}\n" +
+			"public class X {\n" +
+			"   public static void foo() {}\n" +
+			"	public static void main(String[] args) {\n" +
+			"		try {\n" +
+			"			I i = X::foo;\n" +
+			"		} catch (NullPointerException npe) {}\n" +
+			"       System.out.println(\"OK\");\n" +
+			"	}\n" +
+			"}\n"
+		}, 
+		"OK",
+		customOptions);		
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=421607, [1.8][compiler] Verify Error with intersection casts 
+public void test421607() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"interface I {\n" +
+			"	public void foo();\n" +
+			"}\n" +
+			"class C implements I {\n" +
+			"	public void foo() {\n" +
+			"		System.out.println(\"You will get here\");\n" +
+			"	}\n" +
+			"}\n" +
+			"public class X {\n" +
+			"	public static void main(String[] args) {\n" +
+			"		((C & I) (I) new C()).foo();\n" +
+			"	}\n" +
+			"}\n"
+		}, 
+		"You will get here");		
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=421712, [1.8][compiler] java.lang.NoSuchMethodError with lambda expression in interface default method.
+public void test421712() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"interface F {\n" +
+			"	void foo();\n" +
+			"}\n" +
+			"interface I {\n" +
+			"	default void foo() {\n" +
+			"		F f = () -> {\n" +
+			"		};\n" +
+			"   System.out.println(\"Lambda instantiated\");\n" +
+			"	}\n" +
+			"}\n" +
+			"public class X implements I {\n" +
+			"	public static void main(String argv[]) {\n" +
+			"		X x = new X();\n" +
+			"		x.foo();\n" +
+			"	}\n" +
+			"}\n"
+		}, 
+		"Lambda instantiated");		
 }
 
 public static Class testClass() {
