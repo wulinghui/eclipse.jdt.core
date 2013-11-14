@@ -27,9 +27,9 @@ abstract class ConstraintFormula extends ReductionResult {
 			return true;
 		if (one.isBaseType()) {
 			if (one != TypeBinding.NULL && !two.isBaseType())
-				return context.environment.computeBoxingType(one) != one;
+				return context.environment.computeBoxingType(one) != one; //$IDENTITY-COMPARISON$ just checking if boxing could help
 		} else if (two.isBaseType() && two != TypeBinding.NULL) {
-			return context.environment.computeBoxingType(two) != two;
+			return context.environment.computeBoxingType(two) != two; //$IDENTITY-COMPARISON$ just checking if boxing could help
 		}
 		return false;
 	}

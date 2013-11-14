@@ -118,7 +118,7 @@ class BoundSet {
 			Iterator bIt = someBounds.iterator();
 			while (bIt.hasNext()) {
 				TypeBound bound = (TypeBound) bIt.next();
-				if (bound.right == var || bound.right.mentionsAny(new TypeBinding[] {var}, -1))
+				if (bound.right == var || bound.right.mentionsAny(new TypeBinding[] {var}, -1)) //$IDENTITY-COMPARISON$ InferenceVariable
 					return true;
 			}
 			return false;
@@ -423,7 +423,7 @@ class BoundSet {
 										if (otherBounds != null) {
 											for (int j = 0; j < otherBounds.length; j++) {
 												TypeBinding tj = otherBounds[j];
-												if (tj != t)
+												if (TypeBinding.notEquals(tj, t))
 													addTypeBoundsFromWildcardBound(context, wildcardBinding, tj, r, bij);
 											}
 										}
@@ -471,7 +471,7 @@ class BoundSet {
 	private ConstraintFormula combineSameSame(TypeBound boundS, TypeBound boundT) {
 		
 		// α = S and α = T imply ⟨S = T⟩
-		if (boundS.left == boundT.left)
+		if (boundS.left == boundT.left) //$IDENTITY-COMPARISON$ InferenceVariable
 			return new ConstraintTypeFormula(boundS.right, boundT.right, ReductionResult.SAME);
 
 		// match against more shapes:
@@ -502,19 +502,19 @@ class BoundSet {
 		//  α = S and α <: T imply ⟨S <: T⟩ 
 		//  α = S and T <: α imply ⟨T <: S⟩
 		InferenceVariable alpha = boundS.left;
-		if (alpha == boundT.left)
+		if (alpha == boundT.left) //$IDENTITY-COMPARISON$ InferenceVariable
 			return new ConstraintTypeFormula(boundS.right, boundT.right, boundT.relation);
-		if (alpha == boundT.right)
+		if (alpha == boundT.right) //$IDENTITY-COMPARISON$ InferenceVariable
 			return new ConstraintTypeFormula(boundT.right, boundS.right, boundT.relation);
 
 		if (boundS.right instanceof InferenceVariable
-				&& (boundS.right == boundT.left || boundS.right == boundT.right))
+				&& (boundS.right == boundT.left || TypeBinding.equalsEquals(boundS.right, boundT.right))) //$IDENTITY-COMPARISON$ InferenceVariable
 			InferenceContext18.missingImplementation("ups: S is a matching inference variable");
 		
 		//  α = U and S <: T imply ⟨S[α:=U] <: T[α:=U]⟩ 
 		TypeBinding u = boundS.right;
 		if (u.isProperType()) {
-			TypeBinding left = (alpha == boundT.left) ? u : boundT.left;
+			TypeBinding left = (alpha == boundT.left) ? u : boundT.left; //$IDENTITY-COMPARISON$ InferenceVariable
 			TypeBinding right = boundT.right.substituteInferenceVariable(alpha, u);
 			return new ConstraintTypeFormula(left, right, boundT.relation);
 		}
@@ -523,14 +523,14 @@ class BoundSet {
 
 	private ConstraintFormula combineSuperAndSub(TypeBound boundS, TypeBound boundT) {
 		//  permutations of: S <: α and α <: T imply ⟨S <: T⟩
-		TypeBinding alpha = boundS.left;
-		if (alpha == boundT.left)
+		InferenceVariable alpha = boundS.left;
+		if (alpha == boundT.left) //$IDENTITY-COMPARISON$ InferenceVariable
 			//  α >: S and α <: T imply ⟨S <: T⟩
 			return new ConstraintTypeFormula(boundS.right, boundT.right, ReductionResult.SUBTYPE);
 		if (boundS.right instanceof InferenceVariable) {
 			// try reverse:
-			alpha = boundS.right;
-			if (alpha == boundT.right)
+			alpha = (InferenceVariable) boundS.right;
+			if (alpha == boundT.right) //$IDENTITY-COMPARISON$ InferenceVariable
 				// S :> α and T <: α  imply ⟨S :> T⟩
 				return new ConstraintTypeFormula(boundS.left, boundT.left, ReductionResult.SUPERTYPE);
 		}
@@ -539,10 +539,10 @@ class BoundSet {
 	
 	private ConstraintFormula combineEqualSupers(TypeBound boundS, TypeBound boundT) {
 		//  more permutations of: S <: α and α <: T imply ⟨S <: T⟩
-		if (boundS.left == boundT.right)
+		if (boundS.left == boundT.right) //$IDENTITY-COMPARISON$ InferenceVariable
 			// came in as: α REL S and T REL α imply ⟨T REL S⟩ 
 			return new ConstraintTypeFormula(boundT.left, boundS.right, boundS.relation);
-		if (boundS.right == boundT.left)
+		if (boundS.right == boundT.left) //$IDENTITY-COMPARISON$ InferenceVariable
 			// came in as: S REL α and α REL T imply ⟨S REL T⟩ 
 			return new ConstraintTypeFormula(boundS.left, boundT.right, boundS.relation);		
 		return null;
@@ -589,10 +589,10 @@ class BoundSet {
 			Map.Entry entry = (Entry) captureIter.next();
 			ParameterizedTypeBinding g = (ParameterizedTypeBinding) entry.getKey();
 			for (int i = 0; i < g.arguments.length; i++) {
-				if (g.arguments[i] == alpha) {
+				if (g.arguments[i] == alpha) { //$IDENTITY-COMPARISON$ InferenceVariable
 					for (int j = 0; j < g.arguments.length; j++) {
 						TypeBinding aj = g.arguments[j];
-						if (aj == beta)
+						if (aj == beta) //$IDENTITY-COMPARISON$ InferenceVariable
 							return true;
 					}
 					ParameterizedTypeBinding captured = (ParameterizedTypeBinding) entry.getValue();

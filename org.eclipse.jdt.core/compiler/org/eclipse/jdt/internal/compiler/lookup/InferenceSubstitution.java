@@ -33,9 +33,9 @@ public class InferenceSubstitution implements Substitution {
 		boolean hasSubstituted = false;
 		variableLoop: for (int i = 0; i < this.variables.length; i++) {
 			InferenceVariable variable = this.variables[i];
-			if (variable.typeParameter == typeVariable)
+			if (TypeBinding.equalsEquals(variable.typeParameter, typeVariable))
 				return variable;
-			if (variable.typeParameter == superclass) {
+			if (TypeBinding.equalsEquals(variable.typeParameter, superclass)) {
 				superclass = variable;
 				hasSubstituted = true;
 				continue;
@@ -43,7 +43,7 @@ public class InferenceSubstitution implements Substitution {
 			if (superInterfaces != null) {
 				int ifcLen = superInterfaces.length; 
 				for (int j = 0; j < ifcLen; j++) {
-					if (variable.typeParameter == superInterfaces[j]) {
+					if (TypeBinding.equalsEquals(variable.typeParameter, superInterfaces[j])) {
 						if (superInterfaces == typeVariable.superInterfaces)
 							System.arraycopy(superInterfaces, 0, superInterfaces = new ReferenceBinding[ifcLen], 0, ifcLen);
 						superInterfaces[j] = variable;

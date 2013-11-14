@@ -205,7 +205,7 @@ public class InferenceContext18 {
 		for (int i = 0; i < typeParameters.length; i++) {
 			for (int j = 0; j < this.inferenceVariables.length; j++) {
 				InferenceVariable variable = this.inferenceVariables[j];
-				if (variable.typeParameter == typeParameters[i]) {
+				if (TypeBinding.equalsEquals(variable.typeParameter, typeParameters[i])) {
 					substitutions[i] = boundSet.getInstantiation(variable);
 					break;
 				}
@@ -227,6 +227,10 @@ public class InferenceContext18 {
 	 * @throws InferenceFailureException 
 	 */
 	private /*@Nullable*/ BoundSet resolve() throws InferenceFailureException {
+		// NOTE: 18.5.2 ... 
+		// "(While it was necessary to demonstrate that the inference variables in B1 could be resolved
+		//   in order to establish applicability, the resulting instantiations are not considered part of B1.)
+		// TODO: Does this imply resolve() should *not* modify the boundset at all??
 		BoundSet tmpBoundSet = this.currentBounds;
 		if (this.inferenceVariables != null) {
 			for (int i = 0; i < this.inferenceVariables.length; i++) {
@@ -294,7 +298,7 @@ public class InferenceContext18 {
 						}
 						public TypeBinding substitute(TypeVariableBinding typeVariable) {
 							for (int j = 0; j < numVars; j++)
-								if (variables[j] == typeVariable)
+								if (variables[j] == typeVariable) //$IDENTITY-COMPARISON$ InferenceVariable does not participate in type annotation encoding
 									return zs[j];
 							return typeVariable;
 						}

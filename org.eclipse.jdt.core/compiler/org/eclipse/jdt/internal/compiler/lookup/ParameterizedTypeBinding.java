@@ -814,7 +814,7 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 			for (int i = 0; i < length; i++) {
 				TypeBinding oldArg = this.arguments[i];
 				TypeBinding newArg = oldArg.substituteInferenceVariable(var, substituteType);
-				if (newArg != oldArg) {
+				if (TypeBinding.notEquals(newArg, oldArg)) {
 					if (newArgs == null)
 						System.arraycopy(this.arguments, 0, newArgs = new TypeBinding[length], 0, length); 
 					newArgs[i] = newArg;
@@ -872,7 +872,7 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 		if (this.arguments != null) {
 			int len = this.arguments.length;
 			for (int i = 0; i < len; i++) {
-				if (this.arguments[i] != this && this.arguments[i].mentionsAny(parameters, idx))
+				if (TypeBinding.notEquals(this.arguments[i], this) && this.arguments[i].mentionsAny(parameters, idx))
 					return true;
 			}
 		}

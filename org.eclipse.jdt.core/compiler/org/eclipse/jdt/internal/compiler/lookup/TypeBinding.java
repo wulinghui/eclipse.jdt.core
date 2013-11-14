@@ -533,7 +533,7 @@ public final boolean isPrimitiveOrBoxedPrimitiveType() {
  *  Returns true if parameterized type AND not of the form List<?>
  */
 public boolean isBoundParameterizedType() {
-	return (this.tagBits & TagBits.IsBoundParameterizedType) != 0;
+	return false;
 }
 
 /**
@@ -1451,17 +1451,16 @@ public boolean isUnresolvedType() {
 	return false;
 }
 
-<<<<<<< HEAD
 /** Does this type mention any of the given type parameters, except the one at position 'idx'? */
 boolean mentionsAny(TypeBinding[] parameters, int idx) {
 	for (int i = 0; i < parameters.length; i++)
 		if (i != idx)
-			if (parameters[i] == this)
+			if (TypeBinding.equalsEquals(parameters[i], this))
 				return true;
-=======
+	return false;
+}
 /** Answer an additional bit characterizing this type, like {@link TypeIds#BitAutoCloseable}. */
 public boolean hasTypeBit(int bit) {
->>>>>>> refs/remotes/origin/BETA_JAVA8
 	return false;
 }
 }

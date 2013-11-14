@@ -51,7 +51,7 @@ public class InferenceVariable extends TypeVariableBinding {
 	}
 
 	TypeBinding substituteInferenceVariable(InferenceVariable var, TypeBinding substituteType) {
-		if (this == var)
+		if (this == var) //$IDENTITY-COMPARISON$ InferenceVariable
 			return substituteType;
 		return this;
 	}

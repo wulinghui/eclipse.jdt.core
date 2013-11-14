@@ -549,7 +549,7 @@ public class WildcardBinding extends ReferenceBinding {
 		TypeBinding currentBound = this.bound;
 		if (currentBound != null) {
 			currentBound = currentBound.substituteInferenceVariable(var, substituteType);
-			haveSubstitution |= currentBound != this.bound;
+			haveSubstitution |= TypeBinding.notEquals(currentBound, this.bound);
 		}
 		TypeBinding[] currentOtherBounds = null;
 		if (this.otherBounds != null) {
@@ -560,7 +560,7 @@ public class WildcardBinding extends ReferenceBinding {
 				TypeBinding currentOtherBound = this.otherBounds[i];
 				if (currentOtherBound != null) {
 					currentOtherBound = currentOtherBound.substituteInferenceVariable(var, substituteType);
-					if (currentOtherBound != this.otherBounds[i]) {
+					if (TypeBinding.notEquals(currentOtherBound, this.otherBounds[i])) {
 						if (currentOtherBounds == null)
 							System.arraycopy(this.otherBounds, 0, currentOtherBounds=new ReferenceBinding[length], 0, length);
 						currentOtherBounds[i] = currentOtherBound;

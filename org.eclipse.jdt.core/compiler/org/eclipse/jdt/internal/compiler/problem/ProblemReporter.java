@@ -167,11 +167,13 @@ import org.eclipse.jdt.internal.compiler.parser.RecoveryScanner;
 import org.eclipse.jdt.internal.compiler.parser.Scanner;
 import org.eclipse.jdt.internal.compiler.parser.TerminalTokens;
 import org.eclipse.jdt.internal.compiler.util.Messages;
+import org.eclipse.jdt.internal.compiler.util.Util;
 
 public class ProblemReporter extends ProblemHandler {
 
 	public ReferenceContext referenceContext;
 	private Scanner positionScanner;
+	private boolean underScoreIsLambdaParameter;
 	private final static byte
 	  // TYPE_ACCESS = 0x0,
 	  FIELD_ACCESS = 0x4,
@@ -1542,9 +1544,11 @@ public int computeSeverity(int problemID){
 			break;
 		// For compatibility with javac 8b111 for now.	
 		case IProblem.RepeatableAnnotationWithRepeatingContainerAnnotation:
-		case IProblem.IllegalUseOfUnderscoreAsAnIdentifier:
 		case IProblem.ToleratedMisplacedTypeAnnotations:	
 			return ProblemSeverities.Warning;
+		case IProblem.IllegalUseOfUnderscoreAsAnIdentifier:
+			return this.underScoreIsLambdaParameter ? ProblemSeverities.Error : ProblemSeverities.Warning;
+		
 	}
 	int irritant = getIrritant(problemID);
 	if (irritant != 0) {
@@ -8666,13 +8670,18 @@ public void useEnumAsAnIdentifier(int sourceStart, int sourceEnd) {
 		sourceStart,
 		sourceEnd);
 }
-public void illegalUseOfUnderscoreAsAnIdentifier(int sourceStart, int sourceEnd) {
-	this.handle(
-		IProblem.IllegalUseOfUnderscoreAsAnIdentifier,
-		NoArgument,
-		NoArgument,
-		sourceStart,
-		sourceEnd);
+public void illegalUseOfUnderscoreAsAnIdentifier(int sourceStart, int sourceEnd, boolean lambdaParameter) {
+	this.underScoreIsLambdaParameter = lambdaParameter;
+	try {
+		this.handle(
+			IProblem.IllegalUseOfUnderscoreAsAnIdentifier,
+			NoArgument,
+			NoArgument,
+			sourceStart,
+			sourceEnd);
+	} finally {
+		this.underScoreIsLambdaParameter = false;	
+	}
 }
 public void varargsArgumentNeedCast(MethodBinding method, TypeBinding argumentType, InvocationSite location) {
 	int severity = this.options.getSeverity(CompilerOptions.VarargsArgumentNeedCast);
@@ -9880,12 +9889,10 @@ public void disallowedTargetForContainerAnnotation(Annotation annotation, TypeBi
 		annotation.sourceStart,
 		annotation.sourceEnd);
 }
-<<<<<<< HEAD
-
 public void genericInferenceError(String message, InvocationSite invocationSite) {
 	String[] args = new String[]{message};
 	this.handle( IProblem.GenericInferenceError, args, args, invocationSite.sourceStart(), invocationSite.sourceEnd());	
-=======
+}
 public void uninternedIdentityComparison(EqualExpression expr, TypeBinding lhs, TypeBinding rhs, CompilationUnitDeclaration unit) {
 	
 	char [] lhsName = lhs.sourceName();
@@ -9924,6 +9931,5 @@ public void uninternedIdentityComparison(EqualExpression expr, TypeBinding lhs, 
 			},
 			expr.sourceStart,
 			expr.sourceEnd);
->>>>>>> refs/remotes/origin/BETA_JAVA8
 }
 }

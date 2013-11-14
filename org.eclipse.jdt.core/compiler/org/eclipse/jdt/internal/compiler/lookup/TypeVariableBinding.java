@@ -384,7 +384,7 @@ public class TypeVariableBinding extends ReferenceBinding {
         	return NO_TYPE_BOUNDS;
         TypeBound[] bounds = new TypeBound[n];
         bounds[0] = TypeBound.createBoundOrDependency(context, this.firstBound, variable);
-        int ifcOffset = (this.firstBound == this.superclass) ? -1 : 0;
+        int ifcOffset = TypeBinding.equalsEquals(this.firstBound, this.superclass) ? -1 : 0;
         for (int i = 1; i < n; i++)
 			bounds[i] = TypeBound.createBoundOrDependency(context, this.superInterfaces[i+ifcOffset], variable);
         return bounds;
@@ -490,7 +490,7 @@ public class TypeVariableBinding extends ReferenceBinding {
 			ReferenceBinding currentSuperclass = this.superclass;
 			if (currentSuperclass != null) {
 				currentSuperclass = (ReferenceBinding) currentSuperclass.substituteInferenceVariable(var, substituteType);
-				haveSubstitution |= currentSuperclass != this.superclass;
+				haveSubstitution |= TypeBinding.notEquals(currentSuperclass, this.superclass);
 			}
 			ReferenceBinding[] currentSuperInterfaces = null;
 			if (this.superInterfaces != null) {
@@ -501,7 +501,7 @@ public class TypeVariableBinding extends ReferenceBinding {
 					ReferenceBinding currentSuperInterface = this.superInterfaces[i];
 					if (currentSuperInterface != null) {
 						currentSuperInterface = (ReferenceBinding) currentSuperInterface.substituteInferenceVariable(var, substituteType);
-						if (currentSuperInterface != this.superInterfaces[i]) {
+						if (TypeBinding.notEquals(currentSuperInterface, this.superInterfaces[i])) {
 							if (currentSuperInterfaces == null)
 								System.arraycopy(this.superInterfaces, 0, currentSuperInterfaces=new ReferenceBinding[length], 0, length);
 							currentSuperInterfaces[i] = currentSuperInterface;

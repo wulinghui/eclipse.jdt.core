@@ -44,7 +44,7 @@ public class TypeBound extends ReductionResult {
 	public boolean equals(Object obj) {
 		if (obj instanceof TypeBound) {
 			TypeBound other = (TypeBound) obj;
-			return this.left == other.left && this.right == other.right && this.relation == other.relation;
+			return this.left == other.left && TypeBinding.equalsEquals(this.right, other.right) && this.relation == other.relation; //$IDENTITY-COMPARISON$ InferenceVariable
 		}
 		return false;
 	}
