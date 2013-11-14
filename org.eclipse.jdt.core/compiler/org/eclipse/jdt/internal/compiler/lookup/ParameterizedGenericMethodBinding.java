@@ -19,6 +19,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import org.eclipse.jdt.internal.compiler.ast.Expression;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 
 /**
@@ -71,7 +72,9 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 						boolean hasReturnProblem = false;
 						TypeBinding expectedType = invocationSite.expectedType();
 						if (expectedType != null
-								&& expectedType != TypeBinding.VOID) 
+								&& expectedType != TypeBinding.VOID
+								&& invocationSite instanceof Expression
+								&& ((Expression)invocationSite).isPolyExpression()) 
 						{
 							if (infCtx18.inferPolyInvocationType(invocationSite, originalMethod)) {
 								result = infCtx18.solve();
@@ -80,6 +83,7 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 									result = provisionalResult; // we prefer a type error regarding the return type over reporting no match at all
 								}
 							}
+							// TODO 18.5.2 bullets 4ff.
 						}
 						TypeBinding[] solutions = infCtx18.getSolutions(typeVariables, result);
 						if (solutions != null) {

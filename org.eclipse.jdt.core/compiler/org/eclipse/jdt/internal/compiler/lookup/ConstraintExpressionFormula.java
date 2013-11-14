@@ -36,16 +36,19 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 	}
 	
 	public Object reduce(InferenceContext18 inferenceContext) throws InferenceFailureException {
-		TypeBinding exprType = this.left.resolvedType;
-		if (exprType == null || !exprType.isValidBinding())
-			return FALSE;
 		// JLS 18.2.1
 		if (this.right.isProperType()) {
+			TypeBinding exprType = this.left.resolvedType;
+			if (exprType == null || !exprType.isValidBinding())
+				return FALSE;
 			if (isCompatibleWithInLooseInvocationContext(exprType, this.right, inferenceContext))
 				return TRUE;
 			return FALSE;
 		}
 		if (!this.left.isPolyExpression()) {
+			TypeBinding exprType = this.left.resolvedType;
+			if (exprType == null || !exprType.isValidBinding())
+				return FALSE;
 			return new ConstraintTypeFormula(exprType, this.right, COMPATIBLE);
 		} else {
 			// shapes of poly expressions (18.2.1)
@@ -71,7 +74,9 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 			} else if (this.left instanceof LambdaExpression) {
 				InferenceContext18.missingImplementation("NYI");
 			} else if (this.left instanceof ReferenceExpression) {
-				InferenceContext18.missingImplementation("NYI");
+				if (this.right.getSingleAbstractMethod(inferenceContext.scope) == null)
+					return FALSE;
+				InferenceContext18.missingImplementation("NYI: reference expression");
 			}
 		}
 		return FALSE;

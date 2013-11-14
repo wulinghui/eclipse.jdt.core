@@ -67,7 +67,7 @@ class ConstraintTypeFormula extends ConstraintFormula {
 			// 18.2.3:
 			if (this.right.kind() != Binding.WILDCARD_TYPE) { // "If T is a type" ... all alternatives require "wildcard"
 				if (this.left.kind() != Binding.WILDCARD_TYPE) {
-					return new ConstraintTypeFormula(this.left, this.right, SUBTYPE);						
+					return new ConstraintTypeFormula(this.left, this.right, SAME);						
 				} else {
 					return FALSE;
 				}
