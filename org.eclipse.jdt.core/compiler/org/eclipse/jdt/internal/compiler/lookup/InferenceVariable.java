@@ -14,6 +14,8 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import java.util.Set;
+
 import org.eclipse.jdt.core.compiler.CharOperation;
 
 /**
@@ -54,6 +56,10 @@ public class InferenceVariable extends TypeVariableBinding {
 		if (this == var) //$IDENTITY-COMPARISON$ InferenceVariable
 			return substituteType;
 		return this;
+	}
+
+	void collectInferenceVariables(Set variables) {
+		variables.add(this);
 	}
 
 	public char[] qualifiedSourceName() {

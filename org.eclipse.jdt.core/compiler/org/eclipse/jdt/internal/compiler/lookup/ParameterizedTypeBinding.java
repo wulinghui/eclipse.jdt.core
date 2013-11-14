@@ -30,6 +30,7 @@
 package org.eclipse.jdt.internal.compiler.lookup;
 
 import java.util.List;
+import java.util.Set;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.TypeReference;
@@ -866,7 +867,7 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 		return this.memberTypes;
 	}
 
-	boolean mentionsAny(TypeBinding[] parameters, int idx) {
+	public boolean mentionsAny(TypeBinding[] parameters, int idx) {
 		if (super.mentionsAny(parameters, idx))
 			return true;
 		if (this.arguments != null) {
@@ -877,6 +878,16 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 			}
 		}
 		return false;
+	}
+
+	void collectInferenceVariables(Set variables) {
+		if (this.arguments != null) {
+			int len = this.arguments.length;
+			for (int i = 0; i < len; i++) {
+				if (TypeBinding.notEquals(this.arguments[i], this))
+					this.arguments[i].collectInferenceVariables(variables);
+			}
+		}
 	}
 
 	/**

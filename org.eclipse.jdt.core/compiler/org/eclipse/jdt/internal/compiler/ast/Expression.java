@@ -1165,6 +1165,11 @@ public void tagAsEllipsisArgument() {
 public boolean isPolyExpression() throws UnsupportedOperationException {
 	return false;
 }
+/** Variant of isPolyExpression() to be used during type inference, when a resolution candidate exists. */
+public boolean isPolyExpression(MethodBinding method) {
+	return false;
+}
+
 
 public void tagAsNeedCheckCast() {
     // do nothing by default

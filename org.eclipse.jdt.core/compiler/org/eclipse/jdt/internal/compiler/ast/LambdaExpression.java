@@ -288,7 +288,7 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		return this.resolvedType;
 	}
 	
-	private boolean argumentsTypeElided() {
+	public boolean argumentsTypeElided() {
 		return this.arguments.length > 0 && this.arguments[0].hasElidedType();
 	}
 

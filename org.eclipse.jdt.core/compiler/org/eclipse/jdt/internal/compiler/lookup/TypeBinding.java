@@ -25,6 +25,7 @@
 package org.eclipse.jdt.internal.compiler.lookup;
 
 import java.util.List;
+import java.util.Set;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
@@ -590,7 +591,7 @@ public boolean isInterface() {
 	return false;
 }
 
-public boolean isFunctionalInterface() {
+public boolean isFunctionalInterface(Scope scope) {
 	return false;
 }
 
@@ -1452,12 +1453,17 @@ public boolean isUnresolvedType() {
 }
 
 /** Does this type mention any of the given type parameters, except the one at position 'idx'? */
-boolean mentionsAny(TypeBinding[] parameters, int idx) {
+public boolean mentionsAny(TypeBinding[] parameters, int idx) {
 	for (int i = 0; i < parameters.length; i++)
 		if (i != idx)
 			if (TypeBinding.equalsEquals(parameters[i], this))
 				return true;
 	return false;
+}
+
+/** Collect all inference variables mentioned in this type into variables. */
+void collectInferenceVariables(Set variables) {
+	// nop
 }
 /** Answer an additional bit characterizing this type, like {@link TypeIds#BitAutoCloseable}. */
 public boolean hasTypeBit(int bit) {

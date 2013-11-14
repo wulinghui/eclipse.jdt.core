@@ -14,6 +14,11 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
 import org.eclipse.jdt.internal.compiler.ast.ConditionalExpression;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
@@ -46,6 +51,53 @@ public class ConstraintExceptionFormula extends ConstraintFormula {
 			}
 		}
 		return TRUE;
+	}
+
+	Collection inputVariables(final InferenceContext18 context) {
+		// from 18.5.2.
+		if (this.left instanceof LambdaExpression) {
+			if (this.right instanceof InferenceVariable) {
+				return Collections.singletonList(this.right);
+			}
+			if (this.right.isFunctionalInterface(context.scope)) {
+				LambdaExpression lambda = (LambdaExpression) this.left;
+				MethodBinding sam = this.right.getSingleAbstractMethod(context.scope); // TODO derive with target type?
+				final Set variables = new HashSet();
+				if (lambda.argumentsTypeElided()) {
+					// i)
+					int len = sam.parameters.length;
+					for (int i = 0; i < len; i++) {
+						sam.parameters[i].collectInferenceVariables(variables);
+					}
+				} 
+				if (sam.returnType != TypeBinding.VOID) {
+					// ii)
+					sam.returnType.collectInferenceVariables(variables);
+				}
+				return variables;
+			}
+		} else if (this.left instanceof ReferenceExpression) {
+			if (this.right instanceof InferenceVariable) {
+				return Collections.singletonList(this.right);
+			}
+			if (this.right.isFunctionalInterface(context.scope)) { // TODO: && this.left is inexact
+				MethodBinding sam = this.right.getSingleAbstractMethod(context.scope); // TODO derive with target type?
+				final Set variables = new HashSet();
+				int len = sam.parameters.length;
+				for (int i = 0; i < len; i++) {
+					sam.parameters[i].collectInferenceVariables(variables);
+				}
+				sam.returnType.collectInferenceVariables(variables);
+				return variables;
+			}			
+		} else if (this.left instanceof ConditionalExpression && this.left.isPolyExpression()) {
+			ConditionalExpression expr = (ConditionalExpression) this.left;
+			Set variables = new HashSet();
+			variables.addAll(new ConstraintExceptionFormula(expr.valueIfTrue, this.right).inputVariables(context));
+			variables.addAll(new ConstraintExceptionFormula(expr.valueIfFalse, this.right).inputVariables(context));
+			return variables;
+		}
+		return EMPTY_VARIABLE_LIST;
 	}
 
 }

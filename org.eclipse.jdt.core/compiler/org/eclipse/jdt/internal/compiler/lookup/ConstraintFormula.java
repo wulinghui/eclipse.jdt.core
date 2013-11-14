@@ -14,10 +14,18 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 /**
  * Implementation of 18.1.2 in JLS8
  */
 abstract class ConstraintFormula extends ReductionResult {
+
+	static final List EMPTY_VARIABLE_LIST = Collections.EMPTY_LIST;
 
 	public abstract Object reduce(InferenceContext18 inferenceContext) throws InferenceFailureException;
 
@@ -34,4 +42,14 @@ abstract class ConstraintFormula extends ReductionResult {
 		return false;
 	}
 
+	Collection inputVariables(InferenceContext18 context) {
+		return EMPTY_VARIABLE_LIST;
+	}
+	
+	Collection outputVariables(InferenceContext18 context) {
+		Set variables = new HashSet();
+		this.right.collectInferenceVariables(variables);
+		variables.removeAll(inputVariables(context));
+		return variables;
+	}
 }

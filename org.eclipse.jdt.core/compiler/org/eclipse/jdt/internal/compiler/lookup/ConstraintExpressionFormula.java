@@ -14,11 +14,19 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.ast.ConditionalExpression;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.ast.MessageSend;
 import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
+import org.eclipse.jdt.internal.compiler.ast.ReturnStatement;
+import org.eclipse.jdt.internal.compiler.ast.Statement;
 
 /**
  * Implementation of 18.1.2 in JLS8, case:
@@ -165,6 +173,63 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 				return parameterizedType;
 		}
 		return null;
+	}
+
+	Collection inputVariables(final InferenceContext18 context) {
+		// from 18.5.2.
+		if (this.left instanceof LambdaExpression) {
+			if (this.right instanceof InferenceVariable) {
+				return Collections.singletonList(this.right);
+			}
+			if (this.right.isFunctionalInterface(context.scope)) {
+				LambdaExpression lambda = (LambdaExpression) this.left;
+				MethodBinding sam = this.right.getSingleAbstractMethod(context.scope); // TODO derive with target type?
+				final Set variables = new HashSet();
+				if (lambda.argumentsTypeElided()) {
+					// i)
+					int len = sam.parameters.length;
+					for (int i = 0; i < len; i++) {
+						sam.parameters[i].collectInferenceVariables(variables);
+					}
+				}
+				if (sam.returnType != TypeBinding.VOID) {
+					// ii)
+					final TypeBinding r = sam.returnType;
+					Statement body = lambda.body;
+					if (body instanceof Expression) {
+						variables.addAll(new ConstraintExpressionFormula((Expression) body, r, COMPATIBLE).inputVariables(context));
+					} else {
+						body.traverse(new ASTVisitor() {
+							public boolean visit(ReturnStatement returnStatement, BlockScope scope) {
+								variables.addAll(new ConstraintExpressionFormula(returnStatement.expression, r, COMPATIBLE).inputVariables(context));
+								return false;
+							}
+						}, (BlockScope)null);
+					}
+				}
+				return variables;
+			}
+		} else if (this.left instanceof ReferenceExpression) {
+			if (this.right instanceof InferenceVariable) {
+				return Collections.singletonList(this.right);
+			}
+			if (this.right.isFunctionalInterface(context.scope)) { // TODO: && this.left is inexact
+				MethodBinding sam = this.right.getSingleAbstractMethod(context.scope); // TODO derive with target type?
+				final Set variables = new HashSet();
+				int len = sam.parameters.length;
+				for (int i = 0; i < len; i++) {
+					sam.parameters[i].collectInferenceVariables(variables);
+				}
+				return variables;
+			}			
+		} else if (this.left instanceof ConditionalExpression && this.left.isPolyExpression()) {
+			ConditionalExpression expr = (ConditionalExpression) this.left;
+			Set variables = new HashSet();
+			variables.addAll(new ConstraintExpressionFormula(expr.valueIfTrue, this.right, COMPATIBLE).inputVariables(context));
+			variables.addAll(new ConstraintExpressionFormula(expr.valueIfFalse, this.right, COMPATIBLE).inputVariables(context));
+			return variables;
+		}
+		return EMPTY_VARIABLE_LIST;
 	}
 
 	// debugging:

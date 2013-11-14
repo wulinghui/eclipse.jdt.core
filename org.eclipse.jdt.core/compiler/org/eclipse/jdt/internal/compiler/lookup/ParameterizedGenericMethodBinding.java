@@ -19,7 +19,6 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
-import org.eclipse.jdt.internal.compiler.ast.Expression;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 
 /**
@@ -62,6 +61,7 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 // 1.8
 			InferenceContext18 infCtx18 = invocationSite.inferenceContext(scope);
 			if (infCtx18 != null) {
+				int checkKind = InferenceContext18.CHECK_LOOSE; // FIXME
 				// 18.5.1 (Applicability):
 				infCtx18.inferInvocationApplicability(originalMethod, arguments);
 				try {
@@ -69,22 +69,11 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 					if (result != null /*&& infCtx18.isResolved(result)*/) { // FIXME(stephan): second condition breaks BatchCompilerTest.test032
 						// 18.5.2 (Invocation type):
 						BoundSet provisionalResult = infCtx18.purgeInstantiations();
-						boolean hasReturnProblem = false;
 						TypeBinding expectedType = invocationSite.expectedType();
-						if (expectedType != null
-								&& expectedType != TypeBinding.VOID
-								&& invocationSite instanceof Expression
-								&& ((Expression)invocationSite).isPolyExpression()) 
-						{
-							if (infCtx18.inferPolyInvocationType(invocationSite, originalMethod)) {
-								result = infCtx18.solve();
-								if (result == null) {
-									hasReturnProblem = true;
-									result = provisionalResult; // we prefer a type error regarding the return type over reporting no match at all
-								}
-							}
-							// TODO 18.5.2 bullets 4ff.
-						}
+						result = infCtx18.inferInvocationType(expectedType, invocationSite, originalMethod, checkKind);
+						boolean hasReturnProblem = result == null;
+						if (hasReturnProblem)
+							result = provisionalResult; // we prefer a type error regarding the return type over reporting no match at all
 						TypeBinding[] solutions = infCtx18.getSolutions(typeVariables, result);
 						if (solutions != null) {
 							ParameterizedGenericMethodBinding parameterizedMethod = scope.environment().createParameterizedGenericMethod(originalMethod, solutions);

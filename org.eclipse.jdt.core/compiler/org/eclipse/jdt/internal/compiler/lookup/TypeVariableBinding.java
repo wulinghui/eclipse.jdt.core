@@ -27,6 +27,8 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import java.util.Set;
+
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.Annotation;
 import org.eclipse.jdt.internal.compiler.ast.NullAnnotationMatching;
@@ -555,7 +557,7 @@ public class TypeVariableBinding extends ReferenceBinding {
 		return Binding.TYPE_PARAMETER;
 	}
 	
-	boolean mentionsAny(TypeBinding[] parameters, int idx) {
+	public boolean mentionsAny(TypeBinding[] parameters, int idx) {
 		if (this.inRecursiveFunction)
 			return false; // nothing seen
 		this.inRecursiveFunction = true;
@@ -570,6 +572,22 @@ public class TypeVariableBinding extends ReferenceBinding {
 						return true;
 			}
 			return false;
+		} finally {
+			this.inRecursiveFunction = false;
+		}
+	}
+
+	void collectInferenceVariables(Set variables) {
+		if (this.inRecursiveFunction)
+			return; // nothing seen
+		this.inRecursiveFunction = true;
+		try {
+			if (this.superclass != null)
+				this.superclass.collectInferenceVariables(variables);
+			if (this.superInterfaces != null)
+				for (int j = 0; j < this.superInterfaces.length; j++) {
+					this.superInterfaces[j].collectInferenceVariables(variables);
+			}
 		} finally {
 			this.inRecursiveFunction = false;
 		}

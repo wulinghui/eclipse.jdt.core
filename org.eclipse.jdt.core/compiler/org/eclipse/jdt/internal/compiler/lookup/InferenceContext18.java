@@ -38,6 +38,11 @@ public class InferenceContext18 {
 	// interim, processed by createInitialConstraintsForParameters()
 	Expression[] invocationArguments;
 	
+	// TODO make me an enum:
+	public static final int CHECK_STRICT = 1;
+	public static final int CHECK_LOOSE = 2;
+	public static final int CHECK_VARARG = 3;
+	
 	/** Construct an inference context for an invocation (method/constructor). */
 	public InferenceContext18(Scope scope, Expression[] arguments) {
 		this.scope = scope;
@@ -137,8 +142,46 @@ public class InferenceContext18 {
 	}
 
 	/** JLS 18.5.2 Invocation Type Inference */
-	public boolean inferPolyInvocationType(InvocationSite invocationSite, MethodBinding method) throws InferenceFailureException {
-		return ConstraintExpressionFormula.inferPolyInvocationType(this, invocationSite, method);
+	public BoundSet inferInvocationType(TypeBinding expectedType, InvocationSite invocationSite, MethodBinding method, int checkKind)
+			throws InferenceFailureException 
+	{
+		if (expectedType != null
+				&& expectedType != TypeBinding.VOID
+				&& invocationSite instanceof Expression
+				&& ((Expression)invocationSite).isPolyExpression(method)) 
+		{
+			if (!ConstraintExpressionFormula.inferPolyInvocationType(this, invocationSite, method)) {
+				return null;
+			}
+		}
+		TypeBinding[] fs;
+		Expression[] arguments = this.invocationArguments;
+		if (arguments != null) {
+			int k = arguments.length;
+			switch (checkKind) {
+				case CHECK_STRICT:
+				case CHECK_LOOSE:
+					fs = method.parameters;
+					break;
+				case CHECK_VARARG:
+					fs = varArgTypes(method.parameters, k);
+					break;
+				default:
+					throw new IllegalStateException("Unexpected checkKind "+checkKind); //$NON-NLS-1$
+			}
+			for (int i = 0; i < k; i++) {
+//				TypeBinding substF = substitute(fs[i]);
+// FIXME: need "pertinent to applicability"
+//				// For all i (1 ≤ i ≤ k), if ei is not pertinent to applicability, the set contains ⟨ei → θ Fi⟩.
+//				if (!this.currentBounds.reduceOneConstraint(this, new ConstraintExpressionFormula(arguments[i], substF, ReductionResult.COMPATIBLE)))
+//					return false;
+				
+				if (!this.currentBounds.reduceOneConstraint(this, new ConstraintExceptionFormula(arguments[i], expectedType))) // FIXME: spec says T, we use expectedType, OK?
+					return null;
+			}
+		}
+		// TODO 18.5.2 bullets 5ff.
+		return solve();
 	}
 
 	/** 18.5.2: before Invocation Type Inference purge all instantiations.
@@ -373,6 +416,16 @@ public class InferenceContext18 {
 				numUninstantiated += addDependencies(boundSet, variableSet, j);
 		}
 		return numUninstantiated;
+	}
+
+	private TypeBinding[] varArgTypes(TypeBinding[] parameters, int k) {
+		TypeBinding[] types = new TypeBinding[k];
+		int declaredLength = parameters.length;
+		System.arraycopy(parameters, 0, types, 0, declaredLength);
+		TypeBinding last = parameters[declaredLength-1];
+		for (int i = declaredLength; i < k; i++)
+			types[i] = last;
+		return types;
 	}
 
 	// debugging:

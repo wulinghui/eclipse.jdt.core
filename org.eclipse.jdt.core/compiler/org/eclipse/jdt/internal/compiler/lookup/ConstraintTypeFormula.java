@@ -132,7 +132,18 @@ class ConstraintTypeFormula extends ConstraintFormula {
 					return new TypeBound((InferenceVariable) this.right, this.left, SAME);
 				}
 				if (TypeBinding.equalsEquals(this.left.original(), this.right.original())) {
-					InferenceContext18.missingImplementation("NYI");
+					TypeBinding[] leftParams = this.left.typeArguments();
+					TypeBinding[] rightParams = this.right.typeArguments();
+					if (leftParams == null || rightParams == null)
+						return leftParams == rightParams ? TRUE : FALSE;
+					if (leftParams.length != rightParams.length)
+						return FALSE;
+					int len = leftParams.length;
+					ConstraintFormula[] constraints = new ConstraintFormula[len];
+					for (int i = 0; i < len; i++) {
+						constraints[i] = new ConstraintTypeFormula(leftParams[i], rightParams[i], SAME);
+					}
+					return constraints;
 				}
 				if (this.left.isArrayType() && this.right.isArrayType() && this.left.dimensions() == this.right.dimensions()) {
 					// checking dimensions already now is an optimization over reducing one dim at a time
