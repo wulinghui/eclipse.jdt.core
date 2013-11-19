@@ -4185,10 +4185,10 @@ public void invalidMethod(MessageSend messageSend, MethodBinding method) {
 				IProblem.TypeMismatch,
 				new String[] {
 				        String.valueOf(shownMethod.returnType.readableName()),
-				        String.valueOf(problemMethod.returnType.readableName())},
+				        (problemMethod.returnType != null ? String.valueOf(problemMethod.returnType.readableName()) : "<unknown>")},
 				new String[] {
 				        String.valueOf(shownMethod.returnType.shortReadableName()),
-				        String.valueOf(problemMethod.returnType.shortReadableName())},
+				        (problemMethod.returnType != null ? String.valueOf(problemMethod.returnType.shortReadableName()) : "<unknown>")},
 				messageSend.sourceStart,
 				messageSend.sourceEnd);			
 			return;
