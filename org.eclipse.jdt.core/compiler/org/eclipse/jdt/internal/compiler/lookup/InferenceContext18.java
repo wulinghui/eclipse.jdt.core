@@ -81,13 +81,17 @@ public class InferenceContext18 {
 		int len = (isVarArgs && !passThrough) ? parameters.length - 1 : parameters.length;
 		this.initialConstraints = new ConstraintFormula[this.invocationArguments.length];
 		for (int i = 0; i < len; i++) {
-			TypeBinding thetaF = substitute(parameters[i]);	
-			this.initialConstraints[i] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
+			if (this.invocationArguments[i].isPertinentToApplicability()) {
+				TypeBinding thetaF = substitute(parameters[i]);
+				this.initialConstraints[i] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
+			}
 		}
 		if (!passThrough && varArgsType instanceof ArrayBinding) {
 			TypeBinding thetaF = substitute(((ArrayBinding) varArgsType).elementsType());
 			for (int i = len; i < this.invocationArguments.length; i++) {
-				this.initialConstraints[i] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
+				if (this.invocationArguments[i].isPertinentToApplicability()) {
+					this.initialConstraints[i] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
+				}
 			}
 		}
 	}
@@ -158,6 +162,7 @@ public class InferenceContext18 {
 		Expression[] arguments = this.invocationArguments;
 		if (arguments != null) {
 			int k = arguments.length;
+			int p = method.parameters.length;
 			switch (checkKind) {
 				case CHECK_STRICT:
 				case CHECK_LOOSE:
@@ -170,11 +175,12 @@ public class InferenceContext18 {
 					throw new IllegalStateException("Unexpected checkKind "+checkKind); //$NON-NLS-1$
 			}
 			for (int i = 0; i < k; i++) {
-//				TypeBinding substF = substitute(fs[i]);
-// FIXME: need "pertinent to applicability"
-//				// For all i (1 ≤ i ≤ k), if ei is not pertinent to applicability, the set contains ⟨ei → θ Fi⟩.
-//				if (!this.currentBounds.reduceOneConstraint(this, new ConstraintExpressionFormula(arguments[i], substF, ReductionResult.COMPATIBLE)))
-//					return false;
+				TypeBinding substF = substitute(fs[Math.min(i, p-1)]);
+				// For all i (1 ≤ i ≤ k), if ei is not pertinent to applicability, the set contains ⟨ei → θ Fi⟩.
+				if (!arguments[i].isPertinentToApplicability()) {
+					if (!this.currentBounds.reduceOneConstraint(this, new ConstraintExpressionFormula(arguments[i], substF, ReductionResult.COMPATIBLE)))
+						return null;
+				}
 				
 				if (!this.currentBounds.reduceOneConstraint(this, new ConstraintExceptionFormula(arguments[i], expectedType))) // FIXME: spec says T, we use expectedType, OK?
 					return null;
