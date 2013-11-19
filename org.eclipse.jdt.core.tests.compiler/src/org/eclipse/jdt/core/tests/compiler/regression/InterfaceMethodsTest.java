@@ -1093,22 +1093,18 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 	// an annotation type cannot have default methods
 	public void testAnnotation1() {
 		runNegativeTest(
-			false,
 			new String[] {
 				"I.java",
 				"public @interface I {\n" +
 				"    default String id() { return \"1\"; }\n" +
 				"}\n"
 			},
-			null,
-			null,
 			"----------\n" + 
 			"1. ERROR in I.java (at line 2)\n" + 
 			"	default String id() { return \"1\"; }\n" + 
 			"	^^^^^^^\n" + 
 			"Syntax error on token \"default\", @ expected\n" + 
-			"----------\n",
-			JavacTestOptions.JavacHasABug.Javac8AcceptsDefaultMethodInAnnotationType);
+			"----------\n");
 	}
 	
 	// basic situation similar to AmbiguousMethodTest.test009()
@@ -1797,8 +1793,7 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 	}
 
 	// class implements interface with default method. 
-	// - synth. access needed for visibility reasons
-	// - witness for NoSuchMethodError in synthetic method (SuperMethodAccess)
+	// - witness for NoSuchMethodError in synthetic method (SuperMethodAccess) - turned out to be a JVM bug
 	public void testSuperAccess01() {
 		runConformTest(
 			new String[] {
@@ -1820,11 +1815,9 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 	}
 
 	// class implements interface with default method. 
-	// - synth. access needed for visibility reasons
 	// - intermediate public interface
 	public void testSuperAccess02() {
 		runConformTest(
-			false,
 			new String[] {
 				"p1/C.java",
 				"package p1;\n" +
@@ -1843,10 +1836,34 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 				"}\n" +
 				"public interface J extends I {}\n"
 			},
-			"",
-			"default",
-			"",
-			JavacTestOptions.JavacHasABug.Javac8ProducesIllegalAccessError);
+			"default");
+	}
+	
+	// https://bugs.eclipse.org/421796 - Bug 421796 - [1.8][compiler] java.lang.AbstractMethodError executing default method code.
+	public void testSuperAccess03() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"interface I  {\n" + 
+				"    void foo(); \n" + 
+				"}\n" + 
+				"\n" + 
+				"interface J extends I {\n" + 
+				"    default void foo() {\n" + 
+				"    }\n" + 
+				"}\n" + 
+				"\n" + 
+				"interface K extends J {\n" + 
+				"}\n" + 
+				"\n" + 
+				"public class X implements K {\n" + 
+				"	public static void main(String argv[]) {\n" + 
+				"		X test = new X();\n" + 
+				"		((J)test).foo();\n" + 
+				"		test.foo();\n" + 
+				"	}\n" + 
+				"}\n"
+			});
 	}
 
 	// Variant of test MethodVerifyTest.test144() from https://bugs.eclipse.org/bugs/show_bug.cgi?id=194034
@@ -2149,7 +2166,7 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 			"----------\n");
 	}
     // https://bugs.eclipse.org/bugs/show_bug.cgi?id=421543, [1.8][compiler] Compiler fails to recognize default method being turned into abstract by subtytpe
-	public void _testBug421543a() {
+	public void testBug421543a() {
 		runNegativeTest(
 			new String[] {
 				"X.java",
@@ -2176,24 +2193,46 @@ public class InterfaceMethodsTest extends AbstractComparableTest {
 	}
     // https://bugs.eclipse.org/bugs/show_bug.cgi?id=421543, [1.8][compiler] Compiler fails to recognize default method being turned into abstract by subtytpe
 	public void testBug421543b() {
-		runNegativeTest(
+		runConformTest(
 			new String[] {
 				"X.java",
 				"interface I<T>  {\n" +
 				"	void foo(T t);\n" +
 				"}\n" +
+				"@SuppressWarnings(\"override\")\n" +
 				"interface J extends I<J> {\n" +
 				"	default void foo(J t) {}\n" +
 				"}\n" +
 				"public class X implements J {\n" +
 				"}\n"
 			}, 
-			"----------\n" + 
-			"1. WARNING in X.java (at line 5)\n" + 
-			"	default void foo(J t) {}\n" + 
-			"	             ^^^^^^^^\n" + 
-			"The method foo(J) of type J should be tagged with @Override since it actually overrides a superinterface method\n" + 
-			"----------\n");
+			"");
+	}
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=421797, [1.8][compiler] ClassFormatError with default methods & I.super.foo() syntax
+	public void testBug421797() {
+		runConformTest(
+			new String[] {
+				"X.java",
+				"interface I {\n" +
+				"	int m(String s, int val);\n" +
+				"	public default int foo(String s, int val) {\n" +
+				"		System.out.print(s + \" from I.foo:\");\n" +
+				"		return val * val; \n" +
+				"	}\n" +
+				"}\n" +
+				"interface T extends I {\n" +
+				"	public default int m(String s, int value) { \n" +
+				"		I i = I.super::foo; \n" +
+				"		return i.foo(s, value);\n" +
+				"	}\n" +
+				"}\n" +
+				"public class X {\n" +
+				"	public static void main(String argv[]) {  \n" +
+				"		System.out.println(new T(){}.m(\"Hello\", 1234));\n" +
+				"	}\n" +
+				"}\n"
+			}, 
+			"Hello from I.foo:1522756");
 	}	
 
 }

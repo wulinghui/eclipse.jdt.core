@@ -124,7 +124,7 @@ public static final TypeBinding wellKnownType(Scope scope, int id) {
 	}
 }
 
-protected ReferenceBinding actualType() {
+public ReferenceBinding actualType() {
 	return null; // overridden in ParameterizedTypeBinding & WildcardBinding
 }
 
@@ -1468,5 +1468,13 @@ void collectInferenceVariables(Set variables) {
 /** Answer an additional bit characterizing this type, like {@link TypeIds#BitAutoCloseable}. */
 public boolean hasTypeBit(int bit) {
 	return false;
+}
+
+public boolean sIsMoreSpecific(TypeBinding s, TypeBinding t) {
+	throw new UnsupportedOperationException("abstract virtual method called"); //$NON-NLS-1$
+}
+
+public MethodBinding[] getMethods(char[] selector) {
+	return Binding.NO_METHODS;
 }
 }

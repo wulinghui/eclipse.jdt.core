@@ -461,7 +461,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 			
 			if (this.originalValueIfTrueType.kind() == Binding.POLY_TYPE || this.originalValueIfFalseType.kind() == Binding.POLY_TYPE) {
 				this.isPolyExpression = true;
-				return new PolyTypeBinding(this);
+				return this.resolvedType = new PolyTypeBinding(this);
 			}
 		} else {
 			if (this.originalValueIfTrueType.kind() == Binding.POLY_TYPE)
@@ -649,6 +649,10 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		this.expressionContext = context;
 	}
 	
+	public boolean isPertinentToApplicability() {
+		return this.valueIfTrue.isPertinentToApplicability() && this.valueIfFalse.isPertinentToApplicability();
+	}
+	
 	public boolean isPolyExpression() throws UnsupportedOperationException {
 		if (this.expressionContext != ASSIGNMENT_CONTEXT && this.expressionContext != INVOCATION_CONTEXT)
 			return false;
@@ -660,10 +664,10 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		return this.valueIfTrue.isCompatibleWith(left, scope) && this.valueIfFalse.isCompatibleWith(left, scope);
 	}
 	
-	public boolean tIsMoreSpecific(TypeBinding t, TypeBinding s) {
+	public boolean sIsMoreSpecific(TypeBinding s, TypeBinding t) {
 		return isPolyExpression() ?
-				this.valueIfTrue.tIsMoreSpecific(t, s) && this.valueIfFalse.tIsMoreSpecific(t, s):
-				super.tIsMoreSpecific(t, s);
+				this.valueIfTrue.sIsMoreSpecific(s, t) && this.valueIfFalse.sIsMoreSpecific(s, t):
+				super.sIsMoreSpecific(s, t);
 	}
 	
 	public void tagAsEllipsisArgument() {

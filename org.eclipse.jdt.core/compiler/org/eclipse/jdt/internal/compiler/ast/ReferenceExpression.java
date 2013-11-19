@@ -56,7 +56,6 @@ import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
 import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
-import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
 
 public class ReferenceExpression extends FunctionalExpression implements InvocationSite {
 	
@@ -71,6 +70,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 	
 	MethodBinding syntheticAccessor;	// synthetic accessor for inner-emulation
 	private int depth;
+	private MethodBinding exactMethodBinding; // != null ==> exact method reference.
 	
 	public ReferenceExpression(CompilationResult compilationResult, Expression lhs, TypeReference [] typeArguments, char [] selector, int sourceEnd) {
 		super(compilationResult);
@@ -91,9 +91,9 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 		SourceTypeBinding sourceType = currentScope.enclosingSourceType();
 		if (this.receiverType.isArrayType()) {
 			if (isConstructorReference()) {
-				this.binding = sourceType.addSyntheticArrayMethod((ArrayBinding) this.receiverType, SyntheticMethodBinding.ArrayConstructor);
+				this.actualMethodBinding = this.binding = sourceType.addSyntheticArrayMethod((ArrayBinding) this.receiverType, SyntheticMethodBinding.ArrayConstructor);
 			} else if (CharOperation.equals(this.selector, TypeConstants.CLONE)) {
-				this.binding = sourceType.addSyntheticArrayMethod((ArrayBinding) this.receiverType, SyntheticMethodBinding.ArrayClone);
+				this.actualMethodBinding = this.binding = sourceType.addSyntheticArrayMethod((ArrayBinding) this.receiverType, SyntheticMethodBinding.ArrayClone);
 			}
 		} else if (this.syntheticAccessor != null) {
 			if (this.lhs.isSuper() || isMethodReference())
@@ -264,7 +264,10 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
     	}
 
     	if (this.expectedType == null && this.expressionContext == INVOCATION_CONTEXT) {
-			return new PolyTypeBinding(this);
+    		if (isConstructorReference()) {
+    			this.exactMethodBinding = scope.getExactConstructor(lhsType, this);
+    		}
+			return this.resolvedType = new PolyTypeBinding(this);
 		}
 		super.resolveType(scope);
 		
@@ -309,11 +312,12 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
         		scope.problemReporter().invalidArrayConstructorReference(this, lhsType, descriptorParameters);
         		return this.resolvedType = null;
         	}
-        	if (!lhsType.isCompatibleWith(this.descriptor.returnType)) {
+        	if (!lhsType.isCompatibleWith(this.descriptor.returnType) && this.descriptor.returnType.id != TypeIds.T_void) {
         		scope.problemReporter().constructedArrayIncompatible(this, lhsType, this.descriptor.returnType);
         		return this.resolvedType = null;
         	}
-        	return this.resolvedType; // No binding construction possible right now. Code generator will have to conjure up a rabbit.
+        	this.binding = this.exactMethodBinding = scope.getExactConstructor(lhsType, this);
+        	return this.resolvedType;
         }
 		
 		this.haveReceiver = true;
@@ -583,7 +587,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 	}
 
 	public boolean isCompatibleWith(TypeBinding left, Scope scope) {
-		// 15.28.1
+		// 15.28.2
 		final MethodBinding sam = left.getSingleAbstractMethod(this.enclosingScope);
 		if (sam == null || !sam.isValidBinding())
 			return false;
@@ -593,58 +597,45 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 		try {
 			this.binding = null;
 			resolveType(this.enclosingScope);
-		} catch (IncongruentLambdaException e) {
-			return false;
 		} finally {
 			this.enclosingScope.problemReporter().switchErrorHandlingPolicy(oldPolicy);
 			isCompatible = this.binding != null && this.binding.isValidBinding();
-			if (isCompatible) {
-				if (this.resultExpressions == null)
-					this.resultExpressions = new SimpleLookupTable(); // gather for more specific analysis later.
-				this.resultExpressions.put(left, this.binding.returnType);
-			}
 			this.binding = null;
 			setExpectedType(null);
 		}
 		return isCompatible;
 	}
-	public boolean tIsMoreSpecific(TypeBinding t, TypeBinding s) {
-		/* 15.12.2.5 t is more specific than s iff ... Some of the checks here are redundant by the very fact of control reaching here, 
-		   but have been left in for completeness/documentation sakes. These should be cheap anyways. 
-		*/
+	
+	public boolean sIsMoreSpecific(TypeBinding s, TypeBinding t) {
 		
-		// Both t and s are functional interface types ... 
-		MethodBinding tSam = t.getSingleAbstractMethod(this.enclosingScope);
-		if (tSam == null || !tSam.isValidBinding())
+		if (TypeBinding.equalsEquals(s, t))
+			return true;
+		
+		if (this.exactMethodBinding == null)
 			return false;
+		
+		s = s.capture(this.enclosingScope, this.sourceEnd);
 		MethodBinding sSam = s.getSingleAbstractMethod(this.enclosingScope);
 		if (sSam == null || !sSam.isValidBinding())
 			return false;
+		TypeBinding r1 = sSam.returnType;
 		
-		// t should neither be a subinterface nor a superinterface of s
-		if (t.findSuperTypeOriginatingFrom(s) != null || s.findSuperTypeOriginatingFrom(t) != null)
+		MethodBinding tSam = t.getSingleAbstractMethod(this.enclosingScope);
+		if (tSam == null || !tSam.isValidBinding())
 			return false;
-
-		// The descriptor parameter types of t are the same as the descriptor parameter types of s.
-		if (tSam.parameters.length != sSam.parameters.length)
-			return false;
-		for (int i = 0, length = tSam.parameters.length; i < length; i++) {
-			if (TypeBinding.notEquals(tSam.parameters[i], sSam.parameters[i]))
-				return false;
-		}
+		TypeBinding r2 = tSam.returnType;
 		
-		// Either the descriptor return type of s is void or ...
-		if (sSam.returnType.id == TypeIds.T_void)
+		if (r2.id == TypeIds.T_void)
 			return true;
 		
-		/* ... or the descriptor return type of the capture of T is more specific than the descriptor return type of S for 
-		   an invocation expression of the same form as the method reference..
-		*/
-		Expression resultExpression = (Expression) this.resultExpressions.get(t); // should be same as for s
+		if (r1.id == TypeIds.T_void)
+			return false;
 		
-		t = t.capture(this.enclosingScope, this.sourceEnd);
-		tSam = t.getSingleAbstractMethod(this.enclosingScope);
-		return resultExpression.tIsMoreSpecific(tSam.returnType, sSam.returnType);
+		// r1 <: r2
+		if (r1.isCompatibleWith(r2))
+			return true;
+		
+		return r1.isBaseType() != r2.isBaseType() && r1.isBaseType() == this.exactMethodBinding.returnType.isBaseType();
 	}
 
 	public org.eclipse.jdt.internal.compiler.lookup.MethodBinding getMethodBinding() {

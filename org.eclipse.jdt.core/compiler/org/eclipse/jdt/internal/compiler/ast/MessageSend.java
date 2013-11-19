@@ -645,7 +645,7 @@ public TypeBinding resolveType(BlockScope scope) {
 				this.binding =
 					this.receiver.isImplicitThis()
 						? scope.getImplicitMethod(this.selector, pseudoArgs, this)
-						: scope.findMethod((ReferenceBinding) this.actualReceiverType, this.selector, pseudoArgs, this);
+						: scope.findMethod((ReferenceBinding) this.actualReceiverType, this.selector, pseudoArgs, this, false);
 				if (this.binding != null && !this.binding.isValidBinding()) {
 					MethodBinding closestMatch = ((ProblemMethodBinding)this.binding).closestMatch;
 					// record the closest match, for clients who may still need hint about possible method match
@@ -896,8 +896,8 @@ public boolean isPolyExpression(MethodBinding resolutionCandidate) {
 	return false;
 }
 
-public boolean tIsMoreSpecific(TypeBinding t, TypeBinding s) {
-	return isPolyExpression() ? !t.isBaseType() && s.isBaseType() : super.tIsMoreSpecific(t, s);
+public boolean sIsMoreSpecific(TypeBinding s, TypeBinding t) {
+	return isPolyExpression() ? !s.isBaseType() && t.isBaseType() : super.sIsMoreSpecific(s, t);
 }
 
 public void setFieldIndex(int depth) {

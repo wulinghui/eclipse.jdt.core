@@ -1006,7 +1006,11 @@ public abstract class Scope {
 		return ((CompilationUnitScope) unitScope).environment;
 	}
 
-	// abstract method lookup lookup (since maybe missing default abstract methods)
+	/* Abstract method lookup (since maybe missing default abstract methods). "Default abstract methods" are methods that used to be emitted into 
+	   abstract classes for unimplemented interface methods at JDK 1.1 time frame. See SourceTypeBinding.addDefaultAbstractMethods()
+	   See also https://bugs.eclipse.org/bugs/show_bug.cgi?id=174588 for details of problem addressed here. Problem was in the method call in the 
+	   *abstract* class. Unless the interface methods are looked up, we will emit code that results in infinite recursion.
+	*/
 	protected MethodBinding findDefaultAbstractMethod(
 		ReferenceBinding receiverType,
 		char[] selector,
@@ -1417,11 +1421,6 @@ public abstract class Scope {
 	}
 
 	// Internal use only - use findMethod()
-	public MethodBinding findMethod(ReferenceBinding receiverType, char[] selector, TypeBinding[] argumentTypes, InvocationSite invocationSite) {
-		return findMethod(receiverType, selector, argumentTypes, invocationSite, false);
-	}
-
-	// Internal use only - use findMethod()
 	public MethodBinding findMethod(ReferenceBinding receiverType, char[] selector, TypeBinding[] argumentTypes, InvocationSite invocationSite, boolean inStaticContext) {
 		ReferenceBinding currentType = receiverType;
 		boolean receiverTypeIsInterface = receiverType.isInterface();
@@ -1700,7 +1699,7 @@ public abstract class Scope {
 			if (methodBinding.canBeSeenBy(receiverType, invocationSite, this))
 				return methodBinding;
 		}
-		methodBinding = findMethod(object, selector, argumentTypes, invocationSite);
+		methodBinding = findMethod(object, selector, argumentTypes, invocationSite, false);
 		if (methodBinding == null)
 			return new ProblemMethodBinding(selector, argumentTypes, ProblemReasons.NotFound);
 		return methodBinding;
@@ -2040,6 +2039,41 @@ public abstract class Scope {
 		}
 	}
 
+	// For exact constructor references. 15.28.1
+	public MethodBinding getExactConstructor(TypeBinding receiverType, InvocationSite invocationSite) {
+		if (receiverType == null || !receiverType.canBeInstantiated())
+			return null;
+		if (receiverType.isArrayType()) {
+			if (!receiverType.leafComponentType().isReifiable())
+				return null;
+			return new MethodBinding(ClassFileConstants.AccPublic, TypeConstants.INIT,
+								receiverType,
+								new TypeBinding[] { TypeBinding.INT },
+								Binding.NO_EXCEPTIONS,
+								getJavaLangObject()); // just lie.
+		}
+
+		CompilationUnitScope unitScope = compilationUnitScope();
+		MethodBinding exactConstructor = null;
+		unitScope.recordTypeReference(receiverType);
+		MethodBinding[] methods = receiverType.getMethods(TypeConstants.INIT);
+		for (int i = 0, length = methods.length; i < length; i++) {
+			MethodBinding constructor = methods[i];
+			if (!constructor.canBeSeenBy(invocationSite, this))
+				continue;
+			if (constructor.isVarargs())
+				return null;
+			if (constructor.typeVariables() != Binding.NO_TYPE_VARIABLES && invocationSite.genericTypeArguments() == null)
+				return null;
+			if (exactConstructor == null) {
+				exactConstructor = constructor;
+			} else {
+				return null;
+			}
+		}
+		return exactConstructor;
+	}
+	
 	public MethodBinding getConstructor(ReferenceBinding receiverType, TypeBinding[] argumentTypes, InvocationSite invocationSite) {
 		CompilationUnitScope unitScope = compilationUnitScope();
 		LookupEnvironment env = unitScope.environment;
@@ -2207,7 +2241,7 @@ public abstract class Scope {
 						// compilationUnitScope().recordTypeReference(receiverType);   not needed since receiver is the source type
 						MethodBinding methodBinding = classScope.findExactMethod(receiverType, selector, argumentTypes, invocationSite);
 						if (methodBinding == null)
-							methodBinding = classScope.findMethod(receiverType, selector, argumentTypes, invocationSite);
+							methodBinding = classScope.findMethod(receiverType, selector, argumentTypes, invocationSite, false);
 						if (methodBinding != null) { // skip it if we did not find anything
 							if (foundMethod == null) {
 								if (methodBinding.isValidBinding()) {
@@ -2505,7 +2539,7 @@ public abstract class Scope {
 			MethodBinding methodBinding = findExactMethod(currentType, selector, argumentTypes, invocationSite);
 			if (methodBinding != null) return methodBinding;
 
-			methodBinding = findMethod(currentType, selector, argumentTypes, invocationSite);
+			methodBinding = findMethod(currentType, selector, argumentTypes, invocationSite, false);
 			if (methodBinding == null)
 				return new ProblemMethodBinding(selector, argumentTypes, ProblemReasons.NotFound);
 			if (!methodBinding.isValidBinding())
@@ -3941,6 +3975,43 @@ public abstract class Scope {
 
 	// caveat: this is not a direct implementation of JLS
 	protected final MethodBinding mostSpecificMethodBinding(MethodBinding[] visible, int visibleSize, TypeBinding[] argumentTypes, final InvocationSite invocationSite, ReferenceBinding receiverType) {
+		// Apply one level of filtering per poly expression more specific rules.
+		if (compilerOptions().sourceLevel >= ClassFileConstants.JDK1_8) {
+			MethodBinding[] moreSpecific = new MethodBinding[visibleSize];
+			int count = 0;
+			for (int i = 0, length = argumentTypes.length; i < length; i++) {
+				TypeBinding argumentType = argumentTypes[i];
+				if (argumentType.kind() != Binding.POLY_TYPE)
+					continue;
+				next:
+					for (int j = 0; j < visibleSize; j++) {
+						final TypeBinding[] mbjParameters = visible[j].parameters;
+						final int mbjParametersLength = mbjParameters.length;
+						TypeBinding t = i < mbjParametersLength ? mbjParameters[i] : mbjParameters[mbjParametersLength - 1];
+						boolean tIsMoreSpecific = false;
+						for (int k = 0; k < visibleSize; k++) {
+							if (j == k) continue;
+							final TypeBinding[] mbkParameters = visible[k].parameters;
+							final int mbkParametersLength = mbkParameters.length;
+							TypeBinding s = i < mbkParametersLength ? mbkParameters[i] : mbkParameters[mbkParametersLength - 1];
+							if (TypeBinding.equalsEquals(t, s))
+								continue;
+							if (!argumentType.sIsMoreSpecific(t,s)) 
+								continue next;
+							tIsMoreSpecific = true;
+						}
+						if (tIsMoreSpecific)
+							moreSpecific[count++] = visible[j];
+					}
+			}
+			if (count != 0) {
+				visible = moreSpecific;
+				visibleSize = count;
+			}
+		}
+	
+		// JLS7 implementation  
+		
 		int[] compatibilityLevels = new int[visibleSize];
 		for (int i = 0; i < visibleSize; i++)
 			compatibilityLevels[i] = parameterCompatibilityLevel(visible[i], argumentTypes);

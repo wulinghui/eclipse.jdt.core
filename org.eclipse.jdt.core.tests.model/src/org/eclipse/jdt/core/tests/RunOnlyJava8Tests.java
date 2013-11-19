@@ -27,16 +27,23 @@ import org.eclipse.jdt.core.tests.compiler.parser.ComplianceDiagnoseTest;
 import org.eclipse.jdt.core.tests.compiler.parser.LambdaExpressionSyntaxTest;
 import org.eclipse.jdt.core.tests.compiler.parser.ReferenceExpressionSyntaxTest;
 import org.eclipse.jdt.core.tests.compiler.parser.TypeAnnotationSyntaxTest;
+import org.eclipse.jdt.core.tests.compiler.regression.ClassFileReaderTest_1_8;
+import org.eclipse.jdt.core.tests.compiler.regression.Deprecated18Test;
 import org.eclipse.jdt.core.tests.compiler.regression.ExpressionContextTests;
 import org.eclipse.jdt.core.tests.compiler.regression.CompilerInvocationTests;
 import org.eclipse.jdt.core.tests.compiler.regression.FlowAnalysisTest8;
 import org.eclipse.jdt.core.tests.compiler.regression.GrammarCoverageTests308;
 import org.eclipse.jdt.core.tests.compiler.regression.InterfaceMethodsTest;
+import org.eclipse.jdt.core.tests.compiler.regression.JSR308SpecSnippetTests;
 import org.eclipse.jdt.core.tests.compiler.regression.Jsr335ClassFileTest;
 import org.eclipse.jdt.core.tests.compiler.regression.LambdaExpressionsTest;
+import org.eclipse.jdt.core.tests.compiler.regression.MethodParametersAttributeTest;
 import org.eclipse.jdt.core.tests.compiler.regression.NegativeLambdaExpressionsTest;
 import org.eclipse.jdt.core.tests.compiler.regression.NegativeTypeAnnotationTest;
 import org.eclipse.jdt.core.tests.compiler.regression.NullTypeAnnotationTest;
+import org.eclipse.jdt.core.tests.compiler.regression.OverloadResolutionTest8;
+import org.eclipse.jdt.core.tests.compiler.regression.RepeatableAnnotationTest;
+import org.eclipse.jdt.core.tests.compiler.regression.TypeAnnotationTest;
 import org.eclipse.jdt.core.tests.dom.ASTConverter15JLS8Test;
 import org.eclipse.jdt.core.tests.dom.ASTConverter18Test;
 import org.eclipse.jdt.core.tests.dom.ASTConverterAST8Test;
@@ -44,6 +51,7 @@ import org.eclipse.jdt.core.tests.dom.ASTConverterBugsTestJLS8;
 import org.eclipse.jdt.core.tests.dom.ASTConverterTestAST8_2;
 import org.eclipse.jdt.core.tests.dom.ConverterTestSetup;
 import org.eclipse.jdt.core.tests.dom.TypeAnnotationsConverterTest;
+import org.eclipse.jdt.core.tests.dom.TypeBindingTests308;
 import org.eclipse.jdt.core.tests.formatter.FormatterJSR308Tests;
 import org.eclipse.jdt.core.tests.formatter.FormatterJSR335Tests;
 import org.eclipse.jdt.core.tests.model.JavaSearchBugs8Tests;
@@ -59,6 +67,7 @@ public class RunOnlyJava8Tests extends TestCase {
 			LambdaExpressionSyntaxTest.class,
 			NegativeLambdaExpressionsTest.class,
 			LambdaExpressionsTest.class,
+			OverloadResolutionTest8.class,
 			Jsr335ClassFileTest.class,
 			NegativeTypeAnnotationTest.class,
 			TypeAnnotationSyntaxTest.class,
@@ -73,6 +82,12 @@ public class RunOnlyJava8Tests extends TestCase {
 			FormatterJSR335Tests.class,
 			FormatterJSR308Tests.class,
 			JavaSearchBugs8Tests.class,
+			TypeAnnotationTest.class,
+			JSR308SpecSnippetTests.class,
+			Deprecated18Test.class,
+			MethodParametersAttributeTest.class,
+			ClassFileReaderTest_1_8.class,
+			RepeatableAnnotationTest.class,
 		};
 	}
 	
@@ -85,6 +100,7 @@ public class RunOnlyJava8Tests extends TestCase {
 				ASTConverter15JLS8Test.class,
 				ASTConverter18Test.class,
 				ASTRewritingTest.class,
+				TypeBindingTests308.class,
 		};
 	}
 	public static Test suite() {

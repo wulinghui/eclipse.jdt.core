@@ -23,7 +23,6 @@
 package org.eclipse.jdt.internal.compiler.ast;
 
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
-import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.ClassFile;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
@@ -61,10 +60,10 @@ import org.eclipse.jdt.internal.compiler.problem.AbortCompilationUnit;
 import org.eclipse.jdt.internal.compiler.problem.AbortMethod;
 import org.eclipse.jdt.internal.compiler.problem.AbortType;
 import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
-import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
 
 public class LambdaExpression extends FunctionalExpression implements ReferenceContext, ProblemSeverities {
 	public Argument [] arguments;
+	private TypeBinding [] argumentTypes = Binding.NO_PARAMETERS;
 	public Statement body;
 	public boolean hasParentheses;
 	public MethodScope scope;
@@ -73,7 +72,6 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 	private boolean shapeAnalysisComplete = false;
 	private boolean returnsValue;
 	private boolean returnsVoid;
-	private boolean throwsException;
 	private LambdaExpression original = this;
 	private SyntheticArgumentBinding[] outerLocalVariables = NO_SYNTHETIC_ARGUMENTS;
 	private int outerLocalVariablesSlotSize = 0;
@@ -145,7 +143,7 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		this.enclosingScope = blockScope;
 		
 		if (this.expectedType == null && this.expressionContext == INVOCATION_CONTEXT) {
-			return new PolyTypeBinding(this);
+			return this.resolvedType = new PolyTypeBinding(this);
 		} 
 		
 		MethodScope methodScope = blockScope.methodScope();
@@ -186,6 +184,9 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		TypeBinding[] newParameters = new TypeBinding[length];
 
 		AnnotationBinding [][] parameterAnnotations = null;
+		if (!argumentsTypeElided) {
+			this.argumentTypes = new TypeBinding[length];
+		}
 		for (int i = 0; i < length; i++) {
 			Argument argument = this.arguments[i];
 			if (argument.isVarArgs()) {
@@ -199,7 +200,7 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 			
 			TypeBinding parameterType;
 			final TypeBinding expectedParameterType = haveDescriptor && i < this.descriptor.parameters.length ? this.descriptor.parameters[i] : null;
-			parameterType = argumentsTypeElided ? expectedParameterType : argument.type.resolveType(this.scope, true /* check bounds*/);
+			parameterType = argumentsTypeElided ? expectedParameterType : (this.argumentTypes[i] = argument.type.resolveType(this.scope, true /* check bounds*/));
 			if (parameterType == null) {
 				buggyArguments = true;
 			} else if (parameterType == TypeBinding.VOID) {
@@ -407,6 +408,18 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		}
 	}
 
+	public boolean isPertinentToApplicability() {
+		if (argumentsTypeElided())
+			return false;
+		
+		Expression [] returnExpressions = this.resultExpressions;
+		for (int i = 0, length = returnExpressions.length; i < length; i++) {
+			if (!returnExpressions[i].isPertinentToApplicability())
+				return false;
+		}
+		return true;
+	}
+	
 	public StringBuffer printExpression(int tab, StringBuffer output) {
 		int parenthesesCount = (this.bits & ASTNode.ParenthesizedMASK) >> ASTNode.ParenthesizedSHIFT;
 		String suffix = ""; //$NON-NLS-1$
@@ -450,10 +463,6 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		return this.scope;
 	}
 		
-	protected boolean errorEqualsIncompatibility() {
-		return this.original.shapeAnalysisComplete; // so as not to abort shape analysis.
-	}
-	
 	public boolean isCompatibleWith(final TypeBinding left, final Scope someScope) {
 		
 		final MethodBinding sam = left.getSingleAbstractMethod(this.enclosingScope);
@@ -463,107 +472,125 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		if (sam.parameters.length != this.arguments.length)
 			return false;
 		
-		if (!this.shapeAnalysisComplete && this.body instanceof Expression) {
-			Expression expression = (Expression) this.body;
-			this.voidCompatible = expression.statementExpression();
-			this.valueCompatible = true;
-			this.shapeAnalysisComplete = true;
-		}
-
-		if (this.shapeAnalysisComplete) {
-			if (squarePegInRoundHole(sam))
-				return false;
-		} 
-
-		IErrorHandlingPolicy oldPolicy = this.enclosingScope.problemReporter().switchErrorHandlingPolicy(silentErrorHandlingPolicy);
-		this.hasIgnoredMandatoryErrors = false;
-		try {
-			final LambdaExpression copy = copy();
-			if (copy == null)
-				return false;
-			copy.setExpressionContext(this.expressionContext);
-			copy.setExpectedType(left);
-			if (this.resultExpressions == null)
-				this.resultExpressions = new SimpleLookupTable(); // gather result expressions for most specific method analysis.
-			this.resultExpressions.put(left, new Expression[0]);
-			copy.resolveType(this.enclosingScope);
-			if (!this.shapeAnalysisComplete) {
-				boolean lambdaIsFubar = this.hasIgnoredMandatoryErrors; // capture now, before doesNotCompleteNormally which runs analyzeCode on lambda body *without* the enclosing context being analyzed 
-				if (!this.returnsVoid && !this.returnsValue && this.throwsException) {  // () -> { throw new Exception(); } is value compatible.
-					Block block = (Block) this.body;
-					final Statement[] statements = block.statements;
-					final int statementsLength = statements == null ? 0 : statements.length;
-					Statement ultimateStatement = statementsLength == 0 ? null : statements[statementsLength - 1];
-					this.valueCompatible = ultimateStatement instanceof ThrowStatement ? true: copy.doesNotCompleteNormally(); 
-				}
-				this.shapeAnalysisComplete = true;
-				if (squarePegInRoundHole(sam) || lambdaIsFubar)
+		if (!this.shapeAnalysisComplete) {
+			IErrorHandlingPolicy oldPolicy = this.enclosingScope.problemReporter().switchErrorHandlingPolicy(silentErrorHandlingPolicy);
+			try {
+				final LambdaExpression copy = copy();
+				if (copy == null)
 					return false;
+				copy.setExpressionContext(this.expressionContext);
+				copy.setExpectedType(left);
+				copy.resolveType(this.enclosingScope);
+
+				if (!argumentsTypeElided()) {
+					this.argumentTypes = copy.argumentTypes;
+				}
+			
+				if (this.body instanceof Block) {
+					if (!this.returnsVoid) {
+						this.valueCompatible = copy.doesNotCompleteNormally();
+					}
+				} else {
+					this.voidCompatible = ((Expression) this.body).statementExpression();
+				}
+			
+			} finally {
+				this.shapeAnalysisComplete = true;
+				this.enclosingScope.problemReporter().switchErrorHandlingPolicy(oldPolicy);
 			}
-		} catch (IncongruentLambdaException e) {
-			return false;
-		} finally {
-			this.enclosingScope.problemReporter().switchErrorHandlingPolicy(oldPolicy);
-			this.hasIgnoredMandatoryErrors = false;
 		}
+
+		if (sam.returnType.id == TypeIds.T_void) {
+			if (!this.voidCompatible)
+				return false;
+		} else {
+			if (!this.valueCompatible)
+				return false;
+		}
+		
+		if (!isPertinentToApplicability())
+			return true;
+	
+		Expression [] returnExpressions = this.resultExpressions;
+		for (int i = 0, length = returnExpressions.length; i < length; i++) {
+			if (returnExpressions[i] instanceof FunctionalExpression) { // don't want to use the resolvedType - polluted from some other overload resolution candidate
+				if (!returnExpressions[i].isCompatibleWith(sam.returnType, this.enclosingScope))
+					return false;
+			} else {
+				if (this.enclosingScope.parameterCompatibilityLevel(returnExpressions[i].resolvedType, sam.returnType) == Scope.NOT_COMPATIBLE) {
+					if (sam.returnType.id != TypeIds.T_void || this.body instanceof Block)
+						return false;
+				}
+			}
+		}
+	
+		TypeBinding [] samPararameterTypes = sam.parameters;
+		for (int i = 0, length = samPararameterTypes.length; i < length; i++) { // lengths known to be equal.
+			if (TypeBinding.notEquals(samPararameterTypes[i], this.argumentTypes[i]))
+				return false;
+		}
+
 		return true;
 	}
 	
-	public boolean tIsMoreSpecific(TypeBinding t, TypeBinding s) {
-		/* 15.12.2.5 t is more specific than s iff ... Some of the checks here are redundant by the very fact of control reaching here, 
-		   but have been left in for completeness/documentation sakes. These should be cheap anyways. 
-		*/
+	public boolean sIsMoreSpecific(TypeBinding s, TypeBinding t) {
 		
-		// Both t and s are functional interface types ... 
-		MethodBinding tSam = t.getSingleAbstractMethod(this.enclosingScope);
-		if (tSam == null || !tSam.isValidBinding())
+		// 15.12.2.5 
+		
+		if (TypeBinding.equalsEquals(s,  t))
+			return true;
+		
+		if (argumentsTypeElided() || t.findSuperTypeOriginatingFrom(s) != null)
 			return false;
+		
+		s = s.capture(this.enclosingScope, this.sourceEnd);
 		MethodBinding sSam = s.getSingleAbstractMethod(this.enclosingScope);
 		if (sSam == null || !sSam.isValidBinding())
 			return false;
-		
-		// t should neither be a subinterface nor a superinterface of s
-		if (t.findSuperTypeOriginatingFrom(s) != null || s.findSuperTypeOriginatingFrom(t) != null)
+		TypeBinding r1 = sSam.returnType;
+		MethodBinding tSam = t.getSingleAbstractMethod(this.enclosingScope);
+		if (tSam == null || !tSam.isValidBinding())
 			return false;
-
-		// If the lambda expression's parameters have inferred types, then the descriptor parameter types of t are the same as the descriptor parameter types of s.
-		if (argumentsTypeElided()) {
-			if (tSam.parameters.length != sSam.parameters.length)
-				return false;
-			for (int i = 0, length = tSam.parameters.length; i < length; i++) {
-				if (TypeBinding.notEquals(tSam.parameters[i], sSam.parameters[i]))
-					return false;
-			}
-		}
+		TypeBinding r2 = tSam.returnType;
 		
-		// either the descriptor return type of s is void or ...
-		if (sSam.returnType.id == TypeIds.T_void)
+		if (r2.id == TypeIds.T_void)
 			return true;
 		
-		/* ... or for all result expressions in the lambda body (or for the body itself if the body is an expression), 
-           the descriptor return type of the capture of T is more specific than the descriptor return type of S.
-		*/
-		Expression [] returnExpressions = (Expression[]) this.resultExpressions.get(t); // should be same as for s
-		int returnExpressionsLength = returnExpressions == null ? 0 : returnExpressions.length;
-		if (returnExpressionsLength == 0)
-			return true; // as good as or as bad as false.
+		if (r1.id == TypeIds.T_void)
+			return false;
 		
-		t = t.capture(this.enclosingScope, this.sourceEnd);
-		tSam = t.getSingleAbstractMethod(this.enclosingScope);
-		for (int i = 0; i < returnExpressionsLength; i++) {
-			Expression resultExpression = returnExpressions[i];
-			if (!resultExpression.tIsMoreSpecific(tSam.returnType, sSam.returnType))
-				return false;
-		}
-		return true;
-	}
-
-	private boolean squarePegInRoundHole(final MethodBinding sam) {
-		if (sam.returnType.id == TypeIds.T_void) {
-			if (!this.voidCompatible)
+		// r1 <: r2
+		if (r1.isCompatibleWith(r2))
+			return true;
+		
+		Expression [] returnExpressions = this.resultExpressions;
+		int returnExpressionsLength = returnExpressions == null ? 0 : returnExpressions.length;
+		
+		int i;
+		// r1 is a primitive type, r2 is a reference type, and each result expression is a standalone expression (15.2) of a primitive type
+		if (r1.isBaseType() && !r2.isBaseType()) {
+			for (i = 0; i < returnExpressionsLength; i++) {
+				if (returnExpressions[i].isPolyExpression() || !returnExpressions[i].resolvedType.isBaseType())
+					break;
+			}
+			if (i == returnExpressionsLength)
 				return true;
-		} else {
-			if (!this.valueCompatible)
+		}
+		if (!r1.isBaseType() && r2.isBaseType()) {
+			for (i = 0; i < returnExpressionsLength; i++) {
+				if (returnExpressions[i].resolvedType.isBaseType())
+					break;
+			}
+			if (i == returnExpressionsLength)
+				return true;
+		}
+		if (r1.isFunctionalInterface(this.enclosingScope) && r2.isFunctionalInterface(this.enclosingScope)) {
+			for (i = 0; i < returnExpressionsLength; i++) {
+				Expression resultExpression = returnExpressions[i];
+				if (!resultExpression.sIsMoreSpecific(r1, r2))
+					break;
+			}
+			if (i == returnExpressionsLength)
 				return true;
 		}
 		return false;
@@ -584,27 +611,28 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 	public void returnsExpression(Expression expression, TypeBinding resultType) {
 		if (this.original == this) // not in overload resolution context.
 			return;
+		if (this.body instanceof Expression) {
+			this.original.valueCompatible = resultType != null && resultType.id != TypeIds.T_void;
+			this.original.resultExpressions = new Expression[1];
+			this.original.resultExpressions[0] = expression;
+			return; // void compatibility determined via statementExpression()
+		}
 		if (expression != null) {
 			this.original.returnsValue = true;
 			this.original.voidCompatible = false;
 			this.original.valueCompatible = !this.original.returnsVoid;
 			if (resultType != null) {
-				Expression [] results = (Expression[]) this.original.resultExpressions.get(this.expectedType);
-				int resultsLength = results.length;
-				System.arraycopy(results, 0, results = new Expression[resultsLength + 1], 0, resultsLength);
-				results[resultsLength] = expression;
+				Expression [] returnExpressions = this.original.resultExpressions;
+				int resultsLength = returnExpressions.length;
+				System.arraycopy(returnExpressions, 0, returnExpressions = new Expression[resultsLength + 1], 0, resultsLength);
+				returnExpressions[resultsLength] = expression;
+				this.original.resultExpressions = returnExpressions;
 			}
 		} else {
 			this.original.returnsVoid = true;
 			this.original.valueCompatible = false;
 			this.original.voidCompatible = !this.original.returnsValue;
 		}
-	}
-
-	public void throwsException(TypeBinding exceptionType) {
-		if (this.expressionContext != INVOCATION_CONTEXT)
-			return;
-		this.original.throwsException = true;
 	}
 	
 	public CompilationResult compilationResult() {
@@ -649,21 +677,6 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		}
 	}
 	
-	public void tagAsHavingIgnoredMandatoryErrors(int problemId) {
-		// 15.27.3 requires exception throw related errors to not influence congruence. Other errors should. Also don't abort shape analysis.
-		switch (problemId) {
-			case IProblem.UnhandledExceptionOnAutoClose:
-			case IProblem.UnhandledExceptionInDefaultConstructor:
-			case IProblem.UnhandledException:
-				return;
-			default: 
-				if (errorEqualsIncompatibility())
-					throw new IncongruentLambdaException();
-				this.original().hasIgnoredMandatoryErrors = true;
-				return;
-		}
-	}
-
 	public void generateCode(ClassScope classScope, ClassFile classFile) {
 		int problemResetPC = 0;
 		classFile.codeStream.wideMode = false;
@@ -797,7 +810,4 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		}
 		return this.actualMethodBinding;
 	}
-}
-class IncongruentLambdaException extends RuntimeException {
-	private static final long serialVersionUID = 4145723509219836114L;
 }

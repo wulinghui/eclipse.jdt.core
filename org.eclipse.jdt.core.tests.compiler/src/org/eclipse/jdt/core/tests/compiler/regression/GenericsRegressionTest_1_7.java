@@ -12,6 +12,7 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 
 import java.util.Map;
 
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 import junit.framework.Test;
@@ -134,48 +135,84 @@ public void test001c_1() {
 		"----------\n");
 }
 public void test001d() {
-	this.runNegativeTest(
-		new String[] {
-			"X.java",
-			"import java.util.ArrayList;\n" +
-			"public class X<T> {" +
-			"	public void ab(ArrayList<String> al){\n" + 
-			"		System.out.println(\"SUCCESS\");\n" +
-			"	}\n" + 
-			"	public static void main(String[] args) {\n" + 
-			"		X<String> x = new X<>();\n" + 
-			"		x.ab(new ArrayList<>());\n" + 
-			"	}\n" +
-			"}",
-		},
-		"----------\n" + 
-		"1. ERROR in X.java (at line 7)\n" + 
-		"	x.ab(new ArrayList<>());\n" + 
-		"	  ^^\n" + 
-		"The method ab(ArrayList<String>) in the type X<String> is not applicable for the arguments (ArrayList<Object>)\n" + 
-		"----------\n");
+	if (this.complianceLevel < ClassFileConstants.JDK1_8) {
+		this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"import java.util.ArrayList;\n" +
+				"public class X<T> {" +
+				"	public void ab(ArrayList<String> al){\n" + 
+				"		System.out.println(\"SUCCESS\");\n" +
+				"	}\n" + 
+				"	public static void main(String[] args) {\n" + 
+				"		X<String> x = new X<>();\n" + 
+				"		x.ab(new ArrayList<>());\n" + 
+				"	}\n" +
+				"}",
+			},
+			"----------\n" + 
+			"1. ERROR in X.java (at line 7)\n" + 
+			"	x.ab(new ArrayList<>());\n" + 
+			"	  ^^\n" + 
+			"The method ab(ArrayList<String>) in the type X<String> is not applicable for the arguments (ArrayList<Object>)\n" + 
+			"----------\n");
+	} else {
+		this.runConformTest(
+				new String[] {
+					"X.java",
+					"import java.util.ArrayList;\n" +
+					"public class X<T> {" +
+					"	public void ab(ArrayList<String> al){\n" + 
+					"		System.out.println(\"SUCCESS\");\n" +
+					"	}\n" + 
+					"	public static void main(String[] args) {\n" + 
+					"		X<String> x = new X<>();\n" + 
+					"		x.ab(new ArrayList<>());\n" + 
+					"	}\n" +
+					"}",
+				},
+				"SUCCESS");
+	}
 }
 public void test001e() {
-	this.runNegativeTest(
-		new String[] {
-			"X.java",
-			"import java.util.ArrayList;\n" +
-			"public class X<T> {" +
-			"	public void ab(ArrayList<T> al){\n" + 
-			"		System.out.println(\"SUCCESS\");\n" +
-			"	}\n" + 
-			"	public static void main(String[] args) {\n" + 
-			"		X<String> x = new X<>();\n" + 
-			"		x.ab(new ArrayList<>());\n" + 
-			"	}\n" +
-			"}",
-		},
-		"----------\n" + 
-		"1. ERROR in X.java (at line 7)\n" + 
-		"	x.ab(new ArrayList<>());\n" + 
-		"	  ^^\n" + 
-		"The method ab(ArrayList<String>) in the type X<String> is not applicable for the arguments (ArrayList<Object>)\n" + 
-		"----------\n");
+	if (this.complianceLevel < ClassFileConstants.JDK1_8) {
+		this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"import java.util.ArrayList;\n" +
+				"public class X<T> {" +
+				"	public void ab(ArrayList<T> al){\n" + 
+				"		System.out.println(\"SUCCESS\");\n" +
+				"	}\n" + 
+				"	public static void main(String[] args) {\n" + 
+				"		X<String> x = new X<>();\n" + 
+				"		x.ab(new ArrayList<>());\n" + 
+				"	}\n" +
+				"}",
+			},
+			"----------\n" + 
+			"1. ERROR in X.java (at line 7)\n" + 
+			"	x.ab(new ArrayList<>());\n" + 
+			"	  ^^\n" + 
+			"The method ab(ArrayList<String>) in the type X<String> is not applicable for the arguments (ArrayList<Object>)\n" + 
+			"----------\n");
+	} else {
+		this.runConformTest(
+				new String[] {
+					"X.java",
+					"import java.util.ArrayList;\n" +
+					"public class X<T> {" +
+					"	public void ab(ArrayList<T> al){\n" + 
+					"		System.out.println(\"SUCCESS\");\n" +
+					"	}\n" + 
+					"	public static void main(String[] args) {\n" + 
+					"		X<String> x = new X<>();\n" + 
+					"		x.ab(new ArrayList<>());\n" + 
+					"	}\n" +
+					"}",
+				},
+				"SUCCESS");
+	}
 }
 public void test001f() {
 	this.runNegativeTest(
@@ -533,45 +570,69 @@ public void test007() {
 		"2");
 }
 public void test007a() {
-	this.runNegativeTest(
-		new String[] {
-			"X.java",
-			"public class X<T> {\n" +
-			"	public X(){\n" +
-			"	}\n" +
-			"	public X(T param){\n" +
-			"		System.out.println(param);\n" +
-			"	}\n" +
-			"	public static void testFunction(X<String> param){\n" +
-			"		System.out.println(\"SUCCESS\");\n" +
-			"	}\n" +
-			"	public static void main(String[] args) {\n" + 
-			"		X.testFunction(new X<>());\n" + 
-			"		X.testFunction(new X(\"hello\"));\n" +
-			"	}\n" +
-			"}",
-		},
-		"----------\n" + 
-		"1. ERROR in X.java (at line 11)\n" + 
-		"	X.testFunction(new X<>());\n" + 
-		"	  ^^^^^^^^^^^^\n" + 
-		"The method testFunction(X<String>) in the type X is not applicable for the arguments (X<Object>)\n" + 
-		"----------\n" + 
-		"2. WARNING in X.java (at line 12)\n" + 
-		"	X.testFunction(new X(\"hello\"));\n" + 
-		"	               ^^^^^^^^^^^^^^\n" + 
-		"Type safety: The constructor X(Object) belongs to the raw type X. References to generic type X<T> should be parameterized\n" + 
-		"----------\n" + 
-		"3. WARNING in X.java (at line 12)\n" + 
-		"	X.testFunction(new X(\"hello\"));\n" + 
-		"	               ^^^^^^^^^^^^^^\n" + 
-		"Type safety: The expression of type X needs unchecked conversion to conform to X<String>\n" + 
-		"----------\n" + 
-		"4. WARNING in X.java (at line 12)\n" + 
-		"	X.testFunction(new X(\"hello\"));\n" + 
-		"	                   ^\n" + 
-		"X is a raw type. References to generic type X<T> should be parameterized\n" + 
-		"----------\n");
+	if (this.complianceLevel < ClassFileConstants.JDK1_8) {
+		this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"public class X<T> {\n" +
+				"	public X(){\n" +
+				"	}\n" +
+				"	public X(T param){\n" +
+				"		System.out.println(param);\n" +
+				"	}\n" +
+				"	public static void testFunction(X<String> param){\n" +
+				"		System.out.println(\"SUCCESS\");\n" +
+				"	}\n" +
+				"	public static void main(String[] args) {\n" + 
+				"		X.testFunction(new X<>());\n" + 
+				"		X.testFunction(new X(\"hello\"));\n" +
+				"	}\n" +
+				"}",
+			},
+			"----------\n" + 
+			"1. ERROR in X.java (at line 11)\n" + 
+			"	X.testFunction(new X<>());\n" + 
+			"	  ^^^^^^^^^^^^\n" + 
+			"The method testFunction(X<String>) in the type X is not applicable for the arguments (X<Object>)\n" + 
+			"----------\n" + 
+			"2. WARNING in X.java (at line 12)\n" + 
+			"	X.testFunction(new X(\"hello\"));\n" + 
+			"	               ^^^^^^^^^^^^^^\n" + 
+			"Type safety: The constructor X(Object) belongs to the raw type X. References to generic type X<T> should be parameterized\n" + 
+			"----------\n" + 
+			"3. WARNING in X.java (at line 12)\n" + 
+			"	X.testFunction(new X(\"hello\"));\n" + 
+			"	               ^^^^^^^^^^^^^^\n" + 
+			"Type safety: The expression of type X needs unchecked conversion to conform to X<String>\n" + 
+			"----------\n" + 
+			"4. WARNING in X.java (at line 12)\n" + 
+			"	X.testFunction(new X(\"hello\"));\n" + 
+			"	                   ^\n" + 
+			"X is a raw type. References to generic type X<T> should be parameterized\n" + 
+			"----------\n");
+	} else {
+		this.runConformTest(
+				new String[] {
+					"X.java",
+					"public class X<T> {\n" +
+					"	public X(){\n" +
+					"	}\n" +
+					"	public X(T param){\n" +
+					"		System.out.println(param);\n" +
+					"	}\n" +
+					"	public static void testFunction(X<String> param){\n" +
+					"		System.out.println(\"SUCCESS\");\n" +
+					"	}\n" +
+					"	public static void main(String[] args) {\n" + 
+					"		X.testFunction(new X<>());\n" + 
+					"		X.testFunction(new X(\"hello\"));\n" +
+					"	}\n" +
+					"}",
+				},
+				"SUCCESS\n" + 
+				"hello\n" + 
+				"SUCCESS");
+	}
 }
 //shows the difference between using <> and the raw type - different semantics
 public void test008() {
@@ -921,23 +982,38 @@ public void test0020() {
 }
 //check inference at method argument position.
 public void test0021() {
-	this.runNegativeTest(
-		new String[] {
-			"X.java",
-			"import java.util.List;\n" +
-			"import java.util.ArrayList;\n" +
-			"class X<T> {\n" +
-			"  public X(T t) {}\n" +
-			"  int f(List<String> p) {return 0;}\n" +
-			"  int x = f(new ArrayList<>());\n" +
-			"}\n",
-		},
-		"----------\n" + 
-		"1. ERROR in X.java (at line 6)\n" + 
-		"	int x = f(new ArrayList<>());\n" + 
-		"	        ^\n" + 
-		"The method f(List<String>) in the type X<T> is not applicable for the arguments (ArrayList<Object>)\n" + 
-		"----------\n");
+	if (this.complianceLevel < ClassFileConstants.JDK1_8) {
+		this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"import java.util.List;\n" +
+				"import java.util.ArrayList;\n" +
+				"class X<T> {\n" +
+				"  public X(T t) {}\n" +
+				"  int f(List<String> p) {return 0;}\n" +
+				"  int x = f(new ArrayList<>());\n" +
+				"}\n",
+			},
+			"----------\n" + 
+			"1. ERROR in X.java (at line 6)\n" + 
+			"	int x = f(new ArrayList<>());\n" + 
+			"	        ^\n" + 
+			"The method f(List<String>) in the type X<T> is not applicable for the arguments (ArrayList<Object>)\n" + 
+			"----------\n");
+	} else {
+		this.runNegativeTest(
+				new String[] {
+					"X.java",
+					"import java.util.List;\n" +
+					"import java.util.ArrayList;\n" +
+					"class X<T> {\n" +
+					"  public X(T t) {}\n" +
+					"  int f(List<String> p) {return 0;}\n" +
+					"  int x = f(new ArrayList<>());\n" +
+					"}\n",
+				},
+				"");
+	}
 }
 public void test0022() {
 	this.runConformTest(
@@ -1033,6 +1109,7 @@ public void test0025() {
 		"----------\n");
 }
 // Test various scenarios.
+// NOTE: THIS TEST MOST LIKELY CAPTURES THE WRONG OUTPUT FOR JAVA 8. AS WE FIX TYPE INFERENCE ISSUES, THIS MAY FAIL.
 public void test0026() {
 	this.runNegativeTest(
 		new String[] {
@@ -1055,6 +1132,7 @@ public void test0026() {
 			"   X<?> x6 = new X<>(list);\n" +
 			"}\n"
 		},
+		this.complianceLevel < ClassFileConstants.JDK1_8 ? 
 		"----------\n" + 
 		"1. ERROR in X.java (at line 8)\n" + 
 		"	X<Number> x = new X<>(1);\n" + 
@@ -1075,7 +1153,28 @@ public void test0026() {
 		"	int i = m(new X<>(\"\"));\n" + 
 		"	        ^\n" + 
 		"The method m(X<String>) in the type X<T> is not applicable for the arguments (X<Object>)\n" + 
-		"----------\n");
+		"----------\n" :
+			"----------\n" + 
+			"1. ERROR in X.java (at line 8)\n" + 
+			"	X<Number> x = new X<>(1);\n" + 
+			"	              ^^^^^^^^^^\n" + 
+			"Type mismatch: cannot convert from X<Integer> to X<Number>\n" + 
+			"----------\n" + 
+			"2. ERROR in X.java (at line 12)\n" + 
+			"	X<Object> x4 = new X<>(1).idem();\n" + 
+			"	               ^^^^^^^^^^^^^^^^^\n" + 
+			"Type mismatch: cannot convert from X<Integer> to X<Object>\n" + 
+			"----------\n" + 
+			"3. ERROR in X.java (at line 13)\n" + 
+			"	X<Object> x5 = new X<>(1);\n" + 
+			"	               ^^^^^^^^^^\n" + 
+			"Type mismatch: cannot convert from X<Integer> to X<Object>\n" + 
+			"----------\n" + 
+			"4. ERROR in X.java (at line 15)\n" + 
+			"	int i = m(new X<>(\"\"));\n" + 
+			"	          ^^^^^^^^^^^\n" + 
+			"The constructor X<String>(String) is ambiguous\n" + 
+			"----------\n");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=344655
 public void test0027() {

@@ -949,6 +949,10 @@ public Constant optimizedBooleanConstant() {
 	return this.constant;
 }
 
+public boolean isPertinentToApplicability() {
+	return true;
+}
+
 /**
  * Returns the type of the expression after required implicit conversions. When expression type gets promoted
  * or inserted a generic cast, the converted type will differ from the resolved type (surface side-effects from
@@ -1139,18 +1143,11 @@ public boolean isCompatibleWith(TypeBinding left, Scope scope) {
 	throw new UnsupportedOperationException("Unexpected control flow, should not have reached Expression.isCompatibleWith"); //$NON-NLS-1$
 }
 
-public boolean tIsMoreSpecific(TypeBinding t, TypeBinding s) {
+public boolean sIsMoreSpecific(TypeBinding s, TypeBinding t) {
 	TypeBinding expressionType = this.resolvedType;
 	if (expressionType == null || !expressionType.isValidBinding()) // Shouldn't get here, just to play it safe
 		return false; // trigger ambiguity.
-	
-	if (TypeBinding.equalsEquals(t.findSuperTypeOriginatingFrom(s), s))
-		return true;
-	
-	final boolean tIsBaseType = t.isBaseType();
-	final boolean sIsBaseType = s.isBaseType();
-	
-	return expressionType.isBaseType() ? tIsBaseType && !sIsBaseType : !tIsBaseType && sIsBaseType;
+	return s.findSuperTypeOriginatingFrom(t) != null;
 }
 
 public void tagAsEllipsisArgument() {

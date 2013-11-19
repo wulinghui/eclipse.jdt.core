@@ -76,7 +76,7 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 	 * May return an UnresolvedReferenceBinding.
 	 * @see ParameterizedTypeBinding#genericType()
 	 */
-	protected ReferenceBinding actualType() {
+	public ReferenceBinding actualType() {
 		return this.type;
 	}
 
