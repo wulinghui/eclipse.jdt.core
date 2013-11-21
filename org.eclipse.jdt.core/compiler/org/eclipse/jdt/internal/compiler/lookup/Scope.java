@@ -2039,12 +2039,84 @@ public abstract class Scope {
 		}
 	}
 
+	class MethodClashException extends RuntimeException {
+		private static final long serialVersionUID = -7996779527641476028L;
+	}
+	
+	// For exact method references. 15.28.1
+	private MethodBinding getExactMethod(TypeBinding receiverType, TypeBinding type, char[] selector, InvocationSite invocationSite, MethodBinding candidate) {
+
+		if (type == null)
+			return null;
+		
+		TypeBinding [] superInterfaces = type.superInterfaces();
+		TypeBinding [] typePlusSupertypes = new TypeBinding[2 + superInterfaces.length];
+		typePlusSupertypes[0] = type;
+		typePlusSupertypes[1] = type.superclass();
+		if (superInterfaces.length != 0)
+			System.arraycopy(superInterfaces, 0, typePlusSupertypes, 2, superInterfaces.length);
+		
+		CompilationUnitScope unitScope = compilationUnitScope();
+		unitScope.recordTypeReference(type);
+		type = type.capture(this, invocationSite.sourceEnd());
+		
+		for (int i = 0, typesLength = typePlusSupertypes.length; i < typesLength; i++) {
+			MethodBinding[] methods = i == 0 ? type.getMethods(selector) : new MethodBinding [] { getExactMethod(receiverType, typePlusSupertypes[i], selector, invocationSite, candidate) };
+			for (int j = 0, length = methods.length; j < length; j++) {
+				MethodBinding currentMethod = methods[j];
+				if (currentMethod == null || candidate == currentMethod)
+					continue;
+				if (i == 0 && (!currentMethod.canBeSeenBy(receiverType, invocationSite, this) || currentMethod.isSynthetic() || currentMethod.isBridge()))
+					continue;
+				if (candidate != null) {
+					if (!candidate.areParameterErasuresEqual(currentMethod))
+						throw new MethodClashException();
+				} else {
+					candidate = currentMethod;
+				}
+			}	
+		}
+		return candidate;
+	}
+		
+	// For exact method references. 15.28.1
+	public MethodBinding getExactMethod(TypeBinding receiverType, char[] selector, InvocationSite invocationSite) {
+		if (receiverType == null || !receiverType.isValidBinding() || receiverType.isBaseType())
+			return null;
+		TypeBinding currentType = receiverType;
+		if (currentType.isArrayType()) {
+			if (!currentType.leafComponentType().canBeSeenBy(this))
+				return null;
+			currentType = getJavaLangObject();
+		}
+		
+		MethodBinding exactMethod = null;
+		try {
+			exactMethod = getExactMethod(receiverType, currentType, selector, invocationSite, null);
+		} catch (MethodClashException e) {
+			return null;
+		}
+		if (exactMethod == null || !exactMethod.canBeSeenBy(invocationSite, this))
+			return null;
+		if (exactMethod.isVarargs() || exactMethod.typeVariables() != Binding.NO_TYPE_VARIABLES && invocationSite.genericTypeArguments() == null)
+			return null;
+		
+		if (receiverType.isArrayType()) {
+			if (CharOperation.equals(selector, TypeConstants.CLONE))
+				return environment().computeArrayClone(exactMethod);
+			if (CharOperation.equals(selector, TypeConstants.GETCLASS))
+				return environment().createGetClassMethod(receiverType, exactMethod, this);
+		}
+		return exactMethod;
+	}
+		
 	// For exact constructor references. 15.28.1
 	public MethodBinding getExactConstructor(TypeBinding receiverType, InvocationSite invocationSite) {
-		if (receiverType == null || !receiverType.canBeInstantiated())
+		if (receiverType == null || !receiverType.isValidBinding() || !receiverType.canBeInstantiated() || receiverType.isBaseType())
 			return null;
 		if (receiverType.isArrayType()) {
-			if (!receiverType.leafComponentType().isReifiable())
+			TypeBinding leafType = receiverType.leafComponentType();
+			if (!leafType.canBeSeenBy(this) || !leafType.isReifiable())
 				return null;
 			return new MethodBinding(ClassFileConstants.AccPublic, TypeConstants.INIT,
 								receiverType,
@@ -3983,26 +4055,27 @@ public abstract class Scope {
 				TypeBinding argumentType = argumentTypes[i];
 				if (argumentType.kind() != Binding.POLY_TYPE)
 					continue;
-				next:
-					for (int j = 0; j < visibleSize; j++) {
-						final TypeBinding[] mbjParameters = visible[j].parameters;
-						final int mbjParametersLength = mbjParameters.length;
-						TypeBinding t = i < mbjParametersLength ? mbjParameters[i] : mbjParameters[mbjParametersLength - 1];
-						boolean tIsMoreSpecific = false;
-						for (int k = 0; k < visibleSize; k++) {
-							if (j == k) continue;
-							final TypeBinding[] mbkParameters = visible[k].parameters;
-							final int mbkParametersLength = mbkParameters.length;
-							TypeBinding s = i < mbkParametersLength ? mbkParameters[i] : mbkParameters[mbkParametersLength - 1];
-							if (TypeBinding.equalsEquals(t, s))
-								continue;
-							if (!argumentType.sIsMoreSpecific(t,s)) 
-								continue next;
-							tIsMoreSpecific = true;
+				
+				for (int j = 0; j < visibleSize; j++) {
+					final TypeBinding[] mbjParameters = visible[j].parameters;
+					final int mbjParametersLength = mbjParameters.length;
+					TypeBinding s = i < mbjParametersLength ? mbjParameters[i] : mbjParameters[mbjParametersLength - 1];
+					boolean sIsMoreSpecific = true;
+					for (int k = 0; k < visibleSize; k++) {
+						if (j == k) continue;
+						final TypeBinding[] mbkParameters = visible[k].parameters;
+						final int mbkParametersLength = mbkParameters.length;
+						TypeBinding t = i < mbkParametersLength ? mbkParameters[i] : mbkParameters[mbkParametersLength - 1];
+						if (TypeBinding.equalsEquals(s, t))
+							continue;
+						if (!argumentType.sIsMoreSpecific(s,t)) { 
+							sIsMoreSpecific = false;
+							break;
 						}
-						if (tIsMoreSpecific)
-							moreSpecific[count++] = visible[j];
 					}
+					if (sIsMoreSpecific)
+						moreSpecific[count++] = visible[j];
+				}
 			}
 			if (count != 0) {
 				visible = moreSpecific;
@@ -4345,6 +4418,13 @@ public abstract class Scope {
 	}
 
 	public int parameterCompatibilityLevel(TypeBinding arg, TypeBinding param) {
+		
+		if (TypeBinding.equalsEquals(arg, param))
+			return COMPATIBLE;
+		
+		if (arg == null || param == null)
+			return NOT_COMPATIBLE;
+		
 		if (arg.isCompatibleWith(param))
 			return COMPATIBLE;
 		
