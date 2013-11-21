@@ -63,7 +63,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 	public TypeReference [] typeArguments;
 	public char [] selector;
 	
-	private TypeBinding receiverType;
+	public TypeBinding receiverType;
 	private boolean haveReceiver;
 	public TypeBinding[] resolvedTypeArguments;
 	private boolean typeArgumentsHaveErrors;

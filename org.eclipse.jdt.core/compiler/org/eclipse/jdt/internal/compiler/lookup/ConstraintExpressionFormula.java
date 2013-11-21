@@ -14,9 +14,11 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
@@ -82,14 +84,59 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 			} else if (this.left instanceof LambdaExpression) {
 				InferenceContext18.missingImplementation("NYI");
 			} else if (this.left instanceof ReferenceExpression) {
-				if (this.right.getSingleAbstractMethod(inferenceContext.scope) == null)
-					return FALSE;
-				InferenceContext18.missingImplementation("NYI: reference expression");
+				return reduceReferenceExpressionCompatibility((ReferenceExpression) this.left, inferenceContext);
 			}
 		}
 		return FALSE;
 	}
-	
+
+	private Object reduceReferenceExpressionCompatibility(ReferenceExpression reference, InferenceContext18 inferenceContext) {
+		TypeBinding t = this.right;
+		if (t.isProperType(true))
+			InferenceContext18.missingImplementation("Where's the else in 18.2.1.2?");
+		if (!t.isFunctionalInterface(inferenceContext.scope))
+			return FALSE;
+		MethodBinding functionType = t.getSingleAbstractMethod(inferenceContext.scope);
+		if (functionType == null)
+			return FALSE;
+		// TODO: check strategy for: potentially-applicable method for the method reference when targeting T (15.28.1),
+		reference.resolveTypeExpecting(reference.enclosingScope, t);
+		MethodBinding potentiallyApplicable = reference.binding;
+		if (potentiallyApplicable == null)
+			return FALSE;
+		if (reference.isExactMethodReference()) {
+			List /*<ConstraintFormula>*/ newConstraints = new ArrayList();
+			TypeBinding[] p = functionType.parameters;
+			int n = p.length;
+			TypeBinding[] pPrime = potentiallyApplicable.parameters;
+			int k = pPrime.length;
+			int offset = 0;
+			if (n == k+1) {
+				newConstraints.add(new ConstraintTypeFormula(p[0], reference.receiverType, COMPATIBLE)); // 2nd arg: "ReferenceType"
+				offset = 1;
+			}
+			for (int i = offset; i < n; i++)
+				newConstraints.add(new ConstraintTypeFormula(p[i], pPrime[i-offset], COMPATIBLE));
+			TypeBinding r = functionType.returnType;
+			if (r != TypeBinding.VOID) {
+				TypeBinding rAppl = potentiallyApplicable.returnType;
+				if (rAppl == TypeBinding.VOID)
+					return FALSE;
+				TypeBinding rPrime = rAppl.capture(inferenceContext.scope, 14); // FIXME capture position??
+				newConstraints.add(new ConstraintTypeFormula(rPrime, r, COMPATIBLE));
+			}
+			return newConstraints.toArray(new ConstraintFormula[newConstraints.size()]);
+		} else { // inexact
+			int n = functionType.parameters.length;
+			for (int i = 0; i < n; i++)
+				if (!functionType.parameters[i].isProperType(true))
+					return FALSE;
+			InferenceContext18.missingImplementation("NYI: inexact method reference");
+			// FIXME: Otherwise, a search for a compile-time declaration is performed, as defined in 15.28.1 .....
+		}
+		return null;
+	}
+
 	static void inferInvocationApplicability(InferenceContext18 inferenceContext, MethodBinding method, TypeBinding[] arguments) 
 	{
 		// 18.5.1

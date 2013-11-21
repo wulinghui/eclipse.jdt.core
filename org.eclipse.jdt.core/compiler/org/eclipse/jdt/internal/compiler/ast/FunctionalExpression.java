@@ -44,7 +44,7 @@ public abstract class FunctionalExpression extends Expression {
 	static Expression [] NO_EXPRESSIONS = new Expression[0];
 	protected Expression [] resultExpressions = NO_EXPRESSIONS;
 	protected CompilationResult compilationResult;
-	protected BlockScope enclosingScope;
+	public BlockScope enclosingScope;
 	protected boolean ellipsisArgument;
 	protected static IErrorHandlingPolicy silentErrorHandlingPolicy = DefaultErrorHandlingPolicies.ignoreAllProblems();
 	
