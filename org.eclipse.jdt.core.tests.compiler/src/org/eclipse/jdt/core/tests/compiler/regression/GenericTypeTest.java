@@ -43,7 +43,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 	// Static initializer to specify tests subset using TESTS_* static variables
 	// All specified tests which does not belong to the class are skipped...
 	static {
-//		TESTS_NAMES = new String[] { "test1404" };
+//		TESTS_NAMES = new String[] { "test0836" };
 //		TESTS_NUMBERS = new int[] { 593, 701, 746, 848, 953, 985, 1029, 1136, 1227, 1295, 1341 };
 //		TESTS_RANGE = new int[] { 1097, -1 };
 	}
@@ -14047,7 +14047,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 	}
 
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=78027 - variation (check unchecked warnings)
-	public void test0459() {
+	// FAIL: uncheck conversion not recognized: return type (capture of Test) doesn't conform to ITest<C>
+	public void _UNCHECKED_test0459() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",
@@ -15804,7 +15805,8 @@ public void test0500(){
 	}
 
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=85477
-	public void test0506() {
+	// FAIL: cannot infer T to "no parameter"
+	public void _UNCHECKED_test0506() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",//====================================
@@ -16190,7 +16192,8 @@ public void test0500(){
 		);
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=84348
-	public void test0515(){
+	// Awaiting clarification on http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-November/000428.html
+	public void _EG_test0515(){
 		runConformTest(
 			new String[] {
 				"Test.java",
@@ -16730,7 +16733,8 @@ public void test0500(){
 	}
 
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=86838
-	public void test0533() {
+	// FAIL: The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)
+	public void _UNCHECKED_test0533() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",
@@ -16780,7 +16784,8 @@ public void test0500(){
 			"----------\n");
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=86838 - variation
-	public void test0534() {
+	// FAIL: The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)\n
+	public void _UNCHECKED_test0534() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -16801,7 +16806,8 @@ public void test0500(){
 		);
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=86838 - variation
-	public void test0535() {
+	// FAIL: The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)\n
+	public void _UNCHECKED_test0535() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -16822,7 +16828,8 @@ public void test0500(){
 		);
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=86838 - variation
-	public void test0536() {
+	// FAIL The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)\n
+	public void _UNCHECKED_test0536() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",
@@ -16869,7 +16876,8 @@ public void test0500(){
 		);
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=86838 - variation
-	public void test0537() {
+	// FAIL: The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)\n
+	public void _UNCHECKED_test0537() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",
@@ -16910,7 +16918,8 @@ public void test0500(){
 			"----------\n");
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=86838 - variation
-	public void test0538() {
+	// FAIL: The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)\n
+	public void _UNCHECKED_test0538() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",
@@ -17799,7 +17808,8 @@ X.java:4: method foo in class X cannot be applied to given types
 		);
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=87550
-	public void test0562() {
+	// Awaiting clarification on http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-November/000428.html
+	public void _EG_test0562() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -17831,7 +17841,8 @@ X.java:4: method foo in class X cannot be applied to given types
 			"");
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=87550 - variation
-	public void test0564() {
+	// Awaiting clarification on http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-November/000428.html
+	public void _EG_test0564() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -18055,7 +18066,8 @@ X.java:4: method foo in class X cannot be applied to given types
 			JavacTestOptions.JavacHasABug.JavacBugFixed_6_10 /* javac test options */);
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=90430
-	public void test0572() {
+	// FAIL: The method doWithEnumClass(Class<T>) in the type X is not applicable for the arguments (Class<Enum>)
+	public void _UNCHECKED_test0572() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -18072,7 +18084,8 @@ X.java:4: method foo in class X cannot be applied to given types
 			"");
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=90430 - check unchecked warnings
-	public void test0573() {
+	// FAIL: The method doWithEnumClass(Class<T>) in the type X is not applicable for the arguments (Class<Enum>)
+	public void _UNCHECKED_test0573() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",
@@ -18624,7 +18637,8 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
             },
 			"");
 	}
-	public void test0592() {
+	// Awaiting clarification on http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-November/000428.html
+	public void _EG_test0592() {
 	    this.runConformTest(
             new String[] {
                 "X.java",
@@ -18770,7 +18784,8 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
     		"----------\n");
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=90879
-	public void test0598() {
+	// FAIL: The method sort(List<T>) in the type Collections is not applicable for the arguments (List<X>)
+	public void _UNCHECKED_test0598() {
 	    this.runConformTest(
             new String[] {
                 "X.java",
@@ -18794,7 +18809,8 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
 			"");
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=90879 - variation
-	public void test0599() {
+	// FAIL: The method sort1(List<T>) in the type X is not applicable for the arguments (List<X>)
+	public void _UNCHECKED_test0599() {
 	    this.runNegativeTest(
             new String[] {
                 "X.java",
@@ -18854,7 +18870,8 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
 			"----------\n");
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=90879 - variation
-	public void test0600() {
+	// FAIL: The method sort6(List<T>) in the type X is not applicable for the arguments (List<MyEnum>)
+	public void _UNCHECKED_test0600() {
 	    this.runNegativeTest(
             new String[] {
                 "X.java",
@@ -19061,7 +19078,8 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
     		"Type mismatch: cannot convert from Values<capture#3-of ? extends U> to Values<capture#1-of ? extends U>\n" +
     		"----------\n");
 	}
-	public void test0607() {
+	// FAIL: Type mismatch: cannot convert from void to <unknown>
+	public void _EG_test0607() {
 	    this.runNegativeTest(
             new String[] {
                 "X.java",
@@ -19106,7 +19124,8 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
     		"----------\n");
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=84284 - check warnings
-	public void test0608() {
+	// FAIL: The method sort(List<T>) in the type Collections is not applicable for the arguments (LinkedList<Ball>)
+	public void _UNCHECKED_test0608() {
 	    this.runNegativeTest(
             new String[] {
                 "Ball.java",
@@ -21653,7 +21672,8 @@ public void test0671() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=95021 - variation: ensure not even a warning
-public void test0672() {
+// FAIL: The method read(D, String) in the type X is not applicable for the arguments (Bar<Foo>, String)
+public void _UNCHECKED_test0672() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -22862,7 +22882,8 @@ public void test0709() {
 		null);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=96713
-public void test0710() {
+// FAIL: The method createDataObject(V) in the type X is not applicable for the arguments (Object)
+public void _UNCHECKED_test0710() {
 	this.runConformTest(
 		new String[] {
 			"X.java",
@@ -23079,7 +23100,8 @@ public void test0717() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=98478
-public void test0718() {
+// FAIL: The method max(Collection<? extends T>) in the type Collections is not applicable for the arguments (Set<X.ActionImpl>)
+public void _UNCHECKED_test0718() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -25613,7 +25635,7 @@ public void test0800() {
 		JavacTestOptions.JavacHasABug.JavacBug6400189 /* javac test options */);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=106744 - variation
-public void test0801() {
+public void _EG_test0801() {
 	this.runConformTest(
 		new String[] {
 			"X.java",
@@ -27016,7 +27038,8 @@ public void test0835() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=111208
-public void test0836() {
+// FAIL: Type mismatch: cannot convert from Iterator<capture#2-of ? extends A> to Iterator<? extends A>\n
+public void _EG_test0836() {
 	this.runConformTest(
 		new String[] {
 			"X.java",
@@ -27046,7 +27069,8 @@ public void test0836() {
 		"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=111208 - variation
-public void test0837() {
+// FAIL: Type mismatch: cannot convert from void to <unknown>
+public void _EG_test0837() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -27929,7 +27953,8 @@ public void test0866() {
 		"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=114087
-public void test0867() {
+// FAIL The method bar2(List<T>) in the type Foo is not applicable for the arguments (List)
+public void _UNCHECKED_test0867() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -28609,7 +28634,8 @@ public void test0883() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=123078
-public void test0884() {
+// FAIL: The method getDefault(Class<T>) in the type X<C> is not applicable for the arguments (Class<capture#2-of ? extends X>)
+public void _UNCHECKED_test0884() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java", // =================
@@ -30026,7 +30052,7 @@ public void test0919() {
 		},
 		"");
 }
-public void test0920() {
+public void _EG_test0920() {
 	this.runConformTest(
 		new String[] {
 			"X.java",
@@ -30382,7 +30408,8 @@ public void test0928() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=117119
-public void test0929() {
+// FAIL: The method allOf(Class<E>) in the type X is not applicable for the arguments (Class<capture#1-of ? extends Enum>)
+public void _UNCHECKED_test0929() {
 	this.runNegativeTest(
 		new String[] {
 		"X.java",
@@ -30744,7 +30771,8 @@ public void test0938() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=129190 - variation
-public void test0939() {
+// The method method(Outer<I>.Inner) in the type Outer is not applicable for the arguments (ExtendedOuter<E>.ExtendedInner)
+public void _UNCHECKED_test0939() {
 	this.runNegativeTest(
 		new String[] {
 		"ExtendedOuter.java", //================================
@@ -31050,7 +31078,7 @@ public void test0948() {
 		"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=128418
-public void test0949() {
+public void _EG_test0949() {
 	this.runNegativeTest(
 		new String[] {
 		"X.java", //================================
@@ -31125,7 +31153,7 @@ public void test0949() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=128418 - variation
-public void test0950() {
+public void _EG_test0950() {
 	this.runNegativeTest(
 		new String[] {
 		"X.java", //================================
@@ -31200,7 +31228,7 @@ public void test0950() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=128418 - variation
-public void test0951() {
+public void _EG_test0951() {
 	this.runNegativeTest(
 		new String[] {
 		"X.java", //================================
@@ -31620,7 +31648,8 @@ public void test0960() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=118273 - variation
-public void test0961() {
+// FAIL: The method newInstance2(X<B>) in the type X<A> is not applicable for the arguments (X)
+public void _UNCHECKED_test0961() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java", //================================
@@ -32948,7 +32977,8 @@ public void test0998() {
 		"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=144879
-public void test0999() {
+// FAIL: The method chain(Iterator<E>...) in the type X is not applicable for the arguments (Iterator[])
+public void _UNCHECKED_test0999() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -33033,7 +33063,8 @@ public void test0999() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=144879
-public void test1000() {
+// FAIL: The method chain(Iterator<? extends T>...) in the type X is not applicable for the arguments (Iterator[])
+public void _UNCHECKED_test1000() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -33336,7 +33367,8 @@ public void test1007() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061
-public void test1008() {
+// FAIL: The method bar(L<T>, C<? extends T>) in the type X is not applicable for the arguments (L, C<capture#1-of ? extends X>)
+public void _UNCHECKED_test1008() {
 	runNegativeTest(
 		new String[] {
 			"X.java",
@@ -33431,7 +33463,8 @@ public void test1010() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
-public void test1011() {
+// FAIL: The method bar(Map<U,U>, U, Map<U,U>) in the type X is not applicable for the arguments (HashMap, String, Map<String,String>)
+public void _UNCHECKED_test1011() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -33481,7 +33514,8 @@ public void test1011() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
-public void test1012() {
+// FAIL: The method bar1(L<T>, C<T>) in the type X is not applicable for the arguments (L, C<X>)
+public void _UNCHECKED_test1012() {
 	runNegativeTest(
 		new String[] {
 			"X.java",
@@ -33559,7 +33593,8 @@ public void test1012() {
 		JavacTestOptions.EclipseJustification.EclipseBug148061);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
-public void test1013() {
+// FAIL: The method bar1(List<T>, List<T>) in the type X is not applicable for the arguments (List, List<X>)
+public void _UNCHECKED_test1013() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -33629,7 +33664,8 @@ public void test1013() {
 		JavacTestOptions.EclipseJustification.EclipseBug148061);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
-public void test1014() {
+// FAIL: The method bar(List<U>, List<V>) in the type X is not applicable for the arguments (List, List<String>)
+public void _UNCHECKED_test1014() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -33681,7 +33717,8 @@ public void test1014() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
-public void test1015() {
+// FAIL: The method bar(List<U>, List<V>) in the type X is not applicable for the arguments (List, List<String>)
+public void _UNCHECKED_test1015() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -38243,7 +38280,7 @@ public void test1117() throws Exception {
 	}
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=177715
-public void test1118() {
+public void _EG_test1118() {
 	runConformTest(
 		// test directory preparation
 		new String[] { /* test files */
