@@ -61,7 +61,7 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 // 1.8
 			InferenceContext18 infCtx18 = invocationSite.inferenceContext(scope);
 			if (infCtx18 != null) {
-				int checkKind = InferenceContext18.CHECK_LOOSE; // FIXME
+				int checkKind = InferenceContext18.CHECK_LOOSE; // FIXME(stephan) do inference in the required three phases.
 				// 18.5.1 (Applicability):
 				infCtx18.inferInvocationApplicability(originalMethod, arguments);
 				try {
@@ -84,6 +84,8 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 							}
 							return parameterizedMethod;
 						}
+						// FIXME: return null also here?
+//						return null;
 					} else {
 						return null;
 					}

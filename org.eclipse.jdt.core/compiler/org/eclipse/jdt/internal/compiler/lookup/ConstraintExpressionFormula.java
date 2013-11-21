@@ -74,7 +74,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 				inferInvocationApplicability(inferenceContext, method, argumentTypes);
 				// TODO(stephan): do we need InferenceContext18.purgeInstantiations() here, too?
 				
-				if (!inferPolyInvocationType(inferenceContext, messageSend, method))
+				if (!inferPolyInvocationType(inferenceContext, messageSend, this.right, method))
 					return FALSE;
 				return null; // already incorporated
 			} else if (this.left instanceof ConditionalExpression) {
@@ -118,7 +118,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 		inferenceContext.addThrowsContraints(typeVariables, inferenceVariables, method.thrownExceptions);
 	}
 
-	static boolean inferPolyInvocationType(InferenceContext18 inferenceContext, InvocationSite invocationSite, MethodBinding method) 
+	static boolean inferPolyInvocationType(InferenceContext18 inferenceContext, InvocationSite invocationSite, TypeBinding targetType, MethodBinding method) 
 				throws InferenceFailureException 
 	{
 		TypeBinding[] typeArguments = invocationSite.genericTypeArguments();
@@ -129,31 +129,30 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 					throw new InferenceFailureException("expression has no value");
 
 				ParameterizedTypeBinding parameterizedType = parameterizedWithWildcard(method.returnType);
-				TypeBinding expectedType = invocationSite.expectedType();
 				if (parameterizedType != null) {
 					TypeBinding[] arguments = parameterizedType.arguments;
 					InferenceVariable[] betas = inferenceContext.addTypeVariableSubstitutions(arguments);
 					TypeBinding gbeta = inferenceContext.environment.createParameterizedType(
 							parameterizedType.genericType(), betas, parameterizedType.enclosingType(), parameterizedType.getTypeAnnotations());
 					inferenceContext.currentBounds.captures.put(gbeta, parameterizedType);
-					ConstraintTypeFormula newConstraint = new ConstraintTypeFormula(gbeta, expectedType, COMPATIBLE);
+					ConstraintTypeFormula newConstraint = new ConstraintTypeFormula(gbeta, targetType, COMPATIBLE);
 					if (!inferenceContext.reduceAndIncorporate(newConstraint))
 						return false;
 				}
 
-				if (expectedType.isBaseType()) {
+				if (targetType.isBaseType()) {
 					TypeBinding thetaR = inferenceContext.substitute(method.returnType);
 					if (thetaR instanceof InferenceVariable) {
 						TypeBinding wrapper = inferenceContext.currentBounds.findWrapperTypeBound((InferenceVariable)thetaR);
 						if (wrapper != null) {
 							if (!inferenceContext.reduceAndIncorporate(new ConstraintTypeFormula(thetaR, wrapper, ReductionResult.SAME))
-								|| !inferenceContext.reduceAndIncorporate(new ConstraintTypeFormula(wrapper, expectedType, ReductionResult.COMPATIBLE)))
+								|| !inferenceContext.reduceAndIncorporate(new ConstraintTypeFormula(wrapper, targetType, ReductionResult.COMPATIBLE)))
 								return false;
 						}
 					}
 				}
 
-				ConstraintTypeFormula newConstraint = new ConstraintTypeFormula(inferenceContext.substitute(method.returnType), expectedType, COMPATIBLE);
+				ConstraintTypeFormula newConstraint = new ConstraintTypeFormula(inferenceContext.substitute(method.returnType), targetType, COMPATIBLE);
 				if (!inferenceContext.reduceAndIncorporate(newConstraint))
 					return false;
 			} else {

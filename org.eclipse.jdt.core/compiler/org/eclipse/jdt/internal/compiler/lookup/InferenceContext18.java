@@ -16,6 +16,7 @@ package org.eclipse.jdt.internal.compiler.lookup;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
@@ -149,17 +150,21 @@ public class InferenceContext18 {
 	public BoundSet inferInvocationType(TypeBinding expectedType, InvocationSite invocationSite, MethodBinding method, int checkKind)
 			throws InferenceFailureException 
 	{
+		// bullets 1&2: definitions only.
 		if (expectedType != null
 				&& expectedType != TypeBinding.VOID
 				&& invocationSite instanceof Expression
 				&& ((Expression)invocationSite).isPolyExpression(method)) 
 		{
-			if (!ConstraintExpressionFormula.inferPolyInvocationType(this, invocationSite, method)) {
+			// 3. bullet: special treatment for poly expressions
+			if (!ConstraintExpressionFormula.inferPolyInvocationType(this, invocationSite, expectedType, method)) {
 				return null;
 			}
 		}
+		// 4. bullet: assemble C:
 		TypeBinding[] fs;
 		Expression[] arguments = this.invocationArguments;
+		Set c = new HashSet();
 		if (arguments != null) {
 			int k = arguments.length;
 			int p = method.parameters.length;
@@ -178,18 +183,83 @@ public class InferenceContext18 {
 				TypeBinding substF = substitute(fs[Math.min(i, p-1)]);
 				// For all i (1 ≤ i ≤ k), if ei is not pertinent to applicability, the set contains ⟨ei → θ Fi⟩.
 				if (!arguments[i].isPertinentToApplicability()) {
-					if (!this.currentBounds.reduceOneConstraint(this, new ConstraintExpressionFormula(arguments[i], substF, ReductionResult.COMPATIBLE)))
-						return null;
+					c.add(new ConstraintExpressionFormula(arguments[i], substF, ReductionResult.COMPATIBLE));
 				}
-				
-				if (!this.currentBounds.reduceOneConstraint(this, new ConstraintExceptionFormula(arguments[i], expectedType))) // FIXME: spec says T, we use expectedType, OK?
+				if (expectedType != null) // FIXME this is no good, need a real T, but what should it be??
+					c.add(new ConstraintExceptionFormula(arguments[i], expectedType)); // FIXME: spec says T, we use expectedType, OK?
+			}
+		}
+		// 5. bullet: determine B3 from C
+		while (!c.isEmpty()) {
+			// *
+			Set bottomSet = findBottomSet(c, allOutputVariables(c));
+			if (bottomSet.isEmpty()) {
+				bottomSet.add(pickFromCycle(c)); 
+			}
+			// *
+			c.removeAll(bottomSet);
+			// * The union of the input variables of all the selected constraints, α1, ..., αm, ...
+			Set allInputs = new HashSet();
+			Iterator bottomIt = bottomSet.iterator();
+			while (bottomIt.hasNext()) {
+				allInputs.addAll(((ConstraintFormula)bottomIt.next()).inputVariables(this));
+			}
+			InferenceVariable[] variablesArray = (InferenceVariable[]) allInputs.toArray(new InferenceVariable[allInputs.size()]);
+			//   ... is resolved
+			BoundSet solution = resolve();
+			// * ~ apply substitutions to all constraints: 
+			bottomIt = bottomSet.iterator();
+			while (bottomIt.hasNext()) {
+				ConstraintFormula constraint = ((ConstraintFormula)bottomIt.next());
+				constraint.applySubstitution(solution, variablesArray);
+			// * reduce and incorporate
+				if (!this.currentBounds.reduceOneConstraint(this, constraint))
 					return null;
 			}
 		}
-		// TODO 18.5.2 bullets 5ff.
-		return solve();
+		// 6. bullet: solve
+		BoundSet solution = solve();
+		if (solution == null || !isResolved(solution))
+			return null;
+		return solution;
+	}
+	private Object pickFromCycle(Set c) {
+		missingImplementation("Breaking a dependency cycle NYI");
+		return null; // never
 	}
 
+	private Set findBottomSet(Set constraints, Set allOutputVariables) {
+		// 18.5.2 bullet 5.1
+		//  A subset of constraints is selected, satisfying the property
+		// that, for each constraint, no input variable depends on an
+		// output variable of another constraint in C ...
+		Set result = new HashSet();
+		Iterator it = constraints.iterator();
+		constraintLoop: while (it.hasNext()) {
+			ConstraintFormula constraint = (ConstraintFormula)it.next();
+			Iterator inputIt = constraint.inputVariables(this).iterator();
+			Iterator outputIt = allOutputVariables.iterator();
+			while (inputIt.hasNext()) {
+				InferenceVariable in = (InferenceVariable) inputIt.next();
+				while (outputIt.hasNext()) {
+					if (this.currentBounds.dependsOnResolutionOf(in, (InferenceVariable) outputIt.next()))
+						continue constraintLoop;
+				}
+			}
+			result.add(constraint);
+		}		
+		return result;
+	}
+
+	Set allOutputVariables(Set constraints) {
+		Set result = new HashSet();
+		Iterator it = constraints.iterator();
+		while (it.hasNext()) {
+			result.addAll(((ConstraintFormula)it.next()).outputVariables(this));
+		}
+		return result;
+	}
+	
 	/** 18.5.2: before Invocation Type Inference purge all instantiations.
 	 * @return the previous (unpurged) bound set
 	 */
