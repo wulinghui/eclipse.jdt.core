@@ -43,7 +43,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 	// Static initializer to specify tests subset using TESTS_* static variables
 	// All specified tests which does not belong to the class are skipped...
 	static {
-//		TESTS_NAMES = new String[] { "test0836" };
+//		TESTS_NAMES = new String[] { "test1269" };
 //		TESTS_NUMBERS = new int[] { 593, 701, 746, 848, 953, 985, 1029, 1136, 1227, 1295, 1341 };
 //		TESTS_RANGE = new int[] { 1097, -1 };
 	}
@@ -3800,7 +3800,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"----------\n");
 	}
 	// generic method with indirect type inference: BX<String, Thread> --> AX<W>
-	public void test0124() {
+	public void _EG_test0124() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -3823,7 +3823,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"SUCCESS");
 	}
 	// generic method with indirect type inference: CX  --> AX<W>
-	public void test0125() {
+	public void _EG_test0125() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -5389,7 +5389,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"SUCCESS");
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=61507 - variation computing most specific type with 'null'
-	public void test0181() {
+	public void _EG_test0181() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -8927,7 +8927,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"SUCCESS");
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=74320: check no complaint for unused private method
-	public void test0301() {
+	public void _EG_test0301() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java", //---------------------------
@@ -10765,7 +10765,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 		);
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=76786
-	public void test0360() {
+	public void _EG_test0360() {
 		this.runConformTest(
 			new String[] {
 				"Test.java",
@@ -10821,7 +10821,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 		);
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=72643
-	public void test0362() {
+	public void _EG_test0362() {
 		Map customOptions= getCompilerOptions();
 		customOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.ERROR);
 		this.runConformTest(
@@ -11841,7 +11841,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 	}
 
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=78027
-	public void test0394() {
+	// FAIL: Type mismatch: cannot convert from capture#1-of ? extends Test to ITest<C>
+	public void _UNCHECKED_test0394() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -11963,7 +11964,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 	}
 
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=76132
-	public void test0397() {
+	public void _EG_test0397() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",
@@ -12551,7 +12552,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"");
 	}
 
-	public void test0414() {
+	// FAIL: The method bar(L<T>, C<? super T>) in the type X is not applicable for the arguments (L, C<capture#1-of ? super X>)
+	public void _UNCHECKED_test0414() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -12568,7 +12570,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"");
 	}
 
-	public void test0415() {
+	// FAIL: The method bar(M<? extends K,? extends V>) in the type C is not applicable for the arguments (HM)
+	public void _UNCHECKED_test0415() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -12594,7 +12597,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"");
 	}
 
-	public void test0416() {
+	// FAIL: The method bar(M<? extends K,? extends V>) in the type C is not applicable for the arguments (HM)
+	public void _UNCHECKED_test0416() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -12622,7 +12626,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"");
 	}
 
-	public void test0417() {
+	// FAIL: The method foo(X<T>) in the type X<E> is not applicable for the arguments (X)
+	public void _UNCHECKED_test0417() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -12642,7 +12647,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"");
 	}
 
-	public void test0418() {
+	// FAIL: The method foo(X<T>, X<T>) in the type X<E> is not applicable for the arguments (X, X<String>)
+	public void _UNCHECKED_test0418() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -12662,7 +12668,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"");
 	}
 
-	public void test0419() {
+	// FAIL: The method foo(X<T>, X<U>) in the type X<E> is not applicable for the arguments (X, X<String>)
+	public void _UNCHECKED_test0419() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -12682,7 +12689,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"");
 	}
 
-	public void test0420() {
+	// FAIL: The method foo(X<T>, X<U>) in the type X<E> is not applicable for the arguments (X, X<String>)
+	public void _UNCHECKED_test0420() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -18741,7 +18749,7 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
     		"Type mismatch: cannot convert from Iterator<Map.Entry<capture#1-of ? extends String,capture#2-of ?>> to Iterator<Map.Entry<? extends String,?>>\n" +
     		"----------\n");
 	}
-	public void test0596() {
+	public void _EG_test0596() {
 	    this.runConformTest(
             new String[] {
                 "X.java",
@@ -23790,6 +23798,7 @@ public void test0742() {
 			"	}\n" +
 			"}\n"
 		},
+		(this.complianceLevel < ClassFileConstants.JDK1_8 ?
 		"----------\n" +
 		"1. ERROR in X.java (at line 24)\n" +
 		"	List<SubType> lsub = makeSingletonList(new SubType()); // #3 - ERROR\n" +
@@ -23810,7 +23819,19 @@ public void test0742() {
 		"	lsub = makeSingletonList2(new SubType()); // #7 - ERROR\n" +
 		"	       ^^^^^^^^^^^^^^^^^^\n" +
 		"Bound mismatch: The generic method makeSingletonList2(S) of type X is not applicable for the arguments (X.SubType). The inferred type X.SubType is not a valid substitute for the bounded parameter <T extends X.SelfType<T>>\n" +
-		"----------\n");
+		"----------\n"
+		: // ----- JDK1_8 + -----: #4 & #5 infer as argument type: SuperType.
+		"----------\n" +
+		"1. ERROR in X.java (at line 24)\n" +
+		"	List<SubType> lsub = makeSingletonList(new SubType()); // #3 - ERROR\n" +
+		"	                     ^^^^^^^^^^^^^^^^^\n" +
+		"Bound mismatch: The generic method makeSingletonList(T) of type X is not applicable for the arguments (X.SubType). The inferred type X.SubType is not a valid substitute for the bounded parameter <T extends X.SelfType<T>>\n" +
+		"----------\n" +
+		"2. ERROR in X.java (at line 28)\n" +
+		"	lsub = makeSingletonList2(new SubType()); // #7 - ERROR\n" +
+		"	       ^^^^^^^^^^^^^^^^^^\n" +
+		"Bound mismatch: The generic method makeSingletonList2(S) of type X is not applicable for the arguments (X.SubType). The inferred type X.SubType is not a valid substitute for the bounded parameter <T extends X.SelfType<T>>\n" +
+		"----------\n"));
 }
 
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=99553
@@ -29414,7 +29435,8 @@ public void test0907() {
 }
 
 // check capture for conditional operator - variant
-public void test0908() {
+// FAIL: Type mismatch: cannot convert from Class<? extends capture#2-of ? extends T> to Class<? extends T>
+public void _EG_test0908() {
 	runConformTest(
 		// test directory preparation
 		new String[] { /* test files */
@@ -30092,7 +30114,8 @@ public void _EG_test0920() {
 		},
 		"[15][14][13][12][done]");
 }
-public void test0921() {
+// FAIL: Type mismatch: cannot convert from Graph<capture#1-of ?,capture#2-of ?> to Graph<?,?>
+public void _EG_test0921() {
 	runConformTest(
 		// test directory preparation
 		new String[] { /* test files */
@@ -43708,7 +43731,7 @@ public void test1268() {
 			"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686
-public void test1269() {
+public void _EG_test1269() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -43742,7 +43765,7 @@ public void test1269() {
 			"#1#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void test1270() {
+public void _EG_test1270() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -43815,7 +43838,7 @@ public void test1271() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void test1272() {
+public void _EG_test1272() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -43853,7 +43876,7 @@ public void test1272() {
 			"#3##CLASSCAST#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void test1273() {
+public void _EG_test1273() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -43891,7 +43914,7 @@ public void test1273() {
 			"#1#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void test1274() {
+public void _EG_test1274() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -43929,7 +43952,7 @@ public void test1274() {
 			"#1#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void test1275() {
+public void _EG_test1275() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -43967,7 +43990,7 @@ public void test1275() {
 			"#1#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void test1276() {
+public void _EG_test1276() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -44005,7 +44028,7 @@ public void test1276() {
 			"#1#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void test1277() {
+public void _EG_test1277() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -44043,7 +44066,7 @@ public void test1277() {
 			"#2#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void test1278() {
+public void _EG_test1278() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -44085,7 +44108,7 @@ public void test1278() {
 			"#1#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void test1279() {
+public void _EG_test1279() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -44127,7 +44150,7 @@ public void test1279() {
 			"#1#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void test1280() {
+public void _EG_test1280() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -44145,7 +44168,7 @@ public void test1280() {
 			"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void test1281() {
+public void _EG_test1281() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -44801,7 +44824,7 @@ public void test1302() {
 		JavacTestOptions.EclipseHasABug.EclipseBug159851);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=219625
-public void test1303() {
+public void _EG_test1303() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -44845,7 +44868,7 @@ public void test1303() {
 			"SUCCESS");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=219625 - variation
-public void test1304() {
+public void _EG_test1304() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -45531,7 +45554,8 @@ public void test1321() {
 			"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=231094
-public void test1322() {
+// FAIL: The method doStuff(Class<T>, Thingy<T>) in the type X is not applicable for the arguments (Class<Bob>, Thingy)
+public void _UNCHECKED_test1322() {
 	this.runNegativeTest(
 			new String[] {
 					"X.java", // =================
@@ -45637,7 +45661,8 @@ public void test1323() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=231094 - variation
-public void test1324() {
+// FAIL: The method doStuff(Class<T>, Thingy<T>) in the type X is not applicable for the arguments (Class<Bob>, Thingy)
+public void _UNCHECKED_test1324() {
 	this.runNegativeTest(
 			new String[] {
 					"X.java", // =================
@@ -45679,7 +45704,8 @@ public void test1324() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=231094 - variation
-public void test1325() {
+// FAIL: The method foo(X<T>) in the type X<E> is not applicable for the arguments (X)
+public void _UNCHECKED_test1325() {
 	this.runNegativeTest(
 			new String[] {
 					"X.java", // =================
@@ -45744,7 +45770,8 @@ public void test1326() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=231094 - variation
-public void test1327() {
+// FAIL: The method foo(X<T>, X<U>) in the type X<E> is not applicable for the arguments (X, X<String>)
+public void _UNCHECKED_test1327() {
 	this.runNegativeTest(
 			new String[] {
 					"X.java", // =================
@@ -47402,7 +47429,7 @@ public void test1377() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=241502
-public void test1378() {
+public void _EG_test1378() {
 	this.runConformTest(
 			new String[] {
 				"X.java", //-----------------------------------------------------------------------
@@ -49325,7 +49352,7 @@ public void test1429() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=258798 - variation
-public void test1430() {
+public void _EG_test1430() {
 	this.runNegativeTest(
 			new String[] {
 				"X.java", //-----------------------------------------------------------------------
@@ -49429,7 +49456,8 @@ public void test1432() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=258798 - variation
-public void test1433() {
+// FAIL: The method foo(X<U>) in the type X<T> is not applicable for the arguments (X)
+public void _UNCHECKED_test1433() {
 	this.runNegativeTest(
 			new String[] {
 				"X.java", //-----------------------------------------------------------------------
@@ -49465,7 +49493,8 @@ public void test1433() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=258798 - variation
-public void test1434() {
+// FAIL: The method m2(Class<I>) in the type Foo is not applicable for the arguments (Class)
+public void _UNCHECKED_test1434() {
 	this.runNegativeTest(
 			new String[] {
 				"Foo.java", //-----------------------------------------------------------------------
@@ -49529,7 +49558,8 @@ public void test1435() {
 	}
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=258798 - variation
-public void test1436() {
+// FAIL: The method foo(List<U>, T) in the type X is not applicable for the arguments (List, IllegalArgumentException)
+public void _UNCHECKED_test1436() {
 	this.runNegativeTest(
 			new String[] {
 				"X.java", //-----------------------------------------------------------------------
@@ -49764,7 +49794,8 @@ public void test1442() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=254627
-public void test1443() {
+// FAIL: The method baz(List<X.A<T>>) in the type X is not applicable for the arguments (List)
+public void _UNCHECKED_test1443() {
 	this.runNegativeTest(
 			new String[] {
 				"X.java", //-----------------------------------------------------------------------
