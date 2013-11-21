@@ -134,7 +134,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 			InferenceContext18.missingImplementation("NYI: inexact method reference");
 			// FIXME: Otherwise, a search for a compile-time declaration is performed, as defined in 15.28.1 .....
 		}
-		return null;
+		return FALSE;
 	}
 
 	static void inferInvocationApplicability(InferenceContext18 inferenceContext, MethodBinding method, TypeBinding[] arguments) 
