@@ -588,6 +588,9 @@ public boolean isCompatibleWith(TypeBinding left, Scope scope) {
 }
 
 public boolean isPolyExpression() {
+	return isPolyExpression(this.binding);
+}
+public boolean isPolyExpression(MethodBinding method) {
 	return (this.expressionContext == ASSIGNMENT_CONTEXT || this.expressionContext == INVOCATION_CONTEXT) &&
 			this.type != null && (this.type.bits & ASTNode.IsDiamond) != 0;
 }
