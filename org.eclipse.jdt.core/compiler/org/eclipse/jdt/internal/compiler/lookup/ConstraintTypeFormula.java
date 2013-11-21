@@ -40,7 +40,7 @@ class ConstraintTypeFormula extends ConstraintFormula {
 		switch (this.relation) {
 		case COMPATIBLE:
 			// 18.2.2:
-			if (this.left.isProperType() && this.right.isProperType()) {
+			if (this.left.isProperType(true) && this.right.isProperType(true)) {
 				if (isCompatibleWithInLooseInvocationContext(this.left, this.right, inferenceContext))
 					return TRUE;
 				return FALSE;
@@ -120,7 +120,7 @@ class ConstraintTypeFormula extends ConstraintFormula {
 		} else {
 			if (this.right.kind() != Binding.WILDCARD_TYPE) {
 				// left and right are types (vs. wildcards)
-				if (this.left.isProperType() && this.right.isProperType()) {
+				if (this.left.isProperType(true) && this.right.isProperType(true)) {
 					if (TypeBinding.equalsEquals(this.left, this.right))
 						return TRUE;
 					return FALSE;
@@ -159,7 +159,7 @@ class ConstraintTypeFormula extends ConstraintFormula {
 
 	private Object reduceSubType(Scope scope, TypeBinding subCandidate, TypeBinding superCandidate) {
 		// 18.2.3 Subtyping Constraints
-		if (subCandidate.isProperType() && superCandidate.isProperType()) {
+		if (subCandidate.isProperType(true) && superCandidate.isProperType(true)) {
 			if (subCandidate.isCompatibleWith(superCandidate, scope))
 				return TRUE;
 			return FALSE;

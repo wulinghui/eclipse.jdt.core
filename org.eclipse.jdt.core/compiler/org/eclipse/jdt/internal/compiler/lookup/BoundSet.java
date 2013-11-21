@@ -72,7 +72,7 @@ class BoundSet {
 			int i = 0;
 			while(it.hasNext()) {
 				TypeBinding boundType = ((TypeBound)it.next()).right;
-				if (!onlyProper || boundType.isProperType())
+				if (!onlyProper || boundType.isProperType(true))
 					boundTypes[i++] = boundType;
 			}
 			if (i < boundTypes.length)
@@ -87,7 +87,7 @@ class BoundSet {
 			int i = 0;
 			while(it.hasNext()) {
 				TypeBinding right=((TypeBound)it.next()).right;
-				if (!onlyProper || right.isProperType()) {
+				if (!onlyProper || right.isProperType(true)) {
 					if (right instanceof ReferenceBinding) {
 						rights[i++] = (ReferenceBinding) right;
 					} else {
@@ -170,7 +170,7 @@ class BoundSet {
 				Iterator it = this.subBounds.iterator();
 				while(it.hasNext()) {
 					TypeBinding boundType = ((TypeBound)it.next()).right;
-					if ((boundType).isProperType()) {
+					if ((boundType).isProperType(true)) {
 						switch (boundType.id) {
 							case TypeIds.T_JavaLangByte:
 							case TypeIds.T_JavaLangShort:
@@ -191,7 +191,7 @@ class BoundSet {
 				Iterator it = this.superBounds.iterator();
 				while(it.hasNext()) {
 					TypeBinding boundType = ((TypeBound)it.next()).right;
-					if ((boundType).isProperType()) {
+					if ((boundType).isProperType(true)) {
 						switch (boundType.id) {
 							case TypeIds.T_JavaLangByte:
 							case TypeIds.T_JavaLangShort:
@@ -276,7 +276,7 @@ class BoundSet {
 		three.addBound(bound);
 		// check if this makes the inference variable instantiated:
 		TypeBinding typeBinding = bound.right;
-		if (bound.relation == ReductionResult.SAME && typeBinding.isProperType())
+		if (bound.relation == ReductionResult.SAME && typeBinding.isProperType(true))
 			three.instantiation = typeBinding;
 	}
 
@@ -388,9 +388,11 @@ class BoundSet {
 				ReferenceBinding g = (ReferenceBinding) gA.original();
 				TypeVariableBinding[] parameters = g.typeVariables();
 				for (int i = 0; i < parameters.length; i++) {
+					// Where the bounds of Pi are Bi1, ..., Bim, for all j (1 ≤ j ≤ m), the bound αi <: Bij θ is immediately implied. 
 					TypeVariableBinding pi = parameters[i];
 					InferenceVariable alpha = (InferenceVariable) gAlpha.arguments[i];
-					addBounds(pi.getTypeBounds(alpha, context));
+					addBounds(pi.getTypeBounds(alpha, context)); // θ is internally applied when creating each TypeBound
+
 					TypeBinding ai = gA.arguments[i];
 					if (ai instanceof WildcardBinding) {
 						WildcardBinding wildcardBinding = (WildcardBinding)ai;
@@ -415,18 +417,26 @@ class BoundSet {
 									TypeBound bound = (TypeBound) it.next();
 									if (!(bound.right instanceof InferenceVariable)) {
 										TypeBinding r = bound.right;
-										// FIXME: create intersection type from bounds of pi to use as Bi instead of "forall Bij"
-										// did Srikanth mention plans to improve representation of intersection types?
-										TypeBinding bij = pi.firstBound;
-										addTypeBoundsFromWildcardBound(context, wildcardBinding, t, r, bij);
-										TypeBinding[] otherBounds = wildcardBinding.superInterfaces;
-										if (otherBounds != null) {
-											for (int j = 0; j < otherBounds.length; j++) {
-												TypeBinding tj = otherBounds[j];
-												if (TypeBinding.notEquals(tj, t))
-													addTypeBoundsFromWildcardBound(context, wildcardBinding, tj, r, bij);
-											}
+										TypeBinding bi1 = pi.firstBound;
+										ReferenceBinding[] otherBounds = pi.superInterfaces;
+										TypeBinding bi;
+										if (otherBounds == Binding.NO_SUPERINTERFACES) {
+											bi = bi1;
+										} else {
+											int n = otherBounds.length+1;
+											ReferenceBinding[] allBounds = new ReferenceBinding[n];
+											allBounds[0] = (ReferenceBinding) bi1; // TODO is this safe?
+											System.arraycopy(otherBounds, 0, allBounds, 1, n-1);
+											bi = new IntersectionCastTypeBinding(allBounds, context.environment);
 										}
+										addTypeBoundsFromWildcardBound(context, wildcardBinding.boundKind, t, r, bi);
+//										if (otherBounds != null) {
+//											for (int j = 0; j < otherBounds.length; j++) {
+//												TypeBinding tj = otherBounds[j];
+//												if (TypeBinding.notEquals(tj, t))
+//													addTypeBoundsFromWildcardBound(context, wildcardBinding, tj, r, bij);
+//											}
+//										}
 									}
 								}
 							}
@@ -455,14 +465,14 @@ class BoundSet {
 		return true;
 	}
 
-	void addTypeBoundsFromWildcardBound(InferenceContext18 context, WildcardBinding wildcardBinding, TypeBinding t,
-			TypeBinding r, TypeBinding bij) throws InferenceFailureException {
+	void addTypeBoundsFromWildcardBound(InferenceContext18 context, int boundKind, TypeBinding t,
+			TypeBinding r, TypeBinding bi) throws InferenceFailureException {
 		ConstraintFormula formula = null;
-		if (wildcardBinding.boundKind == Wildcard.EXTENDS) {
-			if (bij.id == TypeIds.T_JavaLangObject)
+		if (boundKind == Wildcard.EXTENDS) {
+			if (bi.id == TypeIds.T_JavaLangObject)
 				formula = new ConstraintTypeFormula(t, r, ReductionResult.SUBTYPE);
 		} else {
-			formula = new ConstraintTypeFormula(context.substitute(bij), r, ReductionResult.SUBTYPE);
+			formula = new ConstraintTypeFormula(context.substitute(bi), r, ReductionResult.SUBTYPE);
 		}
 		if (formula != null)
 			reduceOneConstraint(context, formula);
@@ -489,7 +499,7 @@ class BoundSet {
 	private ConstraintTypeFormula combineSameSameWithProperType(TypeBound boundLeft, TypeBound boundRight) {
 		//  α = U and S = T imply ⟨S[α:=U] = T[α:=U]⟩
 		TypeBinding u = boundLeft.right;
-		if (u.isProperType()) {
+		if (u.isProperType(true)) {
 			InferenceVariable alpha = boundLeft.left;
 			TypeBinding left = boundRight.left; // no substitution since S inference variable and (S != α) per precondition
 			TypeBinding right = boundRight.right.substituteInferenceVariable(alpha, u);
@@ -513,7 +523,7 @@ class BoundSet {
 		
 		//  α = U and S <: T imply ⟨S[α:=U] <: T[α:=U]⟩ 
 		TypeBinding u = boundS.right;
-		if (u.isProperType()) {
+		if (u.isProperType(true)) {
 			TypeBinding left = (alpha == boundT.left) ? u : boundT.left; //$IDENTITY-COMPARISON$ InferenceVariable
 			TypeBinding right = boundT.right.substituteInferenceVariable(alpha, u);
 			return new ConstraintTypeFormula(left, right, boundT.relation);

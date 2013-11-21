@@ -463,19 +463,19 @@ public class TypeVariableBinding extends ReferenceBinding {
 
 	boolean inRecursiveFunction = false;
 	
-	boolean isProperType() {
+	boolean isProperType(boolean admitCapture18) {
 		// handle recursive calls:
 		if (this.inRecursiveFunction) // be optimistic, since this node is not an inference variable
 			return true;
 		
 		this.inRecursiveFunction = true;
 		try {
-			if (this.superclass != null && !this.superclass.isProperType()) {
+			if (this.superclass != null && !this.superclass.isProperType(admitCapture18)) {
 				return false;
 			}
 			if (this.superInterfaces != null)
 				for (int i = 0, l = this.superInterfaces.length; i < l; i++)
-			   		if (!this.superInterfaces[i].isProperType()) {
+			   		if (!this.superInterfaces[i].isProperType(admitCapture18)) {
 						return false;
 					}
 			return true;

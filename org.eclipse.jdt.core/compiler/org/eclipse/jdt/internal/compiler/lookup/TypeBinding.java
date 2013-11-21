@@ -684,7 +684,7 @@ public boolean isParameterizedWithOwnVariables() {
 }
 
 /** JLS8 Sect 18.1.1: */
-boolean isProperType() {
+boolean isProperType(boolean admitCapture18) {
 	return true;
 }
 TypeBinding substituteInferenceVariable(InferenceVariable var, TypeBinding substituteType) {

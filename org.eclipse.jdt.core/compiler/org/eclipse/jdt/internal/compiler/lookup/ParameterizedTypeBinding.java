@@ -799,10 +799,10 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 		return this.superclass != null && this.superInterfaces != null;
 	}
 
-	boolean isProperType() {
+	boolean isProperType(boolean admitCapture18) {
 		if (this.arguments != null) {
 			for (int i = 0; i < this.arguments.length; i++)
-				if (!this.arguments[i].isProperType())
+				if (!this.arguments[i].isProperType(admitCapture18))
 					return false;
 		}
 		return true;

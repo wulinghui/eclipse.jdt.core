@@ -45,7 +45,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 	
 	public Object reduce(InferenceContext18 inferenceContext) throws InferenceFailureException {
 		// JLS 18.2.1
-		if (this.right.isProperType()) {
+		if (this.right.isProperType(true)) {
 			TypeBinding exprType = this.left.resolvedType;
 			if (exprType == null || !exprType.isValidBinding())
 				return FALSE;

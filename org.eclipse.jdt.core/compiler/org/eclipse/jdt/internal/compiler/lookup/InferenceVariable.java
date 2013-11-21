@@ -48,7 +48,7 @@ public class InferenceVariable extends TypeVariableBinding {
 		return false;
 	}
 
-	boolean isProperType() {
+	boolean isProperType(boolean admitCapture18) {
 		return false;
 	}
 

@@ -92,4 +92,8 @@ public class CaptureBinding18 extends TypeVariableBinding {
 		}
 		return false;
 	}
+	
+	boolean isProperType(boolean admitCapture18) {
+		return admitCapture18;
+	}
 }

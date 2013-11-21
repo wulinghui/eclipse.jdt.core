@@ -36,7 +36,7 @@ public class TypeBound extends ReductionResult {
 
 	/** distinguish bounds from dependencies. */
 	boolean isBound() {
-		return this.right.isProperType();
+		return this.right.isProperType(true);
 	}
 	public int hashCode() {
 		return this.left.hashCode() + this.right.hashCode() + this.relation;
@@ -51,7 +51,7 @@ public class TypeBound extends ReductionResult {
 	
 	// debugging:
 	public String toString() {
-		boolean isBound = this.right.isProperType();
+		boolean isBound = this.right.isProperType(true);
 		StringBuffer buf = new StringBuffer();
 		buf.append(isBound ? "TypeBound  " : "Dependency "); //$NON-NLS-1$ //$NON-NLS-2$
 		buf.append(this.left.sourceName);
