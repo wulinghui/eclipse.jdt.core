@@ -51209,4 +51209,16 @@ public void test1467() {
 		"The constructor X.Base<X<T>.Arr>(Class<X.Arr>) is undefined\n" + 
 		"----------\n");
 }
+public void testBug401783() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.*;\n" +
+			"public class X {\n" +
+			"	void foo() {\n" +
+			"		Iterable<Iterable<Integer>> iterables = Arrays.asList(Arrays.asList(1,2,3,4),Arrays.asList(5,6,7));\n" +
+			"	}\n" +
+			"}\n"
+		});
+}
 }
