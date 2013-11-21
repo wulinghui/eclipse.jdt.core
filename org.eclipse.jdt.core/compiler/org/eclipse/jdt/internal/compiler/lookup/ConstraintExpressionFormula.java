@@ -198,6 +198,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 					if (body instanceof Expression) {
 						variables.addAll(new ConstraintExpressionFormula((Expression) body, r, COMPATIBLE).inputVariables(context));
 					} else {
+						// TODO: should I use LambdaExpression.resultExpressions? (is currently private).
 						body.traverse(new ASTVisitor() {
 							public boolean visit(ReturnStatement returnStatement, BlockScope scope) {
 								variables.addAll(new ConstraintExpressionFormula(returnStatement.expression, r, COMPATIBLE).inputVariables(context));
@@ -212,8 +213,8 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 			if (this.right instanceof InferenceVariable) {
 				return Collections.singletonList(this.right);
 			}
-			if (this.right.isFunctionalInterface(context.scope)) { // TODO: && this.left is inexact
-				MethodBinding sam = this.right.getSingleAbstractMethod(context.scope); // TODO derive with target type?
+			if (this.right.isFunctionalInterface(context.scope) && !this.left.isExactMethodReference()) {
+				MethodBinding sam = this.right.getSingleAbstractMethod(context.scope);
 				final Set variables = new HashSet();
 				int len = sam.parameters.length;
 				for (int i = 0; i < len; i++) {
