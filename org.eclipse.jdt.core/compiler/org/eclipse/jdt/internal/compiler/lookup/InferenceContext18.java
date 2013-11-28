@@ -146,81 +146,89 @@ public class InferenceContext18 {
 		ConstraintExpressionFormula.inferInvocationApplicability(this, method, arguments);
 	}
 
-	/** JLS 18.5.2 Invocation Type Inference */
-	public BoundSet inferInvocationType(TypeBinding expectedType, InvocationSite invocationSite, MethodBinding method, int checkKind)
+	/** JLS 18.5.2 Invocation Type Inference 
+	 * @param b1 "the bound set produced by reduction in order to demonstrate that m is applicable in 18.5.1" 
+	 */
+	public BoundSet inferInvocationType(BoundSet b1, TypeBinding expectedType, InvocationSite invocationSite, MethodBinding method, int checkKind)
 			throws InferenceFailureException 
 	{
-		// bullets 1&2: definitions only.
-		if (expectedType != null
-				&& expectedType != TypeBinding.VOID
-				&& invocationSite instanceof Expression
-				&& ((Expression)invocationSite).isPolyExpression(method)) 
-		{
-			// 3. bullet: special treatment for poly expressions
-			if (!ConstraintExpressionFormula.inferPolyInvocationType(this, invocationSite, expectedType, method)) {
-				return null;
-			}
-		}
-		// 4. bullet: assemble C:
-		TypeBinding[] fs;
-		Expression[] arguments = this.invocationArguments;
-		Set c = new HashSet();
-		if (arguments != null) {
-			int k = arguments.length;
-			int p = method.parameters.length;
-			switch (checkKind) {
-				case CHECK_STRICT:
-				case CHECK_LOOSE:
-					fs = method.parameters;
-					break;
-				case CHECK_VARARG:
-					fs = varArgTypes(method.parameters, k);
-					break;
-				default:
-					throw new IllegalStateException("Unexpected checkKind "+checkKind); //$NON-NLS-1$
-			}
-			for (int i = 0; i < k; i++) {
-				TypeBinding substF = substitute(fs[Math.min(i, p-1)]);
-				// For all i (1 ≤ i ≤ k), if ei is not pertinent to applicability, the set contains ⟨ei → θ Fi⟩.
-				if (!arguments[i].isPertinentToApplicability()) {
-					c.add(new ConstraintExpressionFormula(arguments[i], substF, ReductionResult.COMPATIBLE));
-				}
-				c.add(new ConstraintExceptionFormula(arguments[i], substF));
-			}
-		}
-		// 5. bullet: determine B3 from C
-		while (!c.isEmpty()) {
-			// *
-			Set bottomSet = findBottomSet(c, allOutputVariables(c));
-			if (bottomSet.isEmpty()) {
-				bottomSet.add(pickFromCycle(c)); 
-			}
-			// *
-			c.removeAll(bottomSet);
-			// * The union of the input variables of all the selected constraints, α1, ..., αm, ...
-			Set allInputs = new HashSet();
-			Iterator bottomIt = bottomSet.iterator();
-			while (bottomIt.hasNext()) {
-				allInputs.addAll(((ConstraintFormula)bottomIt.next()).inputVariables(this));
-			}
-			InferenceVariable[] variablesArray = (InferenceVariable[]) allInputs.toArray(new InferenceVariable[allInputs.size()]);
-			//   ... is resolved
-			BoundSet solution = resolve();
-			// * ~ apply substitutions to all constraints: 
-			bottomIt = bottomSet.iterator();
-			while (bottomIt.hasNext()) {
-				ConstraintFormula constraint = ((ConstraintFormula)bottomIt.next());
-				constraint.applySubstitution(solution, variablesArray);
-			// * reduce and incorporate
-				if (!this.currentBounds.reduceOneConstraint(this, constraint))
+		BoundSet previous = this.currentBounds;
+		this.currentBounds = b1;
+		try {
+			// bullets 1&2: definitions only.
+			if (expectedType != null
+					&& expectedType != TypeBinding.VOID
+					&& invocationSite instanceof Expression
+					&& ((Expression)invocationSite).isPolyExpression(method)) 
+			{
+				// 3. bullet: special treatment for poly expressions
+				if (!ConstraintExpressionFormula.inferPolyInvocationType(this, invocationSite, expectedType, method)) {
 					return null;
+				}
 			}
+			// 4. bullet: assemble C:
+			TypeBinding[] fs;
+			Expression[] arguments = this.invocationArguments;
+			Set c = new HashSet();
+			if (arguments != null) {
+				int k = arguments.length;
+				int p = method.parameters.length;
+				switch (checkKind) {
+					case CHECK_STRICT:
+					case CHECK_LOOSE:
+						fs = method.parameters;
+						break;
+					case CHECK_VARARG:
+						fs = varArgTypes(method.parameters, k);
+						break;
+					default:
+						throw new IllegalStateException("Unexpected checkKind "+checkKind); //$NON-NLS-1$
+				}
+				for (int i = 0; i < k; i++) {
+					TypeBinding substF = substitute(fs[Math.min(i, p-1)]);
+					// For all i (1 ≤ i ≤ k), if ei is not pertinent to applicability, the set contains ⟨ei → θ Fi⟩.
+					if (!arguments[i].isPertinentToApplicability()) {
+						c.add(new ConstraintExpressionFormula(arguments[i], substF, ReductionResult.COMPATIBLE));
+					}
+					c.add(new ConstraintExceptionFormula(arguments[i], substF));
+				}
+			}
+			// 5. bullet: determine B3 from C
+			while (!c.isEmpty()) {
+				// *
+				Set bottomSet = findBottomSet(c, allOutputVariables(c));
+				if (bottomSet.isEmpty()) {
+					bottomSet.add(pickFromCycle(c)); 
+				}
+				// *
+				c.removeAll(bottomSet);
+				// * The union of the input variables of all the selected constraints, α1, ..., αm, ...
+				Set allInputs = new HashSet();
+				Iterator bottomIt = bottomSet.iterator();
+				while (bottomIt.hasNext()) {
+					allInputs.addAll(((ConstraintFormula)bottomIt.next()).inputVariables(this));
+				}
+				InferenceVariable[] variablesArray = (InferenceVariable[]) allInputs.toArray(new InferenceVariable[allInputs.size()]);
+				//   ... is resolved
+				BoundSet solution = resolve();
+				// * ~ apply substitutions to all constraints: 
+				bottomIt = bottomSet.iterator();
+				while (bottomIt.hasNext()) {
+					ConstraintFormula constraint = ((ConstraintFormula)bottomIt.next());
+					constraint.applySubstitution(solution, variablesArray);
+				// * reduce and incorporate
+					if (!this.currentBounds.reduceOneConstraint(this, constraint))
+						return null;
+				}
+			}
+			// 6. bullet: solve
+			BoundSet solution = solve();
+			if (solution == null || !isResolved(solution))
+				return null;
+			return solution;
+		} finally {
+			this.currentBounds = previous;
 		}
-		// 6. bullet: solve
-		BoundSet solution = solve(true);
-		if (solution == null || !isResolved(solution))
-			return null;
-		return solution;
 	}
 	private Object pickFromCycle(Set c) {
 		missingImplementation("Breaking a dependency cycle NYI");
@@ -269,17 +277,13 @@ public class InferenceContext18 {
 	 * @return a bound set representing the solution, or null if inference failed
 	 * @throws InferenceFailureException a compile error has been detected during inference
 	 */
-	public /*@Nullable*/ BoundSet solve(boolean considerResolutionResult) throws InferenceFailureException {
+	public /*@Nullable*/ BoundSet solve() throws InferenceFailureException {
 		if (!reduce())
 			return null;
 		if (!this.currentBounds.incorporate(this))
 			return null;
 
-		BoundSet resolutionResult = resolve();
-		if (resolutionResult == null)
-			return null;
-		
-		return considerResolutionResult ? resolutionResult : this.currentBounds.copy();
+		return resolve();
 	}
 
 	/**
@@ -436,7 +440,8 @@ public class InferenceContext18 {
 						if (upperBounds != Binding.NO_TYPES) {
 							for (int k = 0; k < upperBounds.length; k++)
 								upperBounds[k] = Scope.substitute(theta, upperBounds[k]);
-							setUpperBounds(zsj, upperBounds);
+							if (!setUpperBounds(zsj, upperBounds))
+								return null;
 						}
 						if (tmpBoundSet == this.currentBounds)
 							tmpBoundSet = tmpBoundSet.copy();
@@ -464,14 +469,17 @@ public class InferenceContext18 {
 	}
 	// === ===
 	
-	private void setUpperBounds(CaptureBinding18 typeVariable, TypeBinding[] substitutedUpperBounds) {
+	private boolean setUpperBounds(CaptureBinding18 typeVariable, TypeBinding[] substitutedUpperBounds) {
 		// 18.4: ... define the upper bound of Zi as glb(L1θ, ..., Lkθ)
 		if (substitutedUpperBounds.length == 1) {
 			typeVariable.setUpperBounds(substitutedUpperBounds, this.object); // shortcut
 		} else {
 			TypeBinding[] glbs = Scope.greaterLowerBound(substitutedUpperBounds, this.scope, this.environment);
+			if (glbs == null)
+				return false;
 			typeVariable.setUpperBounds(glbs, this.object);
 		}
+		return true;
 	}
 
 	/** 

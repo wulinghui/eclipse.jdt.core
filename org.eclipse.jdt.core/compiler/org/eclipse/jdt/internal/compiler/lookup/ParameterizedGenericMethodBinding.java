@@ -65,12 +65,12 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 				// 18.5.1 (Applicability):
 				infCtx18.inferInvocationApplicability(originalMethod, arguments);
 				try {
-					BoundSet result = infCtx18.solve(false);
-					if (result != null /*&& infCtx18.isResolved(result)*/) { // FIXME(stephan): second condition breaks BatchCompilerTest.test032
+					BoundSet provisionalResult = infCtx18.solve();
+					BoundSet result = infCtx18.currentBounds.copy(); // the result after reduction, without effects of resolve()
+					if (provisionalResult != null /*&& infCtx18.isResolved(result)*/) { // FIXME(stephan): second condition breaks BatchCompilerTest.test032
 						// 18.5.2 (Invocation type):
-						BoundSet provisionalResult = result;
 						TypeBinding expectedType = invocationSite.expectedType();
-						result = infCtx18.inferInvocationType(expectedType, invocationSite, originalMethod, checkKind);
+						result = infCtx18.inferInvocationType(result, expectedType, invocationSite, originalMethod, checkKind);
 						boolean hasReturnProblem = result == null;
 						if (hasReturnProblem)
 							result = provisionalResult; // we prefer a type error regarding the return type over reporting no match at all
@@ -84,11 +84,8 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 							}
 							return parameterizedMethod;
 						}
-						// FIXME: return null also here?
-//						return null;
-					} else {
-						return null;
 					}
+					return null;
 				} catch (InferenceFailureException e) {
 					scope.problemReporter().genericInferenceError(e.getMessage(), invocationSite);
 				}
