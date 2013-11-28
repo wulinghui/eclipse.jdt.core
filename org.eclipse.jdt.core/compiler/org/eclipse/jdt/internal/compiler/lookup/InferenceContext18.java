@@ -271,9 +271,6 @@ public class InferenceContext18 {
 
 	/**
 	 * Try to solve the inference problem defined by constraints and bounds previously registered.
-	 * @param considerResolutionResult if true the solution will reflect the state after resolve(),
-	 *   otherwise the solution will reflect the state after reduction/incorporation but before resolve(),
-	 *   provided resolve() didn't fail, in which case we always return null.
 	 * @return a bound set representing the solution, or null if inference failed
 	 * @throws InferenceFailureException a compile error has been detected during inference
 	 */
@@ -462,10 +459,8 @@ public class InferenceContext18 {
 	
 	/** For 18.4: "Let Z1, ..., Zn be fresh type variables" use capture bindings. */
 	private CaptureBinding18 freshCapture(InferenceVariable variable) {
-		Binding declaringElement = (variable.typeParameter instanceof TypeVariableBinding)
-				? ((TypeVariableBinding) variable.typeParameter).declaringElement : null;
 		char[] sourceName = CharOperation.concat("Z-".toCharArray(), variable.sourceName);
-		return new CaptureBinding18(declaringElement, sourceName, this.captureId++, this.environment);
+		return new CaptureBinding18(this.scope.enclosingSourceType(), sourceName, this.captureId++, this.environment);
 	}
 	// === ===
 	

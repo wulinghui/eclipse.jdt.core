@@ -41,6 +41,15 @@ public class CaptureBinding extends TypeVariableBinding {
 		}
 	}
 	
+	// for subclass CaptureBinding18
+	protected CaptureBinding(ReferenceBinding sourceType, char[] sourceName, int position, int captureID, LookupEnvironment environment) {
+		super(sourceName, null, 0, environment);
+		this.modifiers = ClassFileConstants.AccPublic | ExtraCompilerModifiers.AccGenericSignature; // treat capture as public
+		this.sourceType = sourceType;
+		this.position = position;
+		this.captureID = captureID;
+	}
+
 	public CaptureBinding(CaptureBinding prototype) {
 		super(prototype);
 		this.wildcard = prototype.wildcard;

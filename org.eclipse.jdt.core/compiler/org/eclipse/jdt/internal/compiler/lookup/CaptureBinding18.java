@@ -17,15 +17,12 @@ package org.eclipse.jdt.internal.compiler.lookup;
 /**
  * Capture-like type variable introduced during 1.8 type inference.
  */
-public class CaptureBinding18 extends TypeVariableBinding {
+public class CaptureBinding18 extends CaptureBinding {
 	
-	private int captureID;
-	TypeBinding lowerBound;
 	TypeBinding[] upperBounds;
 
-	public CaptureBinding18(Binding declaringElement, char[] sourceName, int captureID, LookupEnvironment environment) {
-		super(sourceName, declaringElement, 0, environment);
-		this.captureID = captureID;
+	public CaptureBinding18(ReferenceBinding contextType, char[] sourceName, int captureID, LookupEnvironment environment) {
+		super(contextType, sourceName, 0, captureID, environment);
 	}
 	
 	public void setUpperBounds(TypeBinding[] upperBounds, ReferenceBinding javaLangObject) {
@@ -53,14 +50,10 @@ public class CaptureBinding18 extends TypeVariableBinding {
 		if (this.superclass == null)
 			this.superclass = javaLangObject;
 	}
-	public TypeBinding clone(TypeBinding enclosingType) {
-		return new CaptureBinding18(this.declaringElement, this.sourceName, this.captureID, this.environment);
-	}
 
-//  Note: answering true would make many clients believe we can cast to CaptureBinding!	
-//	public boolean isCapture() {
-//		return true;
-//	}
+	public TypeBinding clone(TypeBinding enclosingType) {
+		return new CaptureBinding18(this.sourceType, this.sourceName, this.captureID, this.environment);
+	}
 
 	/**
 	 * @see TypeBinding#isEquivalentTo(TypeBinding)
@@ -95,5 +88,30 @@ public class CaptureBinding18 extends TypeVariableBinding {
 	
 	boolean isProperType(boolean admitCapture18) {
 		return admitCapture18;
+	}
+	
+	public char[] readableName() {
+		if (this.lowerBound == null && this.firstBound != null) {
+			if (!this.inRecursiveFunction) 
+				try {
+					this.inRecursiveFunction = true;
+					return this.firstBound.readableName();
+				} finally {
+					this.inRecursiveFunction = false;
+				}
+		}
+		return super.readableName();
+	}
+	
+	public char[] shortReadableName() {
+		if (this.lowerBound == null && this.firstBound != null)
+			if (!this.inRecursiveFunction) 
+				try {
+					this.inRecursiveFunction = true;
+					return this.firstBound.shortReadableName();
+				} finally {
+					this.inRecursiveFunction = false;
+				}
+		return super.shortReadableName();
 	}
 }
