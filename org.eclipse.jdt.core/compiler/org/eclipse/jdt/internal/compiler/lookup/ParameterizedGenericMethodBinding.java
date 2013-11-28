@@ -65,10 +65,10 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 				// 18.5.1 (Applicability):
 				infCtx18.inferInvocationApplicability(originalMethod, arguments);
 				try {
-					BoundSet result = infCtx18.solve();
+					BoundSet result = infCtx18.solve(false);
 					if (result != null /*&& infCtx18.isResolved(result)*/) { // FIXME(stephan): second condition breaks BatchCompilerTest.test032
 						// 18.5.2 (Invocation type):
-						BoundSet provisionalResult = infCtx18.purgeInstantiations();
+						BoundSet provisionalResult = result;
 						TypeBinding expectedType = invocationSite.expectedType();
 						result = infCtx18.inferInvocationType(expectedType, invocationSite, originalMethod, checkKind);
 						boolean hasReturnProblem = result == null;

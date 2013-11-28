@@ -3800,7 +3800,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"----------\n");
 	}
 	// generic method with indirect type inference: BX<String, Thread> --> AX<W>
-	public void _EG_test0124() {
+	public void test0124() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -3823,7 +3823,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"SUCCESS");
 	}
 	// generic method with indirect type inference: CX  --> AX<W>
-	public void _EG_test0125() {
+	public void test0125() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -5389,7 +5389,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"SUCCESS");
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=61507 - variation computing most specific type with 'null'
-	public void _EG_test0181() {
+	public void test0181() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -8927,7 +8927,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"SUCCESS");
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=74320: check no complaint for unused private method
-	public void _EG_test0301() {
+	public void test0301() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java", //---------------------------
@@ -10765,7 +10765,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 		);
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=76786
-	public void _EG_test0360() {
+	public void test0360() {
 		this.runConformTest(
 			new String[] {
 				"Test.java",
@@ -10821,7 +10821,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 		);
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=72643
-	public void _EG_test0362() {
+	public void test0362() {
 		Map customOptions= getCompilerOptions();
 		customOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.ERROR);
 		this.runConformTest(
@@ -11964,7 +11964,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 	}
 
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=76132
-	public void _EG_test0397() {
+	public void test0397() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",
@@ -16201,7 +16201,7 @@ public void test0500(){
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=84348
 	// Awaiting clarification on http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-November/000428.html
-	public void _EG_test0515(){
+	public void test0515(){
 		runConformTest(
 			new String[] {
 				"Test.java",
@@ -17817,7 +17817,7 @@ X.java:4: method foo in class X cannot be applied to given types
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=87550
 	// Awaiting clarification on http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-November/000428.html
-	public void _EG_test0562() {
+	public void test0562() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -17850,7 +17850,7 @@ X.java:4: method foo in class X cannot be applied to given types
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=87550 - variation
 	// Awaiting clarification on http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-November/000428.html
-	public void _EG_test0564() {
+	public void test0564() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -18646,7 +18646,7 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
 			"");
 	}
 	// Awaiting clarification on http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-November/000428.html
-	public void _EG_test0592() {
+	public void test0592() {
 	    this.runConformTest(
             new String[] {
                 "X.java",
@@ -18749,7 +18749,7 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
     		"Type mismatch: cannot convert from Iterator<Map.Entry<capture#1-of ? extends String,capture#2-of ?>> to Iterator<Map.Entry<? extends String,?>>\n" +
     		"----------\n");
 	}
-	public void _EG_test0596() {
+	public void test0596() {
 	    this.runConformTest(
             new String[] {
                 "X.java",
@@ -19087,7 +19087,7 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
     		"----------\n");
 	}
 	// FAIL: Type mismatch: cannot convert from void to <unknown>
-	public void _EG_test0607() {
+	public void test0607() {
 	    this.runNegativeTest(
             new String[] {
                 "X.java",
@@ -25656,7 +25656,7 @@ public void test0800() {
 		JavacTestOptions.JavacHasABug.JavacBug6400189 /* javac test options */);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=106744 - variation
-public void _EG_test0801() {
+public void test0801() {
 	this.runConformTest(
 		new String[] {
 			"X.java",
@@ -27060,7 +27060,7 @@ public void test0835() {
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=111208
 // FAIL: Type mismatch: cannot convert from Iterator<capture#2-of ? extends A> to Iterator<? extends A>\n
-public void _EG_test0836() {
+public void test0836() {
 	this.runConformTest(
 		new String[] {
 			"X.java",
@@ -27091,7 +27091,7 @@ public void _EG_test0836() {
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=111208 - variation
 // FAIL: Type mismatch: cannot convert from void to <unknown>
-public void _EG_test0837() {
+public void test0837() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -29436,7 +29436,7 @@ public void test0907() {
 
 // check capture for conditional operator - variant
 // FAIL: Type mismatch: cannot convert from Class<? extends capture#2-of ? extends T> to Class<? extends T>
-public void _EG_test0908() {
+public void test0908() {
 	runConformTest(
 		// test directory preparation
 		new String[] { /* test files */
@@ -30074,7 +30074,7 @@ public void test0919() {
 		},
 		"");
 }
-public void _EG_test0920() {
+public void test0920() {
 	this.runConformTest(
 		new String[] {
 			"X.java",
@@ -30115,7 +30115,7 @@ public void _EG_test0920() {
 		"[15][14][13][12][done]");
 }
 // FAIL: Type mismatch: cannot convert from Graph<capture#1-of ?,capture#2-of ?> to Graph<?,?>
-public void _EG_test0921() {
+public void test0921() {
 	runConformTest(
 		// test directory preparation
 		new String[] { /* test files */
@@ -31101,7 +31101,7 @@ public void test0948() {
 		"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=128418
-public void _EG_test0949() {
+public void test0949() {
 	this.runNegativeTest(
 		new String[] {
 		"X.java", //================================
@@ -31176,7 +31176,7 @@ public void _EG_test0949() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=128418 - variation
-public void _EG_test0950() {
+public void test0950() {
 	this.runNegativeTest(
 		new String[] {
 		"X.java", //================================
@@ -31251,7 +31251,7 @@ public void _EG_test0950() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=128418 - variation
-public void _EG_test0951() {
+public void test0951() {
 	this.runNegativeTest(
 		new String[] {
 		"X.java", //================================
@@ -38303,7 +38303,7 @@ public void test1117() throws Exception {
 	}
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=177715
-public void _EG_test1118() {
+public void test1118() {
 	runConformTest(
 		// test directory preparation
 		new String[] { /* test files */
@@ -43731,7 +43731,7 @@ public void test1268() {
 			"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686
-public void _EG_test1269() {
+public void test1269() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -43765,7 +43765,7 @@ public void _EG_test1269() {
 			"#1#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void _EG_test1270() {
+public void test1270() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -43838,7 +43838,7 @@ public void test1271() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void _EG_test1272() {
+public void test1272() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -43876,7 +43876,7 @@ public void _EG_test1272() {
 			"#3##CLASSCAST#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void _EG_test1273() {
+public void test1273() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -43914,7 +43914,7 @@ public void _EG_test1273() {
 			"#1#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void _EG_test1274() {
+public void test1274() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -43952,7 +43952,7 @@ public void _EG_test1274() {
 			"#1#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void _EG_test1275() {
+public void test1275() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -43990,7 +43990,7 @@ public void _EG_test1275() {
 			"#1#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void _EG_test1276() {
+public void test1276() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -44028,7 +44028,7 @@ public void _EG_test1276() {
 			"#1#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void _EG_test1277() {
+public void test1277() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -44066,7 +44066,7 @@ public void _EG_test1277() {
 			"#2#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void _EG_test1278() {
+public void test1278() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -44108,7 +44108,7 @@ public void _EG_test1278() {
 			"#1#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void _EG_test1279() {
+public void test1279() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -44150,7 +44150,7 @@ public void _EG_test1279() {
 			"#1#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void _EG_test1280() {
+public void test1280() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -44168,7 +44168,7 @@ public void _EG_test1280() {
 			"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-public void _EG_test1281() {
+public void test1281() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -44824,7 +44824,7 @@ public void test1302() {
 		JavacTestOptions.EclipseHasABug.EclipseBug159851);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=219625
-public void _EG_test1303() {
+public void test1303() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -44868,7 +44868,7 @@ public void _EG_test1303() {
 			"SUCCESS");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=219625 - variation
-public void _EG_test1304() {
+public void test1304() {
 	this.runConformTest(
 			new String[] {
 					"X.java",
@@ -47429,7 +47429,7 @@ public void test1377() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=241502
-public void _EG_test1378() {
+public void test1378() {
 	this.runConformTest(
 			new String[] {
 				"X.java", //-----------------------------------------------------------------------
@@ -49352,7 +49352,7 @@ public void test1429() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=258798 - variation
-public void _EG_test1430() {
+public void test1430() {
 	this.runNegativeTest(
 			new String[] {
 				"X.java", //-----------------------------------------------------------------------

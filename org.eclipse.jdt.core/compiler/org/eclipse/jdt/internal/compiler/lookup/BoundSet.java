@@ -152,7 +152,7 @@ class BoundSet {
 			}
 			return idx;
 		}
-		public ThreeSets copy(boolean purgeInstantiation) {
+		public ThreeSets copy() {
 			ThreeSets copy = new ThreeSets();
 			if (this.superBounds != null)
 				copy.superBounds = new HashSet(this.superBounds);
@@ -160,8 +160,7 @@ class BoundSet {
 				copy.sameBounds = new HashSet(this.sameBounds);
 			if (this.subBounds != null)
 				copy.subBounds = new HashSet(this.subBounds);
-			if (!purgeInstantiation)
-				copy.instantiation = this.instantiation;
+			copy.instantiation = this.instantiation;
 			return copy;
 		}
 		public TypeBinding findSingleWrapperType() {
@@ -256,15 +255,14 @@ class BoundSet {
 
 	/**
 	 * For resolution we work with a copy of the bound set, to enable retrying.
-	 * @param purgeInstantiations should instantiations be purged in the copy (18.5.2)?
 	 * @return the new bound set.
 	 */
-	public BoundSet copy(boolean purgeInstantiations) {
+	public BoundSet copy() {
 		BoundSet copy = new BoundSet();
 		Iterator setsIterator = this.boundsPerVariable.entrySet().iterator();
 		while (setsIterator.hasNext()) {
 			Map.Entry entry = (Entry) setsIterator.next();
-			copy.boundsPerVariable.put(entry.getKey(), ((ThreeSets)entry.getValue()).copy(purgeInstantiations));
+			copy.boundsPerVariable.put(entry.getKey(), ((ThreeSets)entry.getValue()).copy());
 		}
 		return copy;
 	}

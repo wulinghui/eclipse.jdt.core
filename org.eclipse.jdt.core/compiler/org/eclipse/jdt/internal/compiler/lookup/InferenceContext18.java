@@ -218,7 +218,7 @@ public class InferenceContext18 {
 			}
 		}
 		// 6. bullet: solve
-		BoundSet solution = solve();
+		BoundSet solution = solve(true);
 		if (solution == null || !isResolved(solution))
 			return null;
 		return solution;
@@ -259,29 +259,28 @@ public class InferenceContext18 {
 		}
 		return result;
 	}
-	
-	/** 18.5.2: before Invocation Type Inference purge all instantiations.
-	 * @return the previous (unpurged) bound set
-	 */
-	public BoundSet purgeInstantiations() {
-		BoundSet original = this.currentBounds;
-		this.currentBounds = this.currentBounds.copy(true/*purgeInstantiations*/);
-		return original;
-	}
 
 	// ========== Below this point: implementation of the generic algorithm: ==========
 
 	/**
 	 * Try to solve the inference problem defined by constraints and bounds previously registered.
+	 * @param considerResolutionResult if true the solution will reflect the state after resolve(),
+	 *   otherwise the solution will reflect the state after reduction/incorporation but before resolve(),
+	 *   provided resolve() didn't fail, in which case we always return null.
 	 * @return a bound set representing the solution, or null if inference failed
 	 * @throws InferenceFailureException a compile error has been detected during inference
 	 */
-	public /*@Nullable*/ BoundSet solve() throws InferenceFailureException {
+	public /*@Nullable*/ BoundSet solve(boolean considerResolutionResult) throws InferenceFailureException {
 		if (!reduce())
 			return null;
 		if (!this.currentBounds.incorporate(this))
 			return null;
-		return resolve();
+
+		BoundSet resolutionResult = resolve();
+		if (resolutionResult == null)
+			return null;
+		
+		return considerResolutionResult ? resolutionResult : this.currentBounds.copy();
 	}
 
 	/**
@@ -349,7 +348,7 @@ public class InferenceContext18 {
 		// NOTE: 18.5.2 ... 
 		// "(While it was necessary to demonstrate that the inference variables in B1 could be resolved
 		//   in order to establish applicability, the resulting instantiations are not considered part of B1.)
-		// TODO: Does this imply resolve() should *not* modify the boundset at all??
+		// For this reason, resolve works on a temporary bound set, copied before any modification.
 		BoundSet tmpBoundSet = this.currentBounds;
 		if (this.inferenceVariables != null) {
 			for (int i = 0; i < this.inferenceVariables.length; i++) {
@@ -365,7 +364,7 @@ public class InferenceContext18 {
 					if (!tmpBoundSet.hasCaptureBound(variableSet)) {
 						// try to instantiate this set of variables in a fresh copy of the bound set:
 						BoundSet prevBoundSet = tmpBoundSet;
-						tmpBoundSet = tmpBoundSet.copy(false/*purgeInstantiations*/);
+						tmpBoundSet = tmpBoundSet.copy();
 						for (int j = 0; j < variables.length; j++) {
 							InferenceVariable variable = variables[j];
 							// try lower bounds:
@@ -440,6 +439,8 @@ public class InferenceContext18 {
 								upperBounds[k] = Scope.substitute(theta, upperBounds[k]);
 							setUpperBounds(zsj, upperBounds);
 						}
+						if (tmpBoundSet == this.currentBounds)
+							tmpBoundSet = tmpBoundSet.copy();
 						// FIXME: remove capture bounds
 						tmpBoundSet.addBound(new TypeBound(variable, zsj, ReductionResult.SAME));
 					}
