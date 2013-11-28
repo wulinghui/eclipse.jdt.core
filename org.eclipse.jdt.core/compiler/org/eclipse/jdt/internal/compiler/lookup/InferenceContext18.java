@@ -185,8 +185,7 @@ public class InferenceContext18 {
 				if (!arguments[i].isPertinentToApplicability()) {
 					c.add(new ConstraintExpressionFormula(arguments[i], substF, ReductionResult.COMPATIBLE));
 				}
-				if (expectedType != null) // FIXME this is no good, need a real T, but what should it be??
-					c.add(new ConstraintExceptionFormula(arguments[i], expectedType)); // FIXME: spec says T, we use expectedType, OK?
+				c.add(new ConstraintExceptionFormula(arguments[i], substF));
 			}
 		}
 		// 5. bullet: determine B3 from C
