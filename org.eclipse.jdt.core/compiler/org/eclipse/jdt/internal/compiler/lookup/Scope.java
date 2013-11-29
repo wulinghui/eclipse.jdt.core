@@ -3666,6 +3666,7 @@ public abstract class Scope {
 			if (mec == null) continue;
 			mec = leastContainingInvocation(mec, invocations.get(mec), lubStack);
 			if (mec == null) return null;
+			if (mec == TypeBinding.NULL) continue;
 			int dim = mec.dimensions();
 			if (commonDim == -1) {
 				commonDim = dim;
@@ -3729,6 +3730,7 @@ public abstract class Scope {
 		for (int i = 0; i < length; i++) {
 			TypeBinding type = types[i];
 			if (type == null) continue;
+			if (type == TypeBinding.NULL) continue;
 			if (type.isBaseType()) return null;
 			if (indexOfFirst < 0) indexOfFirst = i;
 			actualLength ++;

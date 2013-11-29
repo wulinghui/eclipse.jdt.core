@@ -63,11 +63,18 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 			if (infCtx18 != null) {
 				int checkKind = InferenceContext18.CHECK_LOOSE; // FIXME(stephan) do inference in the required three phases.
 				// 18.5.1 (Applicability):
-				infCtx18.inferInvocationApplicability(originalMethod, arguments);
+				infCtx18.inferInvocationApplicability(originalMethod, arguments, checkKind);
 				try {
 					BoundSet provisionalResult = infCtx18.solve();
+					if (provisionalResult == null && originalMethod.isVarargs()) {
+						// check for variable arity applicability
+						infCtx18 = invocationSite.inferenceContext(scope); // start over
+						checkKind = InferenceContext18.CHECK_VARARG;
+						infCtx18.inferInvocationApplicability(originalMethod, arguments, checkKind);
+						provisionalResult = infCtx18.solve();
+					}
 					BoundSet result = infCtx18.currentBounds.copy(); // the result after reduction, without effects of resolve()
-					if (provisionalResult != null /*&& infCtx18.isResolved(result)*/) { // FIXME(stephan): second condition breaks BatchCompilerTest.test032
+					if (provisionalResult != null /*&& infCtx18.isResolved(provisionalResult)*/) { // FIXME(stephan): second condition breaks BatchCompilerTest.test032
 						// 18.5.2 (Invocation type):
 						TypeBinding expectedType = invocationSite.expectedType();
 						result = infCtx18.inferInvocationType(result, expectedType, invocationSite, originalMethod, checkKind);

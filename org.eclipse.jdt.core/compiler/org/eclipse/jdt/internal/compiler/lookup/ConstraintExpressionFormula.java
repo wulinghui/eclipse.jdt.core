@@ -73,7 +73,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 				TypeBinding[] argumentTypes = arguments == null ? Binding.NO_PARAMETERS : new TypeBinding[arguments.length];
 				for (int i = 0; i < argumentTypes.length; i++)
 					argumentTypes[i] = arguments[i].resolvedType;
-				inferInvocationApplicability(inferenceContext, method, argumentTypes);
+				inferInvocationApplicability(inferenceContext, method, argumentTypes, InferenceContext18.CHECK_LOOSE); // FIXME 3 phases?
 				// TODO(stephan): do we need InferenceContext18.purgeInstantiations() here, too?
 				
 				if (!inferPolyInvocationType(inferenceContext, messageSend, this.right, method))
@@ -137,7 +137,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 		return FALSE;
 	}
 
-	static void inferInvocationApplicability(InferenceContext18 inferenceContext, MethodBinding method, TypeBinding[] arguments) 
+	static void inferInvocationApplicability(InferenceContext18 inferenceContext, MethodBinding method, TypeBinding[] arguments, int checkType) 
 	{
 		// 18.5.1
 		TypeVariableBinding[] typeVariables = method.typeVariables;
@@ -146,22 +146,12 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 
 		// check if varargs need special treatment:
 		int paramLength = method.parameters.length;
-		boolean passThrough = false;
 		TypeBinding varArgsType = null;
 		if (method.isVarargs()) {
 			int varArgPos = paramLength-1;
 			varArgsType = method.parameters[varArgPos];
-			// FIXME(stephan): not sanctioned by spec 0.6.3 but fixes regression in GenericTypeTest.test0952:
-			if (paramLength == arguments.length) {
-				TypeBinding lastType = arguments[varArgPos];
-				if (lastType == TypeBinding.NULL
-						|| (varArgsType.dimensions() == lastType.dimensions()
-						&& lastType.isCompatibleWith(varArgsType)))
-					passThrough = true; // pass directly as-is
-			}
-			//
 		}
-		inferenceContext.createInitialConstraintsForParameters(parameters, method.isVarargs(), passThrough, varArgsType);
+		inferenceContext.createInitialConstraintsForParameters(parameters, checkType==InferenceContext18.CHECK_VARARG, varArgsType);
 		inferenceContext.addThrowsContraints(typeVariables, inferenceVariables, method.thrownExceptions);
 	}
 

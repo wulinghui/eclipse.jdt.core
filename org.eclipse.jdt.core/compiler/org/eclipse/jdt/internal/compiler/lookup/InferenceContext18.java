@@ -75,19 +75,20 @@ public class InferenceContext18 {
 	}
 
 	/** JLS 18.5.1: compute bounds from formal and actual parameters. */
-	public void createInitialConstraintsForParameters(TypeBinding[] parameters, boolean isVarArgs, boolean passThrough, TypeBinding varArgsType) {
-		// TODO discriminate (strict,loose,variable-arity) invocations
+	public void createInitialConstraintsForParameters(TypeBinding[] parameters, boolean checkVararg, TypeBinding varArgsType) {
+		// TODO discriminate strict vs. loose invocations
 		if (this.invocationArguments == null)
 			return;
-		int len = (isVarArgs && !passThrough) ? parameters.length - 1 : parameters.length;
-		this.initialConstraints = new ConstraintFormula[this.invocationArguments.length];
+		int len = checkVararg ? parameters.length - 1 : Math.min(parameters.length, this.invocationArguments.length);
+		int numConstraints = checkVararg ? this.invocationArguments.length : len;
+		this.initialConstraints = new ConstraintFormula[numConstraints];
 		for (int i = 0; i < len; i++) {
 			if (this.invocationArguments[i].isPertinentToApplicability()) {
 				TypeBinding thetaF = substitute(parameters[i]);
 				this.initialConstraints[i] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
 			}
 		}
-		if (!passThrough && varArgsType instanceof ArrayBinding) {
+		if (checkVararg && varArgsType instanceof ArrayBinding) {
 			TypeBinding thetaF = substitute(((ArrayBinding) varArgsType).elementsType());
 			for (int i = len; i < this.invocationArguments.length; i++) {
 				if (this.invocationArguments[i].isPertinentToApplicability()) {
@@ -142,8 +143,8 @@ public class InferenceContext18 {
 	}
 
 	/** JLS 18.5.1 Invocation Applicability Inference */
-	public void inferInvocationApplicability(MethodBinding method, TypeBinding[] arguments) {
-		ConstraintExpressionFormula.inferInvocationApplicability(this, method, arguments);
+	public void inferInvocationApplicability(MethodBinding method, TypeBinding[] arguments, int checkType) {
+		ConstraintExpressionFormula.inferInvocationApplicability(this, method, arguments, checkType);
 	}
 
 	/** JLS 18.5.2 Invocation Type Inference 
