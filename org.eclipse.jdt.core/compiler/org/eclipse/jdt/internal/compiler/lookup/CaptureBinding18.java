@@ -92,26 +92,33 @@ public class CaptureBinding18 extends CaptureBinding {
 	
 	public char[] readableName() {
 		if (this.lowerBound == null && this.firstBound != null) {
-			if (!this.inRecursiveFunction) 
+			if (!this.inRecursiveFunction) {
 				try {
 					this.inRecursiveFunction = true;
 					return this.firstBound.readableName();
 				} finally {
 					this.inRecursiveFunction = false;
 				}
+			} else {				
+				return this.firstBound.erasure().readableName();
+			}
 		}
 		return super.readableName();
 	}
 	
 	public char[] shortReadableName() {
-		if (this.lowerBound == null && this.firstBound != null)
-			if (!this.inRecursiveFunction) 
+		if (this.lowerBound == null && this.firstBound != null) {
+			if (!this.inRecursiveFunction) {
 				try {
 					this.inRecursiveFunction = true;
 					return this.firstBound.shortReadableName();
 				} finally {
 					this.inRecursiveFunction = false;
 				}
+			} else {
+				return this.firstBound.erasure().shortReadableName();
+			}
+		}
 		return super.shortReadableName();
 	}
 }
