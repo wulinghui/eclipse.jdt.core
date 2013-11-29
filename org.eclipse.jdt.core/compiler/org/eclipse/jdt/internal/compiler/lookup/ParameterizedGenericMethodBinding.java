@@ -19,6 +19,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import org.eclipse.jdt.internal.compiler.ast.ASTNode;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 
 /**
@@ -89,6 +90,8 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 								problemMethod.returnType = invocationSite.expectedType();
 								return problemMethod;
 							}
+							if (result.usesIllegalUncheckedConversion)
+								scope.problemReporter().unsafeRawGenericMethodInvocation((ASTNode)invocationSite, originalMethod, arguments);
 							return parameterizedMethod;
 						}
 					}

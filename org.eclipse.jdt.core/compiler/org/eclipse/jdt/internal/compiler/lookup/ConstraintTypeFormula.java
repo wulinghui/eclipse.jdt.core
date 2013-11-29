@@ -196,7 +196,10 @@ class ConstraintTypeFormula extends ConstraintFormula {
 					ParameterizedTypeBinding ca = (ParameterizedTypeBinding) superCandidate;	// C<A1,A2,...>
 					TypeBinding[] ai = ca.arguments;
 					TypeBinding cb = subCandidate.findSuperTypeOriginatingFrom(superCandidate);	// C<B1,B2,...>
-					if (cb == null || cb.isRawType()) return FALSE;
+					if (cb == null) return FALSE;
+					if (cb.isRawType())
+						// return FALSE; // this would conform to the spec
+						return ILLEGAL_UNCHECKED_CONVERSION; // to conform with javac, see 	https://bugs.openjdk.java.net/browse/JDK-8026527
 					TypeBinding[] bi = ((ParameterizedTypeBinding) cb).arguments;
 					ConstraintFormula[] results = new ConstraintFormula[ai.length];
 					for (int i = 0; i < ai.length; i++)
