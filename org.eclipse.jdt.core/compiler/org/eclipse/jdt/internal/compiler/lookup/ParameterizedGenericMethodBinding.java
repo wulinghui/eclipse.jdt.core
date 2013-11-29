@@ -19,7 +19,6 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
-import org.eclipse.jdt.internal.compiler.ast.ASTNode;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 
 /**
@@ -84,48 +83,48 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 							result = provisionalResult; // we prefer a type error regarding the return type over reporting no match at all
 						TypeBinding[] solutions = infCtx18.getSolutions(typeVariables, result);
 						if (solutions != null) {
-							ParameterizedGenericMethodBinding parameterizedMethod = scope.environment().createParameterizedGenericMethod(originalMethod, solutions);
+							methodSubstitute = scope.environment().createParameterizedGenericMethod(originalMethod, solutions);
 							if (hasReturnProblem) {
-								ProblemMethodBinding problemMethod = new ProblemMethodBinding(parameterizedMethod, parameterizedMethod.selector, parameters, ProblemReasons.ParameterizedMethodExpectedTypeProblem);
+								ProblemMethodBinding problemMethod = new ProblemMethodBinding(methodSubstitute, methodSubstitute.selector, parameters, ProblemReasons.ParameterizedMethodExpectedTypeProblem);
 								problemMethod.returnType = invocationSite.expectedType();
 								return problemMethod;
 							}
-							if (result.usesIllegalUncheckedConversion)
-								scope.problemReporter().unsafeRawGenericMethodInvocation((ASTNode)invocationSite, originalMethod, arguments);
-							return parameterizedMethod;
+							break computeSubstitutes;
 						}
 					}
 					return null;
 				} catch (InferenceFailureException e) {
 					scope.problemReporter().genericInferenceError(e.getMessage(), invocationSite);
+					return null;
 				}
-			}
+			} else {
 // 1.8
-			inferenceContext = new InferenceContext(originalMethod);
-			methodSubstitute = inferFromArgumentTypes(scope, originalMethod, arguments, parameters, inferenceContext);
-			if (methodSubstitute == null)
-				return null;
-			
-			// substitutes may hold null to denote unresolved vars, but null arguments got replaced with respective original variable in param method
-			// 15.12.2.8 - inferring unresolved type arguments
-			if (inferenceContext.hasUnresolvedTypeArgument()) {
-				if (inferenceContext.isUnchecked) { // only remember unchecked status post 15.12.2.7
-					int length = inferenceContext.substitutes.length;
-					System.arraycopy(inferenceContext.substitutes, 0, uncheckedArguments = new TypeBinding[length], 0, length);
-				}
-				if (methodSubstitute.returnType != TypeBinding.VOID) {
-					TypeBinding expectedType = invocationSite.expectedType();
-					if (expectedType != null) {
-						// record it was explicit from context, as opposed to assumed by default (see below)
-						inferenceContext.hasExplicitExpectedType = true;
-					} else {
-						expectedType = scope.getJavaLangObject(); // assume Object by default
-					}
-					inferenceContext.expectedType = expectedType;
-				}
-				methodSubstitute = methodSubstitute.inferFromExpectedType(scope, inferenceContext);
+				inferenceContext = new InferenceContext(originalMethod);
+				methodSubstitute = inferFromArgumentTypes(scope, originalMethod, arguments, parameters, inferenceContext);
 				if (methodSubstitute == null)
 					return null;
+				
+				// substitutes may hold null to denote unresolved vars, but null arguments got replaced with respective original variable in param method
+				// 15.12.2.8 - inferring unresolved type arguments
+				if (inferenceContext.hasUnresolvedTypeArgument()) {
+					if (inferenceContext.isUnchecked) { // only remember unchecked status post 15.12.2.7
+						int length = inferenceContext.substitutes.length;
+						System.arraycopy(inferenceContext.substitutes, 0, uncheckedArguments = new TypeBinding[length], 0, length);
+					}
+					if (methodSubstitute.returnType != TypeBinding.VOID) {
+						TypeBinding expectedType = invocationSite.expectedType();
+						if (expectedType != null) {
+							// record it was explicit from context, as opposed to assumed by default (see below)
+							inferenceContext.hasExplicitExpectedType = true;
+						} else {
+							expectedType = scope.getJavaLangObject(); // assume Object by default
+						}
+						inferenceContext.expectedType = expectedType;
+					}
+					methodSubstitute = methodSubstitute.inferFromExpectedType(scope, inferenceContext);
+					if (methodSubstitute == null)
+						return null;
+				}
 			}
 		}
 

@@ -220,9 +220,6 @@ class BoundSet {
 
 	// avoid attempts to incorporate the same pair of type bounds more than once:
 	Set/*<TypeBound>*/ incorporatedBounds = new HashSet();
-	
-	/** Make ecj conform with javac bug https://bugs.openjdk.java.net/browse/JDK-8026527 */
-	boolean usesIllegalUncheckedConversion;
 
 	public BoundSet() {}
 	
@@ -574,10 +571,6 @@ class BoundSet {
 			return false;
 		if (result == ReductionResult.TRUE)
 			return true;
-		if (result == ReductionResult.ILLEGAL_UNCHECKED_CONVERSION) {
-			this.usesIllegalUncheckedConversion = true;
-			return true;
-		}
 		if (result != null) {
 			if (result instanceof ConstraintFormula) {
 				if (!reduceOneConstraint(context, (ConstraintFormula) result))

@@ -28,6 +28,9 @@ import org.eclipse.jdt.internal.compiler.ast.Expression;
  */
 public class InferenceContext18 {
 
+	/** to conform with javac regarding https://bugs.openjdk.java.net/browse/JDK-8026527 */
+	static final boolean SIMULATE_BUG_JDK_8026527 = true;
+
 	InferenceVariable[] inferenceVariables;
 	BoundSet currentBounds;
 	ConstraintFormula[] initialConstraints;

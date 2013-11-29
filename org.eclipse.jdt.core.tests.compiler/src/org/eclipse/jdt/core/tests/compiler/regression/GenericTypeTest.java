@@ -11841,8 +11841,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 	}
 
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=78027
-	// FAIL: Type mismatch: cannot convert from capture#1-of ? extends Test to ITest<C>
-	public void _UNCHECKED_test0394() {
+	public void test0394() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -12552,8 +12551,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"");
 	}
 
-	// FAIL: The method bar(L<T>, C<? super T>) in the type X is not applicable for the arguments (L, C<capture#1-of ? super X>)
-	public void _UNCHECKED_test0414() {
+	// SHOULD FAIL AT 1.8: The method bar(L<T>, C<? super T>) in the type X is not applicable for the arguments (L, C<capture#1-of ? super X>)
+	public void test0414() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -12570,8 +12569,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"");
 	}
 
-	// FAIL: The method bar(M<? extends K,? extends V>) in the type C is not applicable for the arguments (HM)
-	public void _UNCHECKED_test0415() {
+	// SHOULD FAIL AT 1.8: The method bar(M<? extends K,? extends V>) in the type C is not applicable for the arguments (HM)
+	public void test0415() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -12597,8 +12596,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"");
 	}
 
-	// FAIL: The method bar(M<? extends K,? extends V>) in the type C is not applicable for the arguments (HM)
-	public void _UNCHECKED_test0416() {
+	// SHOULD FAIL AT 1.8: The method bar(M<? extends K,? extends V>) in the type C is not applicable for the arguments (HM)
+	public void test0416() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -12626,8 +12625,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"");
 	}
 
-	// FAIL: The method foo(X<T>) in the type X<E> is not applicable for the arguments (X)
-	public void _UNCHECKED_test0417() {
+	// SHOULD FAIL AT 1.8: The method foo(X<T>) in the type X<E> is not applicable for the arguments (X)
+	public void test0417() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -12647,8 +12646,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"");
 	}
 
-	// FAIL: The method foo(X<T>, X<T>) in the type X<E> is not applicable for the arguments (X, X<String>)
-	public void _UNCHECKED_test0418() {
+	// SHOULD FAIL AT 1.8: The method foo(X<T>, X<T>) in the type X<E> is not applicable for the arguments (X, X<String>)
+	public void test0418() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -12668,8 +12667,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"");
 	}
 
-	// FAIL: The method foo(X<T>, X<U>) in the type X<E> is not applicable for the arguments (X, X<String>)
-	public void _UNCHECKED_test0419() {
+	// SHOULD FAIL AT 1.8: The method foo(X<T>, X<U>) in the type X<E> is not applicable for the arguments (X, X<String>)
+	public void test0419() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -12689,8 +12688,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"");
 	}
 
-	// FAIL: The method foo(X<T>, X<U>) in the type X<E> is not applicable for the arguments (X, X<String>)
-	public void _UNCHECKED_test0420() {
+	// SHOULD FAIL AT 1.8: The method foo(X<T>, X<U>) in the type X<E> is not applicable for the arguments (X, X<String>)
+	public void test0420() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -14055,8 +14054,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 	}
 
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=78027 - variation (check unchecked warnings)
-	// FAIL: uncheck conversion not recognized: return type (capture of Test) doesn't conform to ITest<C>
-	public void _UNCHECKED_test0459() {
+	public void test0459() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",
@@ -15813,8 +15811,8 @@ public void test0500(){
 	}
 
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=85477
-	// FAIL: cannot infer T to "no parameter"
-	public void _UNCHECKED_test0506() {
+	// SHOULD FAIL AT 1.8: cannot infer T to "no parameter"
+	public void test0506() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",//====================================
@@ -16741,8 +16739,8 @@ public void test0500(){
 	}
 
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=86838
-	// FAIL: The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)
-	public void _UNCHECKED_test0533() {
+	// SHOULD FAIL AT 1.8: The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)
+	public void test0533() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",
@@ -16792,8 +16790,8 @@ public void test0500(){
 			"----------\n");
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=86838 - variation
-	// FAIL: The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)\n
-	public void _UNCHECKED_test0534() {
+	// SHOULD FAIL AT 1.8: The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)\n
+	public void test0534() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -16814,8 +16812,8 @@ public void test0500(){
 		);
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=86838 - variation
-	// FAIL: The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)\n
-	public void _UNCHECKED_test0535() {
+	// SHOULD FAIL AT 1.8: The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)\n
+	public void test0535() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -16836,8 +16834,8 @@ public void test0500(){
 		);
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=86838 - variation
-	// FAIL The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)\n
-	public void _UNCHECKED_test0536() {
+	// SHOULD FAIL AT 1.8 The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)\n
+	public void test0536() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",
@@ -16884,8 +16882,8 @@ public void test0500(){
 		);
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=86838 - variation
-	// FAIL: The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)\n
-	public void _UNCHECKED_test0537() {
+	// SHOULD FAIL AT 1.8: The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)\n
+	public void test0537() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",
@@ -16926,8 +16924,8 @@ public void test0500(){
 			"----------\n");
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=86838 - variation
-	// FAIL: The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)\n
-	public void _UNCHECKED_test0538() {
+	// SHOULD FAIL AT 1.8: The method allOf(Class<E>) in the type EnumSet is not applicable for the arguments (Class)\n
+	public void test0538() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",
@@ -18074,8 +18072,8 @@ X.java:4: method foo in class X cannot be applied to given types
 			JavacTestOptions.JavacHasABug.JavacBugFixed_6_10 /* javac test options */);
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=90430
-	// FAIL: The method doWithEnumClass(Class<T>) in the type X is not applicable for the arguments (Class<Enum>)
-	public void _UNCHECKED_test0572() {
+	// SHOULD FAIL AT 1.8: The method doWithEnumClass(Class<T>) in the type X is not applicable for the arguments (Class<Enum>)
+	public void test0572() {
 		this.runConformTest(
 			new String[] {
 				"X.java",
@@ -18092,8 +18090,8 @@ X.java:4: method foo in class X cannot be applied to given types
 			"");
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=90430 - check unchecked warnings
-	// FAIL: The method doWithEnumClass(Class<T>) in the type X is not applicable for the arguments (Class<Enum>)
-	public void _UNCHECKED_test0573() {
+	// SHOULD FAIL AT 1.8: The method doWithEnumClass(Class<T>) in the type X is not applicable for the arguments (Class<Enum>)
+	public void test0573() {
 		this.runNegativeTest(
 			new String[] {
 				"X.java",
@@ -18792,8 +18790,8 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
     		"----------\n");
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=90879
-	// FAIL: The method sort(List<T>) in the type Collections is not applicable for the arguments (List<X>)
-	public void _UNCHECKED_test0598() {
+	// SHOULD FAIL AT 1.8: The method sort(List<T>) in the type Collections is not applicable for the arguments (List<X>)
+	public void test0598() {
 	    this.runConformTest(
             new String[] {
                 "X.java",
@@ -18817,8 +18815,8 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
 			"");
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=90879 - variation
-	// FAIL: The method sort1(List<T>) in the type X is not applicable for the arguments (List<X>)
-	public void _UNCHECKED_test0599() {
+	// SHOULD FAIL AT 1.8: The method sort1(List<T>) in the type X is not applicable for the arguments (List<X>)
+	public void test0599() {
 	    this.runNegativeTest(
             new String[] {
                 "X.java",
@@ -18878,8 +18876,8 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
 			"----------\n");
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=90879 - variation
-	// FAIL: The method sort6(List<T>) in the type X is not applicable for the arguments (List<MyEnum>)
-	public void _UNCHECKED_test0600() {
+	// SHOULD FAIL AT 1.8: The method sort6(List<T>) in the type X is not applicable for the arguments (List<MyEnum>)
+	public void test0600() {
 	    this.runNegativeTest(
             new String[] {
                 "X.java",
@@ -19132,8 +19130,8 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
     		"----------\n");
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=84284 - check warnings
-	// FAIL: The method sort(List<T>) in the type Collections is not applicable for the arguments (LinkedList<Ball>)
-	public void _UNCHECKED_test0608() {
+	// SHOULD FAIL AT 1.8: The method sort(List<T>) in the type Collections is not applicable for the arguments (LinkedList<Ball>)
+	public void test0608() {
 	    this.runNegativeTest(
             new String[] {
                 "Ball.java",
@@ -21680,8 +21678,8 @@ public void test0671() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=95021 - variation: ensure not even a warning
-// FAIL: The method read(D, String) in the type X is not applicable for the arguments (Bar<Foo>, String)
-public void _UNCHECKED_test0672() {
+// SHOULD FAIL AT 1.8: The method read(D, String) in the type X is not applicable for the arguments (Bar<Foo>, String)
+public void test0672() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -22890,8 +22888,8 @@ public void test0709() {
 		null);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=96713
-// FAIL: The method createDataObject(V) in the type X is not applicable for the arguments (Object)
-public void _UNCHECKED_test0710() {
+// SHOULD FAIL AT 1.8: The method createDataObject(V) in the type X is not applicable for the arguments (Object)
+public void test0710() {
 	this.runConformTest(
 		new String[] {
 			"X.java",
@@ -23108,8 +23106,8 @@ public void test0717() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=98478
-// FAIL: The method max(Collection<? extends T>) in the type Collections is not applicable for the arguments (Set<X.ActionImpl>)
-public void _UNCHECKED_test0718() {
+// SHOULD FAIL AT 1.8: The method max(Collection<? extends T>) in the type Collections is not applicable for the arguments (Set<X.ActionImpl>)
+public void test0718() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -27974,8 +27972,8 @@ public void test0866() {
 		"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=114087
-// FAIL The method bar2(List<T>) in the type Foo is not applicable for the arguments (List)
-public void _UNCHECKED_test0867() {
+// SHOULD FAIL AT 1.8 The method bar2(List<T>) in the type Foo is not applicable for the arguments (List)
+public void test0867() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -28655,8 +28653,8 @@ public void test0883() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=123078
-// FAIL: The method getDefault(Class<T>) in the type X<C> is not applicable for the arguments (Class<capture#2-of ? extends X>)
-public void _UNCHECKED_test0884() {
+// SHOULD FAIL AT 1.8: The method getDefault(Class<T>) in the type X<C> is not applicable for the arguments (Class<capture#2-of ? extends X>)
+public void test0884() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java", // =================
@@ -30431,8 +30429,8 @@ public void test0928() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=117119
-// FAIL: The method allOf(Class<E>) in the type X is not applicable for the arguments (Class<capture#1-of ? extends Enum>)
-public void _UNCHECKED_test0929() {
+// SHOULD FAIL AT 1.8: The method allOf(Class<E>) in the type X is not applicable for the arguments (Class<capture#1-of ? extends Enum>)
+public void test0929() {
 	this.runNegativeTest(
 		new String[] {
 		"X.java",
@@ -30794,8 +30792,8 @@ public void test0938() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=129190 - variation
-// The method method(Outer<I>.Inner) in the type Outer is not applicable for the arguments (ExtendedOuter<E>.ExtendedInner)
-public void _UNCHECKED_test0939() {
+// SHOULD FAIL AT 1.8: The method method(Outer<I>.Inner) in the type Outer is not applicable for the arguments (ExtendedOuter<E>.ExtendedInner)
+public void test0939() {
 	this.runNegativeTest(
 		new String[] {
 		"ExtendedOuter.java", //================================
@@ -31671,8 +31669,8 @@ public void test0960() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=118273 - variation
-// FAIL: The method newInstance2(X<B>) in the type X<A> is not applicable for the arguments (X)
-public void _UNCHECKED_test0961() {
+// SHOULD FAIL AT 1.8: The method newInstance2(X<B>) in the type X<A> is not applicable for the arguments (X)
+public void test0961() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java", //================================
@@ -33000,8 +32998,8 @@ public void test0998() {
 		"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=144879
-// FAIL: The method chain(Iterator<E>...) in the type X is not applicable for the arguments (Iterator[])
-public void _UNCHECKED_test0999() {
+// SHOULD FAIL AT 1.8: The method chain(Iterator<E>...) in the type X is not applicable for the arguments (Iterator[])
+public void test0999() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -33086,8 +33084,8 @@ public void _UNCHECKED_test0999() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=144879
-// FAIL: The method chain(Iterator<? extends T>...) in the type X is not applicable for the arguments (Iterator[])
-public void _UNCHECKED_test1000() {
+// SHOULD FAIL AT 1.8: The method chain(Iterator<? extends T>...) in the type X is not applicable for the arguments (Iterator[])
+public void test1000() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -33390,8 +33388,8 @@ public void test1007() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061
-// FAIL: The method bar(L<T>, C<? extends T>) in the type X is not applicable for the arguments (L, C<capture#1-of ? extends X>)
-public void _UNCHECKED_test1008() {
+// SHOULD FAIL AT 1.8: The method bar(L<T>, C<? extends T>) in the type X is not applicable for the arguments (L, C<capture#1-of ? extends X>)
+public void test1008() {
 	runNegativeTest(
 		new String[] {
 			"X.java",
@@ -33486,8 +33484,8 @@ public void test1010() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
-// FAIL: The method bar(Map<U,U>, U, Map<U,U>) in the type X is not applicable for the arguments (HashMap, String, Map<String,String>)
-public void _UNCHECKED_test1011() {
+// SHOULD FAIL AT 1.8: The method bar(Map<U,U>, U, Map<U,U>) in the type X is not applicable for the arguments (HashMap, String, Map<String,String>)
+public void test1011() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -33537,8 +33535,8 @@ public void _UNCHECKED_test1011() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
-// FAIL: The method bar1(L<T>, C<T>) in the type X is not applicable for the arguments (L, C<X>)
-public void _UNCHECKED_test1012() {
+// SHOULD FAIL AT 1.8: The method bar1(L<T>, C<T>) in the type X is not applicable for the arguments (L, C<X>)
+public void test1012() {
 	runNegativeTest(
 		new String[] {
 			"X.java",
@@ -33616,8 +33614,8 @@ public void _UNCHECKED_test1012() {
 		JavacTestOptions.EclipseJustification.EclipseBug148061);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
-// FAIL: The method bar1(List<T>, List<T>) in the type X is not applicable for the arguments (List, List<X>)
-public void _UNCHECKED_test1013() {
+// SHOULD FAIL AT 1.8: The method bar1(List<T>, List<T>) in the type X is not applicable for the arguments (List, List<X>)
+public void test1013() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -33687,8 +33685,8 @@ public void _UNCHECKED_test1013() {
 		JavacTestOptions.EclipseJustification.EclipseBug148061);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
-// FAIL: The method bar(List<U>, List<V>) in the type X is not applicable for the arguments (List, List<String>)
-public void _UNCHECKED_test1014() {
+// SHOULD FAIL AT 1.8: The method bar(List<U>, List<V>) in the type X is not applicable for the arguments (List, List<String>)
+public void test1014() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -33740,8 +33738,8 @@ public void _UNCHECKED_test1014() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
-// FAIL: The method bar(List<U>, List<V>) in the type X is not applicable for the arguments (List, List<String>)
-public void _UNCHECKED_test1015() {
+// SHOULD FAIL AT 1.8: The method bar(List<U>, List<V>) in the type X is not applicable for the arguments (List, List<String>)
+public void test1015() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -45554,8 +45552,8 @@ public void test1321() {
 			"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=231094
-// FAIL: The method doStuff(Class<T>, Thingy<T>) in the type X is not applicable for the arguments (Class<Bob>, Thingy)
-public void _UNCHECKED_test1322() {
+// SHOULD FAIL AT 1.8: The method doStuff(Class<T>, Thingy<T>) in the type X is not applicable for the arguments (Class<Bob>, Thingy)
+public void test1322() {
 	this.runNegativeTest(
 			new String[] {
 					"X.java", // =================
@@ -45661,8 +45659,8 @@ public void test1323() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=231094 - variation
-// FAIL: The method doStuff(Class<T>, Thingy<T>) in the type X is not applicable for the arguments (Class<Bob>, Thingy)
-public void _UNCHECKED_test1324() {
+// SHOULD FAIL AT 1.8: The method doStuff(Class<T>, Thingy<T>) in the type X is not applicable for the arguments (Class<Bob>, Thingy)
+public void test1324() {
 	this.runNegativeTest(
 			new String[] {
 					"X.java", // =================
@@ -45704,8 +45702,8 @@ public void _UNCHECKED_test1324() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=231094 - variation
-// FAIL: The method foo(X<T>) in the type X<E> is not applicable for the arguments (X)
-public void _UNCHECKED_test1325() {
+// SHOULD FAIL AT 1.8: The method foo(X<T>) in the type X<E> is not applicable for the arguments (X)
+public void test1325() {
 	this.runNegativeTest(
 			new String[] {
 					"X.java", // =================
@@ -45770,8 +45768,8 @@ public void test1326() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=231094 - variation
-// FAIL: The method foo(X<T>, X<U>) in the type X<E> is not applicable for the arguments (X, X<String>)
-public void _UNCHECKED_test1327() {
+// SHOULD FAIL AT 1.8: The method foo(X<T>, X<U>) in the type X<E> is not applicable for the arguments (X, X<String>)
+public void test1327() {
 	this.runNegativeTest(
 			new String[] {
 					"X.java", // =================
@@ -49456,8 +49454,8 @@ public void test1432() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=258798 - variation
-// FAIL: The method foo(X<U>) in the type X<T> is not applicable for the arguments (X)
-public void _UNCHECKED_test1433() {
+// SHOULD FAIL AT 1.8: The method foo(X<U>) in the type X<T> is not applicable for the arguments (X)
+public void test1433() {
 	this.runNegativeTest(
 			new String[] {
 				"X.java", //-----------------------------------------------------------------------
@@ -49493,8 +49491,8 @@ public void _UNCHECKED_test1433() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=258798 - variation
-// FAIL: The method m2(Class<I>) in the type Foo is not applicable for the arguments (Class)
-public void _UNCHECKED_test1434() {
+// SHOULD FAIL AT 1.8: The method m2(Class<I>) in the type Foo is not applicable for the arguments (Class)
+public void test1434() {
 	this.runNegativeTest(
 			new String[] {
 				"Foo.java", //-----------------------------------------------------------------------
@@ -49558,8 +49556,8 @@ public void test1435() {
 	}
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=258798 - variation
-// FAIL: The method foo(List<U>, T) in the type X is not applicable for the arguments (List, IllegalArgumentException)
-public void _UNCHECKED_test1436() {
+// SHOULD FAIL AT 1.8: The method foo(List<U>, T) in the type X is not applicable for the arguments (List, IllegalArgumentException)
+public void test1436() {
 	this.runNegativeTest(
 			new String[] {
 				"X.java", //-----------------------------------------------------------------------
@@ -49794,8 +49792,8 @@ public void test1442() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=254627
-// FAIL: The method baz(List<X.A<T>>) in the type X is not applicable for the arguments (List)
-public void _UNCHECKED_test1443() {
+// SHOULD FAIL AT 1.8: The method baz(List<X.A<T>>) in the type X is not applicable for the arguments (List)
+public void test1443() {
 	this.runNegativeTest(
 			new String[] {
 				"X.java", //-----------------------------------------------------------------------

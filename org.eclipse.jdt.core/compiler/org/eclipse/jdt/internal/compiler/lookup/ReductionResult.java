@@ -29,9 +29,6 @@ public abstract class ReductionResult {
 		public String toString() { return "FALSE"; } //$NON-NLS-1$
 	};
 	/** Used to accept unchecked conversion to make ecj conform with javac bug https://bugs.openjdk.java.net/browse/JDK-8026527 */
-	protected static final ReductionResult ILLEGAL_UNCHECKED_CONVERSION = new ReductionResult() {
-		public String toString() { return "TRUE BY ILLEGAL UNCHECKED CONVERSION"; } //$NON-NLS-1$
-	};
 	
 	// Relation kinds, mimic an enum:
 	protected static final int COMPATIBLE = 1;
