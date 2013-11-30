@@ -43,7 +43,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 	// Static initializer to specify tests subset using TESTS_* static variables
 	// All specified tests which does not belong to the class are skipped...
 	static {
-//		TESTS_NAMES = new String[] { "test1269" };
+//		TESTS_NAMES = new String[] { "test1035" };
 //		TESTS_NUMBERS = new int[] { 593, 701, 746, 848, 953, 985, 1029, 1136, 1227, 1295, 1341 };
 //		TESTS_RANGE = new int[] { 1097, -1 };
 	}
@@ -14161,7 +14161,8 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"	public class X<T extends int[]> {\n" +
 			"	                         ^^^^^\n" +
 			"The array type int[] cannot be used as a type parameter bound\n" +
-			"----------\n");
+			"----------\n",
+			JavacTestOptions.JavacHasABug.IntArrayAsTypeBound);
 	}
 
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=79628
@@ -25718,6 +25719,7 @@ public void test0802() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=101831
+// FIXME: javac8 doesn't find the error
 public void test0803() {
 	this.runNegativeTest(
 		new String[] {
@@ -28743,7 +28745,7 @@ public void test0886() {
 		"" /* expected output string */,
 		null /* do not check error string */,
 		// javac options
-		new JavacTestOptions("-source 1.4") /* javac test options */);
+		new JavacTestOptions("-source 1.4 -Xlint:-options") /* javac test options */);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=122775
 public void test0887() {
@@ -28849,9 +28851,7 @@ public void test0890() {
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=122775 - variation
 public void test0891() {
-	this.runNegativeTest(
-		new String[] {
-			"Test.java", // =================
+	String xSource =
 			"interface Function<A, B> {\n" +
 			"	B apply(A x);\n" +
 			"}\n" +
@@ -28871,14 +28871,26 @@ public void test0891() {
 			"	void test() {\n" +
 			"		String s = applyToString(identity());\n" +
 			"	}\n" +
-			"}\n",
-		},
-		"----------\n" +
-		"1. ERROR in Test.java (at line 18)\n" +
-		"	String s = applyToString(identity());\n" +
-		"	           ^^^^^^^^^^^^^\n" +
-		"The method applyToString(Function<String,B>) in the type Test is not applicable for the arguments (Id<Object>)\n" +
-		"----------\n");
+			"}\n";
+	if (this.complianceLevel < ClassFileConstants.JDK1_8) {
+		this.runNegativeTest(
+			new String[] {
+				"Test.java",
+				xSource
+			},
+			"----------\n" +
+			"1. ERROR in Test.java (at line 18)\n" +
+			"	String s = applyToString(identity());\n" +
+			"	           ^^^^^^^^^^^^^\n" +
+			"The method applyToString(Function<String,B>) in the type Test is not applicable for the arguments (Id<Object>)\n" +
+			"----------\n");
+	} else {
+		runConformTest(
+			new String[] {
+				"Test.java",
+				xSource
+			});
+	}
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=126180
 public void test0892() {
@@ -30125,6 +30137,7 @@ public void test0920() {
 		},
 		"[15][14][13][12][done]");
 }
+// FIXME: javac8 rejects
 public void test0921() {
 	runConformTest(
 		// test directory preparation
@@ -30303,12 +30316,9 @@ public void test0925() {
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=129261
 public void test0926() {
-	runNegativeTest(
-		// test directory preparation
-		new String[] { /* test files */
-			"X.java",
+	String xSource =
 			"public class X {\n" +
-			"\n" +
+			"	@SuppressWarnings(\"null\")\n" +
 			"	public void foo() {\n" +
 			"		NonTerminalSourcePart<? extends Tuple<Boolean, Term>> RESULT = null;\n" +
 			"		NonTerminalSourcePart<? extends Tuple<? extends Term, ? extends Formula>> t = null;\n" +
@@ -30338,17 +30348,29 @@ public void test0926() {
 			"	public A fst() {\n" +
 			"		return null;\n" +
 			"	}\n" +
-			"}\n"
-		},
-		// compiler results
-		"----------\n" + /* expected compiler log */
-		"1. ERROR in X.java (at line 6)\n" +
-		"	RESULT = NonTerminalSourcePart.create(Tuple.create(true, t.value().fst()));\n" +
-		"	         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-		"Type mismatch: cannot convert from NonTerminalSourcePart<Tuple<Boolean,capture#3-of ? extends Term>> to NonTerminalSourcePart<? extends Tuple<Boolean,Term>>\n" +
-		"----------\n",
-		// javac options
-		JavacTestOptions.JavacHasABug.JavacBug6557661 /* javac test options */);
+			"}\n";
+	if (this.complianceLevel < ClassFileConstants.JDK1_8) {
+		runNegativeTest(
+			new String[] {
+				"X.java",
+				xSource
+			},
+			// compiler results
+			"----------\n" + /* expected compiler log */
+			"1. ERROR in X.java (at line 6)\n" +
+			"	RESULT = NonTerminalSourcePart.create(Tuple.create(true, t.value().fst()));\n" +
+			"	         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+			"Type mismatch: cannot convert from NonTerminalSourcePart<Tuple<Boolean,capture#3-of ? extends Term>> to NonTerminalSourcePart<? extends Tuple<Boolean,Term>>\n" +
+			"----------\n",
+			// javac options
+			JavacTestOptions.JavacHasABug.JavacBug6557661 /* javac test options */);		
+	} else {
+		runConformTest(
+			new String[] {
+				"X.java",
+				xSource
+			});
+	}
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=129261 - variation
 // FAIL EXTRA ERR?
@@ -33477,8 +33499,7 @@ public void test1008() {
 		"	return zork;\n" + 
 		"	       ^^^^\n" + 
 		"zork cannot be resolved to a variable\n" + 
-		"----------\n",
-		JavacTestOptions.EclipseJustification.EclipseBug148061);
+		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
 public void test1009() {
@@ -33659,8 +33680,7 @@ public void test1012() {
 		"	return zork;\n" + 
 		"	       ^^^^\n" + 
 		"zork cannot be resolved to a variable\n" + 
-		"----------\n",
-		JavacTestOptions.EclipseJustification.EclipseBug148061);
+		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
 public void test1013() {
@@ -33729,8 +33749,7 @@ public void test1013() {
 		"	List<X> lx = bar2(l1, l2);\n" + 
 		"	                  ^^\n" + 
 		"Type safety: The expression of type List needs unchecked conversion to conform to List<X>\n" + 
-		"----------\n",
-		JavacTestOptions.EclipseJustification.EclipseBug148061);
+		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
 public void test1014() {
@@ -34570,7 +34589,7 @@ public void test1034() {
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=158531
 // SHOULD FAIL AT 1.8 (RET): multiple
 public void test1035() {
-	this.runNegativeTest(
+	this.runConformTest(
 		new String[] {
 			"ComparableComparator.java",
 			"import java.util.Comparator;\n" +
@@ -34646,13 +34665,7 @@ public void test1035() {
 			COMPARATOR_IMPL_JRE8.replace('*', 'V').replace('%', 'U').replace('$', 'S') +
 			"}", // =================
 
-		},
-		"----------\n" + 
-		"1. WARNING in ComparableComparator.java (at line 14)\n" + 
-		"	static <M extends String> Comparator<M> baz() {\n" + 
-		"	                  ^^^^^^\n" + 
-		"The type parameter M should not be bounded by the final type String. Final types cannot be further extended\n" + 
-		"----------\n");
+		});
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=158548
 public void test1036() {
@@ -35181,6 +35194,7 @@ public void test1044() {
 		"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=159214 - variation
+// FIXME javac8 rejects
 public void test1045() {
 	this.runConformTest(
 		new String[] {
@@ -38009,9 +38023,7 @@ public void test1108() {
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=176591
 //?: cuts assignment context
 public void test1109() {
-	this.runNegativeTest(
-		new String[] {
-			"X.java",
+	String xSource =
 			"class X {\n" +
 			"  public Y<String> foo()\n" +
 			"  {\n" +
@@ -38024,21 +38036,26 @@ public void test1109() {
 			"  static <U> Y<U> bar() {\n" +
 			"    return null;\n" +
 			"  }\n" +
-			"}\n",
-		},
-		this.complianceLevel < ClassFileConstants.JDK1_8 ? 
-		"----------\n" +
-		"1. ERROR in X.java (at line 4)\n" +
-		"	return true ? Z.bar() : null;\n" +
-		"	       ^^^^^^^^^^^^^^^^^^^^^\n" +
-		"Type mismatch: cannot convert from Y<Object> to Y<String>\n" +
-		"----------\n" :
-			"----------\n" + 
-			"1. WARNING in X.java (at line 4)\n" + 
-			"	return true ? Z.bar() : null;\n" + 
-			"	                        ^^^^\n" + 
-			"Dead code\n" + 
-			"----------\n");
+			"}\n";
+	if (this.complianceLevel < ClassFileConstants.JDK1_8) {
+		this.runNegativeTest(
+			new String[] {
+				"X.java",
+				xSource,
+			},
+			"----------\n" +
+			"1. ERROR in X.java (at line 4)\n" +
+			"	return true ? Z.bar() : null;\n" +
+			"	       ^^^^^^^^^^^^^^^^^^^^^\n" +
+			"Type mismatch: cannot convert from Y<Object> to Y<String>\n" +
+			"----------\n");	
+	} else {
+		runConformTest(
+			new String[] {
+				"X.java",
+				xSource
+			});
+	}
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=176591
 //variant
@@ -40284,6 +40301,7 @@ public void test1166() {
 		"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=179902
+// FIXME javac8 rejects
 public void test1167() {
 	this.runConformTest(
 		new String[] {
@@ -43564,6 +43582,11 @@ public void test1259() {
 			"	static XList<Sub<? extends Number>> LIST = asList(ARRAY); \n" +
 			"	                                           ^^^^^^^^^^^^^\n" +
 			"Type mismatch: cannot convert from XList<X.Foo.Sub<? extends Integer>> to XList<X.Foo.Sub<? extends Number>>\n" +
+			"----------\n" +
+			"2. WARNING in X.java (at line 7)\n" +
+			"	static Sub<? extends Integer>[] ARRAY = new Sub[] { };\n" +
+			"	                                        ^^^^^^^^^^^^^\n" +
+			"Type safety: The expression of type X.Foo.Sub[] needs unchecked conversion to conform to X.Foo.Sub<? extends Integer>[]\n" +
 			"----------\n");
 	} else {
 		runConformTest(new String[]{ "X.java", xSource });
@@ -43598,7 +43621,6 @@ public void test1261() {
 				"        static interface Sub<T> extends Foo<T> {\n" +
 				"            static XList<Sub<?>> LIST = asList(ARRAY); \n" +
 				"       }\n" +
-				"        @SuppressWarnings(\"\")\n" +
 				"        static Sub<? super Number>[] ARRAY = new Sub[] { };\n" +
 				"    }\n" +
 				"}\n" +
@@ -43678,6 +43700,11 @@ public void test1263() {
 			"	static XList<Sub<?>> LIST = asList(ARRAY); \n" +
 			"	                            ^^^^^^^^^^^^^\n" +
 			"Type mismatch: cannot convert from XList<X.Foo.Sub<? super Object>> to XList<X.Foo.Sub<?>>\n" +
+			"----------\n" +
+			"2. WARNING in X.java (at line 7)\n" +
+			"	static Sub<? super Object>[] ARRAY = new Sub[] { };\n" +
+			"	                                     ^^^^^^^^^^^^^\n" +
+			"Type safety: The expression of type X.Foo.Sub[] needs unchecked conversion to conform to X.Foo.Sub<? super Object>[]\n" +
 			"----------\n");
 	} else {
 		runConformTest(new String[]{ "X.java", xSource });
@@ -43932,6 +43959,7 @@ public void test1272() {
 			"#3##CLASSCAST#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
+// FIXME javac8 rejects
 public void test1273() {
 	this.runConformTest(
 			new String[] {
@@ -44008,6 +44036,7 @@ public void test1274() {
 			"#1#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
+//FIXME javac8 rejects
 public void test1275() {
 	this.runConformTest(
 			new String[] {
@@ -44122,6 +44151,7 @@ public void test1277() {
 			"#2#");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
+//FIXME javac8 rejects
 public void test1278() {
 	this.runConformTest(
 			new String[] {
@@ -45763,6 +45793,7 @@ public void test1324() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=231094 - variation
+// FIXME javac8 rejects
 public void test1325() {
 	this.runNegativeTest(
 			new String[] {
@@ -47576,6 +47607,7 @@ public void test1380() {
 			"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=247953
+// FIXME javac8 rejects (why?)
 public void test1381()  throws Exception {
 	this.runConformTest(
 		new String[] {
@@ -47851,6 +47883,7 @@ public void test1385()  throws Exception {
 	}
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=247953 - variation
+//FIXME javac8 rejects (why?)
 public void test1386()  throws Exception {
 	this.runConformTest(
 		new String[] {
@@ -47905,6 +47938,7 @@ public void test1386()  throws Exception {
 	}
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=247953 - variation
+//FIXME javac8 rejects (why?)
 public void test1387()  throws Exception {
 	this.runConformTest(
 		new String[] {
@@ -47966,6 +48000,7 @@ public void test1387()  throws Exception {
 	}
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=247953 - variation
+//FIXME javac8 rejects (why?)
 public void test1388()  throws Exception {
 	this.runConformTest(
 		new String[] {
@@ -48580,7 +48615,7 @@ public void test1403()  throws Exception {
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=242159
 // SHOULD FAIL AT 1.8 (RET): Type mismatch: cannot convert from X<Comparable<Comparable<T>>> to X
 public void test1404()  throws Exception {
-	this.runNegativeTest(
+	this.runConformTest(
 		new String[] {
 			"X.java",
 			"public class X<A> {\n" + 
@@ -48594,13 +48629,7 @@ public void test1404()  throws Exception {
 			"		X<?> wild = bar(); // 2 rejected\n" + 
 			"	}\n" + 
 			"}\n",
-		},
-		"----------\n" + 
-		"1. WARNING in X.java (at line 8)\n" + 
-		"	X raw = bar(); // 1 accepted\n" + 
-		"	^\n" + 
-		"X is a raw type. References to generic type X<A> should be parameterized\n" + 
-		"----------\n");
+		});
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=240807
 public void test1405()  throws Exception {
@@ -48662,6 +48691,7 @@ public void test1405()  throws Exception {
 		"Zork cannot be resolved to a type\n" + 
 		"----------\n");
 }
+// FIXME javac8 rejects
 public void test1406() {
 	this.runNegativeTest(
 			new String[] {
@@ -48700,6 +48730,7 @@ public void test1406() {
 			"List is a raw type. References to generic type List<E> should be parameterized\n" + 
 			"----------\n");
 }
+// FIXME javac8 rejects
 public void test1407() {
 	this.runNegativeTest(
 			new String[] {
@@ -49142,6 +49173,7 @@ public void test1420() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=257849
+// FIXME javac8 doesn't find the error
 public void test1421() {
 	this.runNegativeTest(
 			new String[] {
@@ -49336,24 +49368,34 @@ public void test1426() {
 			"----------\n");
 }
 public void test1427() {
-	this.runNegativeTest(
+	String xSource =
+			"import java.util.List;\n" + 
+			"public class X {\n" + 
+			"    public <T> List<T> nil() { return null; }\n" + 
+			"    public <T> T getHead(List<T> x) { return null; }\n" + 
+			"    X() {\n" + 
+			"	   String s = getHead(nil());\n" + 
+			"    }\n" + 
+			"}\n";
+	if (this.complianceLevel < ClassFileConstants.JDK1_8) {
+		this.runNegativeTest(
+				new String[] {
+					"X.java",
+					xSource
+				},
+				"----------\n" + 
+				"1. ERROR in X.java (at line 6)\n" + 
+				"	String s = getHead(nil());\n" + 
+				"	           ^^^^^^^^^^^^^^\n" + 
+				"Type mismatch: cannot convert from Object to String\n" + 
+				"----------\n");
+	} else {
+		runConformTest(
 			new String[] {
-				"X.java", //-----------------------------------------------------------------------
-				"import java.util.List;\n" + 
-				"public class X {\n" + 
-				"    public <T> List<T> nil() { return null; }\n" + 
-				"    public <T> T getHead(List<T> x) { return null; }\n" + 
-				"    X() {\n" + 
-				"	   String s = getHead(nil());\n" + 
-				"    }\n" + 
-				"}\n",//-----------------------------------------------------------------------
-			},
-			"----------\n" + 
-			"1. ERROR in X.java (at line 6)\n" + 
-			"	String s = getHead(nil());\n" + 
-			"	           ^^^^^^^^^^^^^^\n" + 
-			"Type mismatch: cannot convert from Object to String\n" + 
-			"----------\n");
+				"X.java",
+				xSource
+			});
+	}
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=239203
 public void test1428() {
@@ -49376,6 +49418,7 @@ public void test1428() {
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=258798
 // FAIL MISSING WARNINGS and ERRMSG (type display)
+// FIXME javac8 rejects
 public void test1429() {
 	this.runNegativeTest(
 			new String[] {
@@ -49553,6 +49596,7 @@ public void test1433() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=258798 - variation
+// FIXME javac8 rejects
 public void test1434() {
 	this.runNegativeTest(
 			new String[] {
@@ -49989,6 +50033,7 @@ public void test1444() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=263215 - variation
+// FIXME javac8 doesn't find the error
 public void test1445() {
 	this.runNegativeTest(
 			new String[] {
@@ -50541,6 +50586,7 @@ public void test1459() {
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=277643
 // SHOULD FAIL AT 1.8 (18.2.3): The method get(Class<W>, T) in the type Test is not applicable for the arguments (Class<Test.W_Description>, Object)
+// FIXME: javac rejects (correctly? how?)
 public void test277643() {
 	this.runNegativeTest(
 		new String[] {
@@ -50636,6 +50682,7 @@ public void test280054() {
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=283306
 // SHOULD FAIL AT 1.8 (18.2.3): The method get(Class<V>, Class<S>) in the type X.L is not applicable for the arguments (Class<V>, Class<X.B>)
+// FIXME: javac rejects (correctly? how?)
 public void test283306() {
 	this.runNegativeTest(
 		new String[] {
@@ -51274,15 +51321,16 @@ public void test1467() {
 		"----------\n");
 }
 public void testBug401783() {
-	runConformTest(
-		new String[] {
-			"X.java",
-			"import java.util.*;\n" +
-			"public class X {\n" +
-			"	void foo() {\n" +
-			"		Iterable<Iterable<Integer>> iterables = Arrays.asList(Arrays.asList(1,2,3,4),Arrays.asList(5,6,7));\n" +
-			"	}\n" +
-			"}\n"
-		});
+	if (this.complianceLevel >= ClassFileConstants.JDK1_8)
+		runConformTest(
+			new String[] {
+				"X.java",
+				"import java.util.*;\n" +
+				"public class X {\n" +
+				"	void foo() {\n" +
+				"		Iterable<Iterable<Integer>> iterables = Arrays.asList(Arrays.asList(1,2,3,4),Arrays.asList(5,6,7));\n" +
+				"	}\n" +
+				"}\n"
+			});
 }
 }
