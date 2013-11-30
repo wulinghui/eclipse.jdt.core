@@ -510,14 +510,21 @@ class BoundSet {
 		//  α = S and α <: T imply ⟨S <: T⟩ 
 		//  α = S and T <: α imply ⟨T <: S⟩
 		InferenceVariable alpha = boundS.left;
+		TypeBinding s = boundS.right;
 		if (alpha == boundT.left) //$IDENTITY-COMPARISON$ InferenceVariable
-			return new ConstraintTypeFormula(boundS.right, boundT.right, boundT.relation);
+			return new ConstraintTypeFormula(s, boundT.right, boundT.relation);
 		if (alpha == boundT.right) //$IDENTITY-COMPARISON$ InferenceVariable
-			return new ConstraintTypeFormula(boundT.right, boundS.right, boundT.relation);
+			return new ConstraintTypeFormula(boundT.right, s, boundT.relation);
 
-		if (boundS.right instanceof InferenceVariable
-				&& (boundS.right == boundT.left || TypeBinding.equalsEquals(boundS.right, boundT.right))) //$IDENTITY-COMPARISON$ InferenceVariable
-			InferenceContext18.missingImplementation("ups: S is a matching inference variable");
+		if (boundS.right instanceof InferenceVariable) {
+			// reverse:
+			alpha = (InferenceVariable) boundS.right;
+			s = boundS.left;
+			if (alpha == boundT.left) //$IDENTITY-COMPARISON$ InferenceVariable
+				return new ConstraintTypeFormula(s, boundT.right, boundT.relation);
+			if (alpha == boundT.right) //$IDENTITY-COMPARISON$ InferenceVariable
+				return new ConstraintTypeFormula(boundT.right, s, boundT.relation);			
+		}
 		
 		//  α = U and S <: T imply ⟨S[α:=U] <: T[α:=U]⟩ 
 		TypeBinding u = boundS.right;
