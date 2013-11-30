@@ -234,7 +234,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 				if (sam.returnType != TypeBinding.VOID) {
 					// ii)
 					final TypeBinding r = sam.returnType;
-					Statement body = lambda.body;
+					Statement body = lambda.body();
 					if (body instanceof Expression) {
 						variables.addAll(new ConstraintExpressionFormula((Expression) body, r, COMPATIBLE).inputVariables(context));
 					} else {
