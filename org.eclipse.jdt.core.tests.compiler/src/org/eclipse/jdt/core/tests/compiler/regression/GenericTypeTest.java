@@ -28013,9 +28013,15 @@ public void test0867() {
 		"List is a raw type. References to generic type List<E> should be parameterized\n" + 
 		"----------\n" + 
 		"2. ERROR in X.java (at line 20)\n" + 
-		"	List<List> o = Foo.foo1();\n" + 
+		(this.complianceLevel < ClassFileConstants.JDK1_8 ?
+		"	List<List> o = Foo.foo1();\n" +
 		"	                   ^^^^\n" + 
-		"The method foo1() in the type Foo is not applicable for the arguments ()\n" + 
+		"The method foo1() in the type Foo is not applicable for the arguments ()\n"
+		:
+		"	List<List> o = Foo.foo1();\n" +
+		"	               ^^^^^^^^^^\n" +
+		"Type mismatch: cannot convert from List<List<Runnable>> to List<List>\n" // TODO(stephan) more specific error message
+		)+ 
 		"----------\n" + 
 		"3. ERROR in X.java (at line 21)\n" + 
 		"	Foo.bar1(o);\n" + 
