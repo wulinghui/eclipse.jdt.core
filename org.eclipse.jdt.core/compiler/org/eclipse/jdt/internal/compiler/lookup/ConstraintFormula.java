@@ -26,6 +26,7 @@ import java.util.Set;
 abstract class ConstraintFormula extends ReductionResult {
 
 	static final List EMPTY_VARIABLE_LIST = Collections.EMPTY_LIST;
+	static final ConstraintFormula[] NO_CONSTRAINTS = new ConstraintTypeFormula[0];
 
 	public abstract Object reduce(InferenceContext18 inferenceContext) throws InferenceFailureException;
 

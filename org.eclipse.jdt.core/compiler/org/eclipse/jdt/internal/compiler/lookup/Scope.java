@@ -661,6 +661,8 @@ public abstract class Scope {
 			}
 			if (newArgs != null)
 				arguments = newArgs;
+			else  // ensure that computeCompatibleMethod() below can update arguments without harming our caller:
+				System.arraycopy(arguments, 0, arguments=new TypeBinding[argLength], 0, argLength);
 			method = ParameterizedGenericMethodBinding.computeCompatibleMethod(method, arguments, this, invocationSite);
 			if (method == null) return null; // incompatible
 			if (!method.isValidBinding()) return method; // bound check issue is taking precedence

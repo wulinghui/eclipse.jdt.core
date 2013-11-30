@@ -14,13 +14,16 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
+import org.eclipse.jdt.internal.compiler.ast.MessageSend;
 
 /**
  * Main class for new type inference as per JLS8 sect 18.
@@ -35,6 +38,7 @@ public class InferenceContext18 {
 	BoundSet currentBounds;
 	ConstraintFormula[] initialConstraints;
 
+	List/*<Expression>*/ innerPolies = new ArrayList();
 	TypeBinding targetType;
 
 	Scope scope;
@@ -59,17 +63,19 @@ public class InferenceContext18 {
 
 	/**
 	 * JLS 18.1.3: Create initial bounds from a given set of type parameters declarations.
-	 * @return the set of inference variables created so far
+	 * @return the set of inference variables created for the given typeParameters
 	 */
 	public InferenceVariable[] createInitialBoundSet(TypeVariableBinding[] typeParameters) {
 		// 
-		if (this.currentBounds != null) return Binding.NO_INFERENCE_VARIABLES; // already initialized from explicit type parameters
-		this.currentBounds = new BoundSet();
-		if (typeParameters != null) {
-			this.inferenceVariables = addInitialTypeVariableSubstitutions(typeParameters);
-			this.currentBounds.addBoundsFromTypeParameters(this, typeParameters, this.inferenceVariables);
+		if (this.currentBounds == null) {
+			this.currentBounds = new BoundSet();
 		}
-		return this.inferenceVariables;
+		if (typeParameters != null) {
+			InferenceVariable[] newInferenceVariables = addInitialTypeVariableSubstitutions(typeParameters);
+			this.currentBounds.addBoundsFromTypeParameters(this, typeParameters, newInferenceVariables);
+			return newInferenceVariables;
+		}
+		return Binding.NO_INFERENCE_VARIABLES;
 	}
 
 	/**
@@ -87,20 +93,25 @@ public class InferenceContext18 {
 		int len = checkVararg ? parameters.length - 1 : Math.min(parameters.length, this.invocationArguments.length);
 		int numConstraints = checkVararg ? this.invocationArguments.length : len;
 		this.initialConstraints = new ConstraintFormula[numConstraints];
+		int created = 0;
 		for (int i = 0; i < len; i++) {
-			if (this.invocationArguments[i].isPertinentToApplicability(this.targetType)) {
+			if (this.invocationArguments[i].isPertinentToApplicability(parameters[i])) {
 				TypeBinding thetaF = substitute(parameters[i]);
-				this.initialConstraints[i] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
+				this.initialConstraints[created++] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
 			}
 		}
 		if (checkVararg && varArgsType instanceof ArrayBinding) {
 			TypeBinding thetaF = substitute(((ArrayBinding) varArgsType).elementsType());
 			for (int i = len; i < this.invocationArguments.length; i++) {
-				if (this.invocationArguments[i].isPertinentToApplicability(this.targetType)) {
-					this.initialConstraints[i] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
+				if (this.invocationArguments[i].isPertinentToApplicability(varArgsType)) {
+					this.initialConstraints[created++] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
 				}
 			}
 		}
+		if (created == 0)
+			this.initialConstraints = ConstraintFormula.NO_CONSTRAINTS;
+		else if (created < numConstraints)
+			System.arraycopy(this.initialConstraints, 0, this.initialConstraints = new ConstraintFormula[created], 0, created);
 	}
 
 	public void setInitialConstraint(ConstraintFormula constraintFormula) {
@@ -109,10 +120,20 @@ public class InferenceContext18 {
 
 	private InferenceVariable[] addInitialTypeVariableSubstitutions(TypeBinding[] typeVariables) {
 		int len = typeVariables.length;
-		this.inferenceVariables = new InferenceVariable[len];
+		if (len == 0) 
+			return Binding.NO_INFERENCE_VARIABLES;
+		InferenceVariable[] newVariables = new InferenceVariable[len];
 		for (int i = 0; i < len; i++)
-			this.inferenceVariables[i] = new InferenceVariable(typeVariables[i], i, this.environment);
-		return this.inferenceVariables;
+			newVariables[i] = new InferenceVariable(typeVariables[i], i, this.environment);
+		if (this.inferenceVariables == null || this.inferenceVariables.length == 0) {
+			this.inferenceVariables = newVariables;
+		} else {
+			// merge into this.inferenceVariables:
+			int prev = this.inferenceVariables.length;
+			System.arraycopy(this.inferenceVariables, 0, this.inferenceVariables = new InferenceVariable[len+prev], 0, prev);
+			System.arraycopy(newVariables, 0, this.inferenceVariables, prev, len);
+		}
+		return newVariables;
 	}
 
 	/** Add new inference variables for the given type variables. */
@@ -191,9 +212,10 @@ public class InferenceContext18 {
 						throw new IllegalStateException("Unexpected checkKind "+checkKind); //$NON-NLS-1$
 				}
 				for (int i = 0; i < k; i++) {
-					TypeBinding substF = substitute(fs[Math.min(i, p-1)]);
+					TypeBinding fsi = fs[Math.min(i, p-1)];
+					TypeBinding substF = substitute(fsi);
 					// For all i (1 ≤ i ≤ k), if ei is not pertinent to applicability, the set contains ⟨ei → θ Fi⟩.
-					if (!arguments[i].isPertinentToApplicability(expectedType)) {
+					if (!arguments[i].isPertinentToApplicability(fsi)) {
 						c.add(new ConstraintExpressionFormula(arguments[i], substF, ReductionResult.COMPATIBLE));
 					}
 					c.add(new ConstraintExceptionFormula(arguments[i], substF));
@@ -511,6 +533,24 @@ public class InferenceContext18 {
 		for (int i = declaredLength; i < k; i++)
 			types[i] = last;
 		return types;
+	}
+	
+	public void rebindInnerPolies(BoundSet bounds, TypeBinding[] arguments) {
+		int len = this.innerPolies.size();
+		for (int i = 0; i < len; i++) {
+			Expression inner = (Expression) this.innerPolies.get(i);
+			if (inner instanceof MessageSend) {
+				MessageSend innerMessage = (MessageSend) inner;
+				MethodBinding original = innerMessage.binding.original();
+				TypeBinding[] solutions = getSolutions(original.typeVariables(), bounds);
+				innerMessage.binding = this.environment.createParameterizedGenericMethod(original, solutions);
+				innerMessage.resolvedType = innerMessage.binding.returnType;
+				for (int j = 0; j < this.invocationArguments.length; j++) {
+					if (inner == this.invocationArguments[j])
+						arguments[j] = innerMessage.binding.returnType;
+				}
+			}
+		}
 	}
 
 	// debugging:

@@ -95,6 +95,7 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 								problemMethod.returnType = invocationSite.expectedType();
 								return problemMethod;
 							}
+							infCtx18.rebindInnerPolies(result, arguments);
 							break computeSubstitutes;
 						}
 					}

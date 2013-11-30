@@ -65,7 +65,10 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 			// - parenthesized expression : these are transparent in our AST
 			if (this.left instanceof MessageSend) {
 				MessageSend messageSend = (MessageSend) this.left;
-				MethodBinding method = messageSend.binding;
+				// ignore previous (inner) inference result and do a fresh start:
+				MethodBinding method = messageSend.binding.original();
+				// and schedule for re-binding the inner after inference success:
+				inferenceContext.innerPolies.add(messageSend);
 
 				// Invocation Applicability Inference: 18.5.1
 				// TODO(stephan): may not need all argument types (only last one used for varargs)

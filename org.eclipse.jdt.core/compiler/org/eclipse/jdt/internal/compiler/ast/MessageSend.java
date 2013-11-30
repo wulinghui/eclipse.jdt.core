@@ -888,8 +888,10 @@ public boolean isPolyExpression(MethodBinding resolutionCandidate) {
 			if (pgmb.inferredReturnType)
 				return true; // if already determined
 		} 
-		if (resolutionCandidate.returnType != null) { 
-			return resolutionCandidate.returnType.mentionsAny(resolutionCandidate.typeVariables(), -1);
+		if (resolutionCandidate.returnType != null) {
+			// resolution may have prematurely instantiated the generic method, we need the original, though:
+			MethodBinding candidateOriginal = resolutionCandidate.original();
+			return candidateOriginal.returnType.mentionsAny(candidateOriginal.typeVariables(), -1);
 		}
 	}
 	

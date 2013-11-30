@@ -24324,6 +24324,7 @@ public void test0760() {
 			"	}	\n" +
 			"} \n",
 		},
+		(this.complianceLevel < ClassFileConstants.JDK1_8 ?
 		"----------\n" +
 		"1. ERROR in X.java (at line 16)\n" +
 		"	X<Integer> x2 = itself(make());\n" +
@@ -24334,7 +24335,15 @@ public void test0760() {
 		"	X<Integer> x2 = itself((X<Integer>)make());\n" +
 		"	                       ^^^^^^^^^^^^^^^^^^\n" +
 		"Cannot cast from X<Object> to X<Integer>\n" +
-		"----------\n");
+		"----------\n"
+		:
+		"----------\n" +
+		"1. ERROR in X.java (at line 19)\n" +
+		"	X<Integer> x2 = itself((X<Integer>)make());\n" +
+		"	                       ^^^^^^^^^^^^^^^^^^\n" +
+		"Cannot cast from X<Object> to X<Integer>\n" +
+		"----------\n"			
+		));
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=100421
 public void test0761() {
