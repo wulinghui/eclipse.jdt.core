@@ -53,6 +53,20 @@ class ConstraintTypeFormula extends ConstraintFormula {
 				TypeBinding tPrime = inferenceContext.environment.computeBoxingType(this.right);
 				return new ConstraintTypeFormula(this.left, tPrime, COMPATIBLE);
 			}
+			switch (this.right.kind()) {
+			case Binding.ARRAY_TYPE:
+				if (this.right.leafComponentType().kind() != Binding.PARAMETERIZED_TYPE)
+					break;
+				//$FALL-THROUGH$ array of parameterized is handled below:
+				case Binding.PARAMETERIZED_TYPE:
+				{																
+					//															  this.right = G<T1,T2,...> or G<T1,T2,...>[]k
+					TypeBinding gs = this.left.findSuperTypeOriginatingFrom(this.right);	// G<S1,S2,...> or G<S1,S2,...>[]k
+					if (gs != null && gs.isRawType())
+						return TRUE;
+					break;
+				}
+			}
 			return new ConstraintTypeFormula(this.left, this.right, SUBTYPE);
 		case SUBTYPE:
 			// 18.2.3:
