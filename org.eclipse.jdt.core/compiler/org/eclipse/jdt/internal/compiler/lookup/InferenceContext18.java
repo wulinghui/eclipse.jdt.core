@@ -37,6 +37,7 @@ public class InferenceContext18 {
 	InferenceVariable[] inferenceVariables;
 	BoundSet currentBounds;
 	ConstraintFormula[] initialConstraints;
+	int variableCount = 0;
 
 	List/*<Expression>*/ innerPolies = new ArrayList();
 	TypeBinding targetType;
@@ -124,7 +125,7 @@ public class InferenceContext18 {
 			return Binding.NO_INFERENCE_VARIABLES;
 		InferenceVariable[] newVariables = new InferenceVariable[len];
 		for (int i = 0; i < len; i++)
-			newVariables[i] = new InferenceVariable(typeVariables[i], i, this.environment);
+			newVariables[i] = new InferenceVariable(typeVariables[i], this.variableCount++, this.environment);
 		if (this.inferenceVariables == null || this.inferenceVariables.length == 0) {
 			this.inferenceVariables = newVariables;
 		} else {
@@ -141,7 +142,7 @@ public class InferenceContext18 {
 		int len2 = typeVariables.length;
 		InferenceVariable[] newVariables = new InferenceVariable[len2];
 		for (int i = 0; i < typeVariables.length; i++)
-			newVariables[i] = new InferenceVariable(typeVariables[i], i, this.environment);
+			newVariables[i] = new InferenceVariable(typeVariables[i], this.variableCount++, this.environment);
 
 		int start = 0;
 		if (this.inferenceVariables != null) {
