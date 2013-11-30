@@ -98,4 +98,11 @@ public class InferenceVariable extends TypeVariableBinding {
 			return this.sourceName.equals(((InferenceVariable)obj).sourceName);
 		return super.equals(obj);
 	}
+
+	public TypeBinding erasure() {
+		// lazily initialize field that may be required in super.erasure():
+		if (this.superclass == null)
+			this.superclass = this.environment.getType(TypeConstants.JAVA_LANG_OBJECT);
+		return super.erasure();
+	}
 }

@@ -533,6 +533,9 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 	}
 	
 	public boolean isPertinentToApplicability(TypeBinding targetType) {
+		if (targetType == null)
+			return true;
+
 		final MethodBinding sam = targetType.getSingleAbstractMethod(this.enclosingScope); // cached/cheap call.
 		
 		if (sam == null || !sam.isValidBinding())

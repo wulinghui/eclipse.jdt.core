@@ -34,7 +34,9 @@ public class InferenceContext18 {
 	InferenceVariable[] inferenceVariables;
 	BoundSet currentBounds;
 	ConstraintFormula[] initialConstraints;
-	
+
+	TypeBinding targetType;
+
 	Scope scope;
 	LookupEnvironment environment;
 	ReferenceBinding object;
@@ -86,7 +88,7 @@ public class InferenceContext18 {
 		int numConstraints = checkVararg ? this.invocationArguments.length : len;
 		this.initialConstraints = new ConstraintFormula[numConstraints];
 		for (int i = 0; i < len; i++) {
-			if (this.invocationArguments[i].isPertinentToApplicability()) {
+			if (this.invocationArguments[i].isPertinentToApplicability(this.targetType)) {
 				TypeBinding thetaF = substitute(parameters[i]);
 				this.initialConstraints[i] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
 			}
@@ -94,7 +96,7 @@ public class InferenceContext18 {
 		if (checkVararg && varArgsType instanceof ArrayBinding) {
 			TypeBinding thetaF = substitute(((ArrayBinding) varArgsType).elementsType());
 			for (int i = len; i < this.invocationArguments.length; i++) {
-				if (this.invocationArguments[i].isPertinentToApplicability()) {
+				if (this.invocationArguments[i].isPertinentToApplicability(this.targetType)) {
 					this.initialConstraints[i] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
 				}
 			}
@@ -191,7 +193,7 @@ public class InferenceContext18 {
 				for (int i = 0; i < k; i++) {
 					TypeBinding substF = substitute(fs[Math.min(i, p-1)]);
 					// For all i (1 ≤ i ≤ k), if ei is not pertinent to applicability, the set contains ⟨ei → θ Fi⟩.
-					if (!arguments[i].isPertinentToApplicability()) {
+					if (!arguments[i].isPertinentToApplicability(expectedType)) {
 						c.add(new ConstraintExpressionFormula(arguments[i], substF, ReductionResult.COMPATIBLE));
 					}
 					c.add(new ConstraintExceptionFormula(arguments[i], substF));

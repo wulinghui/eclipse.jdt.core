@@ -434,7 +434,9 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 	}
 
 	public boolean isPertinentToApplicability(TypeBinding targetType) {
-		
+		if (targetType == null)
+			return true;
+
 		// Add the rule about type variable of the generic method.
 		
 		final MethodBinding sam = targetType.getSingleAbstractMethod(this.enclosingScope); // cached/cheap call.
