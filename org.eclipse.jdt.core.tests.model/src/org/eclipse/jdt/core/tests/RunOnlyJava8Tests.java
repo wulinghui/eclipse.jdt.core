@@ -23,6 +23,7 @@ import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
+import org.eclipse.jdt.core.tests.compiler.parser.CompletionParserTest18;
 import org.eclipse.jdt.core.tests.compiler.parser.ComplianceDiagnoseTest;
 import org.eclipse.jdt.core.tests.compiler.parser.LambdaExpressionSyntaxTest;
 import org.eclipse.jdt.core.tests.compiler.parser.ReferenceExpressionSyntaxTest;
@@ -54,7 +55,9 @@ import org.eclipse.jdt.core.tests.dom.TypeAnnotationsConverterTest;
 import org.eclipse.jdt.core.tests.dom.TypeBindingTests308;
 import org.eclipse.jdt.core.tests.formatter.FormatterJSR308Tests;
 import org.eclipse.jdt.core.tests.formatter.FormatterJSR335Tests;
+import org.eclipse.jdt.core.tests.model.CompletionTests18;
 import org.eclipse.jdt.core.tests.model.JavaSearchBugs8Tests;
+import org.eclipse.jdt.core.tests.model.ResolveTests18;
 import org.eclipse.jdt.core.tests.rewrite.describing.ASTRewritingTest;
 
 public class RunOnlyJava8Tests extends TestCase {
@@ -88,6 +91,9 @@ public class RunOnlyJava8Tests extends TestCase {
 			MethodParametersAttributeTest.class,
 			ClassFileReaderTest_1_8.class,
 			RepeatableAnnotationTest.class,
+			ResolveTests18.class,
+			CompletionParserTest18.class,
+			CompletionTests18.class,
 		};
 	}
 	

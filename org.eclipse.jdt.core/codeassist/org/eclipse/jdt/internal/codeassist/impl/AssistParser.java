@@ -19,7 +19,28 @@ package org.eclipse.jdt.internal.codeassist.impl;
  *
  */
 
-import org.eclipse.jdt.internal.compiler.ast.*;
+import org.eclipse.jdt.internal.compiler.ast.ASTNode;
+import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.AbstractVariableDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.Annotation;
+import org.eclipse.jdt.internal.compiler.ast.Block;
+import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.ConstructorDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.ExplicitConstructorCall;
+import org.eclipse.jdt.internal.compiler.ast.Expression;
+import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.ForeachStatement;
+import org.eclipse.jdt.internal.compiler.ast.ImportReference;
+import org.eclipse.jdt.internal.compiler.ast.Initializer;
+import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
+import org.eclipse.jdt.internal.compiler.ast.LocalDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.MessageSend;
+import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.NameReference;
+import org.eclipse.jdt.internal.compiler.ast.Statement;
+import org.eclipse.jdt.internal.compiler.ast.SuperReference;
+import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
@@ -82,6 +103,7 @@ public abstract class AssistParser extends Parser {
 	protected static final int WITH_BODY = 1;
 
 	protected boolean isFirst = false;
+	protected boolean lambdaNeedsClosure = false; // :)
 
 public AssistParser(ProblemReporter problemReporter) {
 	super(problemReporter, true);
@@ -164,11 +186,9 @@ public RecoveredElement buildInitialRecoveryState(){
 
 	for(int i = 0; i <= this.astPtr; i++){
 		ASTNode node = this.astStack[i];
-
 		if(node instanceof ForeachStatement && ((ForeachStatement)node).action == null) {
 			node = ((ForeachStatement)node).elementVariable;
 		}
-
 		/* check for intermediate block creation, so recovery can properly close them afterwards */
 		int nodeStart = node.sourceStart;
 		for (int j = blockIndex; j <= this.realBlockPtr; j++){
@@ -193,6 +213,7 @@ public RecoveredElement buildInitialRecoveryState(){
 			}
 			blockIndex = j+1; // shift the index to the new block
 		}
+		
 		if (node instanceof LocalDeclaration){
 			LocalDeclaration local = (LocalDeclaration) node;
 			if (local.declarationSourceEnd == 0){
@@ -253,6 +274,23 @@ public RecoveredElement buildInitialRecoveryState(){
 			} else {
 				element = element.add(type, 0);
 				this.lastCheckPoint = type.declarationSourceEnd + 1;
+			}
+			continue;
+		}
+		if (node instanceof LambdaExpression) {
+			LambdaExpression lambda = (LambdaExpression) node;
+			element = element.add(lambda, 0);
+			this.lastCheckPoint = lambda.sourceEnd + 1;
+			continue;
+		}
+		if (this.assistNode != null && node instanceof Statement) {
+			Statement stmt = (Statement) node;
+			if (!(stmt instanceof Expression) || ((Expression) stmt).statementExpression()) {
+				if (this.assistNode.sourceStart >= stmt.sourceStart && this.assistNode.sourceEnd <= stmt.sourceEnd) {
+					element.add(stmt, 0);
+					this.lastCheckPoint = stmt.sourceEnd + 1;
+					this.isOrphanCompletionNode = false;
+				}
 			}
 			continue;
 		}
@@ -359,10 +397,31 @@ protected void consumeExitMemberValue() {
 	super.consumeExitMemberValue();
 	popElement(K_ATTRIBUTE_VALUE_DELIMITER);
 }
+
 protected void consumeExplicitConstructorInvocation(int flag, int recFlag) {
 	super.consumeExplicitConstructorInvocation(flag, recFlag);
 	popElement(K_SELECTOR);
+	triggerRecoveryUponLambdaClosure();
 }
+protected void triggerRecoveryUponLambdaClosure() {
+	if (this.assistNode == null || !this.lambdaNeedsClosure)
+		return;
+	ASTNode node = this.astStack[this.astPtr];
+	if (this.assistNode.sourceStart >= node.sourceStart && this.assistNode.sourceEnd <= node.sourceEnd) {
+		for (int i = 0; i <= this.astPtr; i++) {
+			if (this.astStack[i] instanceof LambdaExpression)
+				return;
+		}
+		this.restartRecovery = true;
+		this.isOrphanCompletionNode = false;
+		this.lambdaNeedsClosure = false;
+	}
+}
+protected void consumeExplicitConstructorInvocationWithTypeArguments(int flag, int recFlag) {
+	super.consumeExplicitConstructorInvocationWithTypeArguments(flag, recFlag);
+	triggerRecoveryUponLambdaClosure();
+}
+
 protected void consumeForceNoDiet() {
 	super.consumeForceNoDiet();
 	// if we are not in a method (i.e. we are not in a local variable initializer)
@@ -385,6 +444,10 @@ protected void consumeInterfaceHeader() {
 	super.consumeInterfaceHeader();
 	pushOnElementStack(K_TYPE_DELIMITER);
 }
+protected void consumeExpressionStatement() {
+	super.consumeExpressionStatement();
+	triggerRecoveryUponLambdaClosure();
+}
 protected void consumeMethodBody() {
 	super.consumeMethodBody();
 	popElement(K_METHOD_DELIMITER);
@@ -394,6 +457,7 @@ protected void consumeMethodDeclaration(boolean isNotAbstract, boolean isDefault
 		popElement(K_METHOD_DELIMITER);
 	}
 	super.consumeMethodDeclaration(isNotAbstract, isDefaultMethod);
+	triggerRecoveryUponLambdaClosure();
 }
 protected void consumeMethodHeader() {
 	super.consumeMethodHeader();
@@ -1401,6 +1465,7 @@ public void parseBlockStatements(
 		initializer.bits |= ASTNode.HasLocalType;
 	}
 }
+
 /**
  * Parse the block statements inside the given method declaration and try to complete at the
  * cursor location.

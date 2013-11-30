@@ -426,8 +426,9 @@ public class ExplicitConstructorCall extends Statement implements InvocationSite
 			}
 			this.inferenceContext = new InferenceContext18(scope, this.arguments);
 			this.binding = scope.getConstructor(receiverType, argumentTypes, this);
-			if (polyExpressionSeen && polyExpressionsHaveErrors(scope, this.binding, this.arguments, argumentTypes))
-				return;
+			if (polyExpressionSeen)
+				resolvePolyExpressionArguments(scope, this.binding, this.arguments, argumentTypes);
+				
 			if (this.binding.isValidBinding()) {
 				if ((this.binding.tagBits & TagBits.HasMissingType) != 0) {
 					if (!methodScope.enclosingSourceType().isAnonymousType()) {

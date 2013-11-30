@@ -45,6 +45,7 @@ import java.util.Properties;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.compiler.InvalidInputException;
+import org.eclipse.jdt.internal.codeassist.impl.AssistParser;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.ast.AND_AND_Expression;
@@ -1003,14 +1004,21 @@ public JavadocParser javadocParser;
 // used for recovery
 protected int lastJavadocEnd;
 public org.eclipse.jdt.internal.compiler.ReadManager readManager;
-private boolean shouldDeferRecovery = false; // https://bugs.eclipse.org/bugs/show_bug.cgi?id=291040
 private int valueLambdaNestDepth = -1;
 private int stateStackLengthStack[] = new int[0];
-private boolean parsingJava8Plus;
+protected boolean parsingJava8Plus;
 protected int unstackedAct = ERROR_ACTION;
 private boolean haltOnSyntaxError = false;
 private boolean tolerateDefaultClassMethods = false;
 private boolean processingLambdaParameterList = false;
+private boolean expectTypeAnnotation = false;
+
+// resumeOnSyntaxError codes:
+
+protected static final int HALT = 0;     // halt and throw up hands.
+protected static final int RESTART = 1;  // stacks reset, alternate goal from check point.
+protected static final int RESUME = 2;   // stacks untouched, just continue from where left off.
+
 
 protected Parser () {
 	// Caveat Emptor: For inheritance purposes and then only in very special needs. Only minimal state is initialized !
@@ -1545,7 +1553,7 @@ protected void consumeAnnotationAsModifier() {
 	}
 }
 protected void consumeAnnotationName() {
-	if(this.currentElement != null) {
+	if(this.currentElement != null && !this.expectTypeAnnotation) {
 		int start = this.intStack[this.intPtr];
 		int end = (int) (this.identifierPositionStack[this.identifierPtr] & 0x00000000FFFFFFFFL);
 		annotationRecoveryCheckPoint(start, end);
@@ -1555,6 +1563,7 @@ protected void consumeAnnotationName() {
 		}
 	}
 	this.recordStringLiterals = false;
+	this.expectTypeAnnotation = false;
 }
 protected void consumeAnnotationTypeDeclaration() {
 	int length;
@@ -2550,7 +2559,6 @@ protected void consumeClassBodyopt() {
 	// ClassBodyopt ::= $empty
 	pushOnAstStack(null);
 	this.endPosition = this.rParenPos;
-	this.shouldDeferRecovery = false;
 }
 protected void consumeClassDeclaration() {
 	// ClassDeclaration ::= ClassHeader ClassBody
@@ -3410,7 +3418,6 @@ protected void consumeEnhancedForStatementHeaderInit(boolean hasModifiers) {
 	iteratorForStatement.sourceEnd = localDeclaration.declarationSourceEnd;
 }
 protected void consumeEnterAnonymousClassBody(boolean qualified) {
-	this.shouldDeferRecovery = false;
 	// EnterAnonymousClassBody ::= $empty
 	TypeReference typeReference = getTypeReference(0);
 
@@ -7840,19 +7847,9 @@ protected void consumeExplicitThisParameter(boolean isQualified) {
 	pushOnIntStack(0);  // extended dimensions ...
 	pushOnIntStack(0);  // signal explicit this
 }
-protected void consumeLambdaExpression() {
-	
-	// LambdaExpression ::= LambdaParameters '->' LambdaBody
+protected void consumeLambdaHeader() {
+	// LambdaHeader ::= LambdaParameters '->'  Synthetic/fake production with a synthetic non-terminal. Body not seen yet.
 
-	this.astLengthPtr--; 	// pop length for LambdaBody (always 1)
-	Statement body = (Statement) this.astStack[this.astPtr--];
-	if (body instanceof Block) {
-		this.nestedType--; 	// matching NestedType in "LambdaBody ::= NestedType NestedMethod  '{' BlockStatementsopt '}'"
-		this.intPtr--; 		// position after '{' pushed during consumeNestedMethod()
-		if (this.options.ignoreMethodBodies) {
-			body = new Block(0);
-		}
-	}
 	Argument [] arguments = null;
 	int length = this.astLengthStack[this.astLengthPtr--];
 	this.astPtr -= length;
@@ -7873,20 +7870,64 @@ protected void consumeLambdaExpression() {
 		if (argument.name.length == 1 && argument.name[0] == '_')
 			problemReporter().illegalUseOfUnderscoreAsAnIdentifier(argument.sourceStart, argument.sourceEnd, true); // true == lambdaParameter
 	}
-	LambdaExpression lexp = new LambdaExpression(this.compilationUnit.compilationResult, arguments, body);
-	this.intPtr--;  // ')' position, discard for now.
+	LambdaExpression lexp = (LambdaExpression) this.astStack[this.astPtr];
+	lexp.setArguments(arguments);
+	lexp.setArrowPosition(this.intStack[this.intPtr--]); // '->' position
+	lexp.sourceEnd = this.intStack[this.intPtr--];   // ')' position or identifier position.
 	lexp.sourceStart = this.intStack[this.intPtr--]; // '(' position or identifier position.
-	lexp.sourceEnd = body.sourceEnd;
 	lexp.hasParentheses = (this.scanner.getSource()[lexp.sourceStart] == '(');
+	pushOnExpressionStack(lexp);
+	this.listLength = 0; // reset this.listLength after having read all parameters
+}
+protected void consumeLambdaExpression() {
+	
+	// LambdaExpression ::= LambdaHeader LambdaBody
+
+	this.astLengthPtr--; 	// pop length for LambdaBody (always 1)
+	Statement body = (Statement) this.astStack[this.astPtr--];
+	if (body instanceof Block) {
+		this.nestedType--; 	// matching NestedType in "LambdaBody ::= NestedType NestedMethod  '{' BlockStatementsopt '}'"
+		this.intPtr--; 		// position after '{' pushed during consumeNestedMethod()
+		if (this.options.ignoreMethodBodies) {
+			body = new Block(0);
+		}
+	}
+
+	LambdaExpression lexp = (LambdaExpression) this.astStack[this.astPtr--];
+	this.astLengthPtr--;
+	lexp.setBody(body);
+	lexp.sourceEnd = body.sourceEnd;
+	
 	if (body instanceof Expression) {
 		Expression expression = (Expression) body;
 		expression.statementEnd = body.sourceEnd;
 	}
-	pushOnExpressionStack(lexp);
 	if (!this.parsingJava8Plus) {
 		problemReporter().lambdaExpressionsNotBelow18(lexp);
 	}
-	this.listLength = 0; // reset this.listLength after having read all parameters
+	
+	if (this.currentElement != null) {
+		if (this.currentElement.parseTree() == lexp && this.currentElement.parent != null) {
+			this.currentElement = this.currentElement.parent;
+		}
+		this.restartRecovery = true;
+	}
+}
+
+protected Argument typeElidedArgument() {
+	this.identifierLengthPtr--;
+	char[] identifierName = this.identifierStack[this.identifierPtr];
+	long namePositions = this.identifierPositionStack[this.identifierPtr--];
+
+	Argument arg =
+		new Argument(
+			identifierName,
+			namePositions,
+			null, // elided type
+			ClassFileConstants.AccDefault,
+			true);
+	arg.declarationSourceStart = (int) (namePositions >>> 32);
+	return arg; 
 }
 
 protected void consumeTypeElidedLambdaParameter(boolean parenthesized) {
@@ -7904,28 +7945,25 @@ protected void consumeTypeElidedLambdaParameter(boolean parenthesized) {
 		annotationLength = this.expressionLengthStack[this.expressionLengthPtr--];
 		this.expressionPtr -= annotationLength;
 	}
-	
-	this.identifierLengthPtr--;
-	char[] identifierName = this.identifierStack[this.identifierPtr];
-	long namePositions = this.identifierPositionStack[this.identifierPtr--];
 
-	Argument arg =
-		new Argument(
-			identifierName,
-			namePositions,
-			null, // elided type
-			ClassFileConstants.AccDefault,
-			true);
-	arg.declarationSourceStart = (int) (namePositions >>> 32);
+	Argument arg = typeElidedArgument();
 	if (modifier != ClassFileConstants.AccDefault || annotationLength != 0) {
 		problemReporter().illegalModifiersForElidedType(arg);
 		arg.declarationSourceStart = modifiersStart;
 	} 
-	pushOnAstStack(arg);
 	if (!parenthesized) { // in the absence of '(' and ')', record positions.
+		LambdaExpression lambda;
+		pushOnAstStack(lambda = new LambdaExpression(this.compilationUnit.compilationResult, this instanceof AssistParser));
 		pushOnIntStack(arg.declarationSourceStart);
 		pushOnIntStack(arg.declarationSourceEnd);
+		lambda.sourceStart = arg.declarationSourceStart;
+		if (this.currentElement != null) {
+			this.lastCheckPoint = lambda.sourceEnd + 1;
+			this.currentElement = this.currentElement.add(lambda, 0);
+			this.lastIgnoredToken = -1;
+		}
 	}
+	pushOnAstStack(arg);
 	/* if incomplete method header, this.listLength counter will not have been reset,
 		indicating that some arguments are available on the stack */
 	this.listLength++;
@@ -7970,12 +8008,17 @@ protected void consumeEmptyTypeArguments() {
 	// NonWildTypeArgumentsopt ::= $empty
 	pushOnGenericsLengthStack(0); // signal absence of type arguments.
 }
+
+public ReferenceExpression newReferenceExpression() {
+	return new ReferenceExpression();
+}
+
 protected void consumeReferenceExpressionTypeForm(boolean isPrimitive) { // actually Name or Type form.
 	
 	// ReferenceExpression ::= PrimitiveType Dims '::' NonWildTypeArgumentsopt IdentifierOrNew
 	// ReferenceExpression ::= Name Dimsopt '::' NonWildTypeArgumentsopt IdentifierOrNew
 
-	ReferenceExpression referenceExpression;
+	ReferenceExpression referenceExpression = newReferenceExpression();
 	TypeReference [] typeArguments = null;
 	char [] selector;
 	int sourceEnd;
@@ -8006,9 +8049,9 @@ protected void consumeReferenceExpressionTypeForm(boolean isPrimitive) { // actu
 			pushOnGenericsLengthStack(0);
 			pushOnGenericsIdentifiersLengthStack(this.identifierLengthStack[this.identifierLengthPtr]);
 		}
-		referenceExpression = new ReferenceExpression(this.compilationUnit.compilationResult, getTypeReference(dimension), typeArguments, selector, sourceEnd);
+		referenceExpression.initialize(this.compilationUnit.compilationResult, getTypeReference(dimension), typeArguments, selector, sourceEnd);
 	} else {
-		referenceExpression = new ReferenceExpression(this.compilationUnit.compilationResult, getUnspecifiedReference(), typeArguments, selector, sourceEnd);
+		referenceExpression.initialize(this.compilationUnit.compilationResult, getUnspecifiedReference(), typeArguments, selector, sourceEnd);
 	}
 	pushOnExpressionStack(referenceExpression);
 
@@ -8019,7 +8062,7 @@ protected void consumeReferenceExpressionTypeForm(boolean isPrimitive) { // actu
 protected void consumeReferenceExpressionPrimaryForm() {
 	// ReferenceExpression ::= Primary '::' NonWildTypeArgumentsopt Identifier
 
-	ReferenceExpression referenceExpression;
+	ReferenceExpression referenceExpression = newReferenceExpression();
 	TypeReference [] typeArguments = null;
 	char [] selector;
 	int sourceEnd;
@@ -8037,7 +8080,7 @@ protected void consumeReferenceExpressionPrimaryForm() {
 	
 	Expression primary = this.expressionStack[this.expressionPtr--];
 	this.expressionLengthPtr--;
-	referenceExpression = new ReferenceExpression(this.compilationUnit.compilationResult, primary, typeArguments, selector, sourceEnd);
+	referenceExpression.initialize(this.compilationUnit.compilationResult, primary, typeArguments, selector, sourceEnd);
 	pushOnExpressionStack(referenceExpression);
 	if (!this.parsingJava8Plus) {
 		problemReporter().referenceExpressionsNotBelow18(referenceExpression);
@@ -8046,7 +8089,7 @@ protected void consumeReferenceExpressionPrimaryForm() {
 protected void consumeReferenceExpressionSuperForm() {
 	// ReferenceExpression ::= 'super' '::' NonWildTypeArgumentsopt Identifier
 
-	ReferenceExpression referenceExpression;
+	ReferenceExpression referenceExpression = newReferenceExpression();
 	TypeReference [] typeArguments = null;
 	char [] selector;
 	int sourceEnd;
@@ -8063,7 +8106,7 @@ protected void consumeReferenceExpressionSuperForm() {
 	}
 	
 	SuperReference superReference = new SuperReference(this.intStack[this.intPtr--], this.endPosition);
-	referenceExpression = new ReferenceExpression(this.compilationUnit.compilationResult, superReference, typeArguments, selector, sourceEnd);
+	referenceExpression.initialize(this.compilationUnit.compilationResult, superReference, typeArguments, selector, sourceEnd);
 	pushOnExpressionStack(referenceExpression);
 	if (!this.parsingJava8Plus) {
 		problemReporter().referenceExpressionsNotBelow18(referenceExpression);
@@ -8079,7 +8122,7 @@ protected void consumeReferenceExpressionGenericTypeForm() {
 
 	// ReferenceExpression ::= Name BeginTypeArguments ReferenceExpressionTypeArgumentsAndTrunk '::' NonWildTypeArgumentsopt IdentifierOrNew
 	
-	ReferenceExpression referenceExpression;
+	ReferenceExpression referenceExpression = newReferenceExpression();
 	TypeReference type;
 	TypeReference [] typeArguments = null;
 	char [] selector;
@@ -8110,7 +8153,7 @@ protected void consumeReferenceExpressionGenericTypeForm() {
 	this.intPtr--; // pop '<' position
 	type.sourceEnd = typeSourceEnd;
 	
-	referenceExpression = new ReferenceExpression(this.compilationUnit.compilationResult, type, typeArguments, selector, sourceEnd);
+	referenceExpression.initialize(this.compilationUnit.compilationResult, type, typeArguments, selector, sourceEnd);
 
 	pushOnExpressionStack(referenceExpression);
 	if (!this.parsingJava8Plus) {
@@ -8118,7 +8161,7 @@ protected void consumeReferenceExpressionGenericTypeForm() {
 	}
 }
 protected void consumeEnterInstanceCreationArgumentList() {
-	this.shouldDeferRecovery = true;
+	return;
 }
 protected void consumeSimpleAssertStatement() {
 	// AssertStatement ::= 'assert' Expression ';'
@@ -8699,9 +8742,18 @@ protected void consumeToken(int type) {
 	//System.out.println(this.scanner.toStringAction(type));
 	switch (type) {
 		case TokenNameBeginLambda:
+			LambdaExpression lambda;
+			pushOnAstStack(lambda = new LambdaExpression(this.compilationUnit.compilationResult, this instanceof AssistParser));
+			if (this.currentElement != null) {
+				this.lastCheckPoint = this.scanner.currentPosition;
+				this.currentElement = this.currentElement.add(lambda, 0);
+				this.lastIgnoredToken = -1;
+			}
 			this.processingLambdaParameterList = true;
 			break;
 		case TokenNameARROW:
+			pushOnIntStack(this.scanner.currentPosition - 1);
+			consumeLambdaHeader();
 			this.processingLambdaParameterList = false;
 			break;
 		case TokenNameIdentifier :
@@ -8957,6 +9009,7 @@ protected void consumeToken(int type) {
 			this.lParenPos = this.scanner.startPosition;
 			break;
 		case TokenNameAT308:
+			this.expectTypeAnnotation = true;
 			pushOnIntStack(this.dimensions); // https://bugs.eclipse.org/bugs/show_bug.cgi?id=417660: Stack the dimensions, they get unstacked in consumeTypeAnnotation.
 			this.dimensions = 0;
 			//$FALL-THROUGH$
@@ -10807,8 +10860,7 @@ try {
 		this.stack[this.stateStackTop] = act;
 
 		act = tAction(act, this.currentToken);
-		if (act == ERROR_ACTION || (this.restartRecovery && !this.shouldDeferRecovery)) {
-			this.shouldDeferRecovery = false;
+		if (act == ERROR_ACTION || this.restartRecovery) {
 			if (DEBUG_AUTOMATON) {
 				if (this.restartRecovery) {
 					System.out.println("Restart      - "); //$NON-NLS-1$
@@ -10819,18 +10871,24 @@ try {
 
 			int errorPos = this.scanner.currentPosition - 1;
 			if (!this.hasReportedError) {
-				this.hasError = true;
+				this.hasError = true;  // looks incorrect for recovery case ?
 			}
 			int previousToken = this.currentToken;
-			if (resumeOnSyntaxError()) {
-				if (act == ERROR_ACTION && previousToken != 0) this.lastErrorEndPosition = errorPos;
-				act = START_STATE;
-				this.stateStackTop = -1;
-				this.currentToken = getFirstToken();
-				continue ProcessTerminals;
+			switch (resumeOnSyntaxError()) {
+				case HALT:
+					act = ERROR_ACTION;
+					break ProcessTerminals;
+				case RESTART:
+					if (act == ERROR_ACTION && previousToken != 0) this.lastErrorEndPosition = errorPos;
+					act = START_STATE;
+					this.stateStackTop = -1;
+					this.currentToken = getFirstToken();
+					continue ProcessTerminals;
+				case RESUME:
+					break; // We presume the world is virgin so we can continue exactly from where we left off.
+				default:
+					throw new IllegalStateException();
 			}
-			act = ERROR_ACTION;
-			break ProcessTerminals;
 		}
 		if (act <= NUM_RULES) {
 			this.stateStackTop--;
@@ -12157,22 +12215,22 @@ protected boolean resumeAfterRecovery() {
 		return false;
 	}
 }
-protected boolean resumeOnSyntaxError() {
+protected int resumeOnSyntaxError() {
 	if (this.haltOnSyntaxError)
-		return false;
+		return HALT;
 	/* request recovery initialization */
 	if (this.currentElement == null){
 		// Reset javadoc before restart parsing after recovery
 		this.javadoc = null;
 
 		// do not investigate deeper in statement recovery
-		if (this.statementRecoveryActivated) return false;
+		if (this.statementRecoveryActivated) return HALT;
 
 		// build some recovered elements
 		this.currentElement = buildInitialRecoveryState();
 	}
 	/* do not investigate deeper in recovery when no recovered element */
-	if (this.currentElement == null) return false;
+	if (this.currentElement == null) return HALT;
 
 	/* manual forced recovery restart - after headers */
 	if (this.restartRecovery){
@@ -12194,7 +12252,7 @@ protected boolean resumeOnSyntaxError() {
 	}
 
 	/* attempt to reset state in order to resume to parse loop */
-	return resumeAfterRecovery();
+	return resumeAfterRecovery() ? RESTART : HALT;
 }
 public void setMethodsFullRecovery(boolean enabled) {
 	this.options.performMethodsFullRecovery = enabled;

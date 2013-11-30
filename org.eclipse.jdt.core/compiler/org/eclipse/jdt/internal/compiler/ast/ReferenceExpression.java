@@ -72,13 +72,17 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 	private int depth;
 	private MethodBinding exactMethodBinding; // != null ==> exact method reference.
 	
-	public ReferenceExpression(CompilationResult compilationResult, Expression lhs, TypeReference [] typeArguments, char [] selector, int sourceEnd) {
-		super(compilationResult);
-		this.lhs = lhs;
-		this.typeArguments = typeArguments;
-		this.selector = selector;
-		this.sourceStart = lhs.sourceStart;
-		this.sourceEnd = sourceEnd;
+	public ReferenceExpression() {
+		super();
+	}
+	
+	public void initialize(CompilationResult result, Expression expression, TypeReference [] optionalTypeArguments, char [] identifierOrNew, int sourceEndPosition) {
+		super.setCompilationResult(result);
+		this.lhs = expression;
+		this.typeArguments = optionalTypeArguments;
+		this.selector = identifierOrNew;
+		this.sourceStart = expression.sourceStart;
+		this.sourceEnd = sourceEndPosition;
 	}
 	
 	public InferenceContext18 inferenceContext(Scope scope) {
@@ -382,7 +386,6 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
         		anotherMethod = scope.getMethod(typeToSearch, this.selector, parameters, this);
         		anotherMethodDepth = this.depth;
         		this.depth = 0;
-        		paramOffset = 1; // 0 is receiver, real parameters start at 1
         	}
         	if (anotherMethod != null && anotherMethod.isValidBinding() && anotherMethod.isStatic()) {
         		scope.problemReporter().methodMustBeAccessedStatically(this, anotherMethod);
@@ -403,6 +406,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
         	}
         } else if (anotherMethod != null && anotherMethod.isValidBinding()) {
         	this.binding = anotherMethod;
+        	paramOffset = 1; // 0 is receiver, real parameters start at 1
         	this.bits &= ~ASTNode.DepthMASK;
         	if (anotherMethodDepth > 0) {
         		this.bits |= (anotherMethodDepth & 0xFF) << ASTNode.DepthSHIFT;
@@ -516,7 +520,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
     	return this.resolvedType; // Phew !
 	}
 
-	public final boolean isConstructorReference() {
+	public boolean isConstructorReference() {
 		return CharOperation.equals(this.selector,  ConstantPool.Init);
 	}
 	
@@ -524,8 +528,17 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 		return this.exactMethodBinding != null;
 	}
 	
-	public final boolean isMethodReference() {
+	public boolean isMethodReference() {
 		return !CharOperation.equals(this.selector,  ConstantPool.Init);
+	}
+	
+	public boolean isPertinentToApplicability(TypeBinding targetType) {
+		final MethodBinding sam = targetType.getSingleAbstractMethod(this.enclosingScope); // cached/cheap call.
+		
+		if (sam == null || !sam.isValidBinding())
+			return true;
+		
+		return this.isExactMethodReference();
 	}
 	
 	public TypeBinding[] genericTypeArguments() {

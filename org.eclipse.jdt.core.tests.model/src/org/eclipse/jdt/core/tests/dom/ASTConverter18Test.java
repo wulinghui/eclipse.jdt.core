@@ -305,7 +305,7 @@ public class ASTConverter18Test extends ConverterTestSetup {
 	 * 
 	 * @throws JavaModelException
 	 */
-	public void _test0004() throws JavaModelException {
+	public void test0004() throws JavaModelException {
 		this.workingCopy = getWorkingCopy("/Converter18/src/test0004/X.java",
 				true/* resolve */);
 		String contents = "package test0004;"
@@ -317,9 +317,7 @@ public class ASTConverter18Test extends ConverterTestSetup {
 				+ "@interface Marker1 {}\n"
 				+ "@Target (java.lang.annotation.ElementType.TYPE_USE)\n"
 				+ "@interface Marker2 {}\n";
-		CompilationUnit cu = (CompilationUnit) buildAST(contents, this.workingCopy);
-		TypeDeclaration typedeclaration = (TypeDeclaration) getASTNode(cu, 0);
-		ArrayType type = (ArrayType) ((ParameterizedType) typedeclaration.superInterfaceTypes().get(0)).typeArguments().get(0);
+		ArrayType type = (ArrayType) buildAST(contents, this.workingCopy);
 		assertNotNull("No annotation", type);
 		ITypeBinding binding = type.resolveBinding();
 		assertNotNull("No binding", binding);
@@ -1657,14 +1655,14 @@ public class ASTConverter18Test extends ConverterTestSetup {
 		Expression expression = fragment.getInitializer();
 		assertTrue(expression instanceof LambdaExpression);
 		LambdaExpression lambdaExpression = (LambdaExpression)expression;
-		assertEquals("(int [] ia) -> {\n  return ia.clone();\n}\n", lambdaExpression.toString());
+		assertEquals("(int[] ia) -> {\n  return ia.clone();\n}\n", lambdaExpression.toString());
 		IMethodBinding binding = lambdaExpression.resolveMethodBinding();
 		assertEquals("private static java.lang.Object lambda$0(int[]) ", binding.toString());
 		assertTrue(lambdaExpression.parameters().size() == 1);
 		VariableDeclaration variableDeclaration = (VariableDeclaration) lambdaExpression.parameters().get(0);
 		assertTrue(variableDeclaration instanceof SingleVariableDeclaration);
 		SingleVariableDeclaration singleVariableDeclaration = (SingleVariableDeclaration)variableDeclaration;
-		assertEquals("int [] ia", singleVariableDeclaration.toString());		
+		assertEquals("int[] ia", singleVariableDeclaration.toString());
 	}
 
 	/**
@@ -3342,7 +3340,7 @@ public class ASTConverter18Test extends ConverterTestSetup {
 		assertEquals("Incorrect no of fragments", 1, fragments.size());
 		VariableDeclarationFragment fragment = (VariableDeclarationFragment) fragments.get(0);
 		assertEquals("Unexpected type", fragment.resolveBinding().getType().toString(), "String @Marker{ value = (String)\"Extended\"} [] @Marker{ value = (String)\"i0\"} @Marker2 [] [] @Marker{ value = (String)\"i1\"} []");
-		assertEquals("Unexpected type", field.getType().toString(), "String @Marker(\"i0\") @Marker2 [] [] @Marker(\"i1\") []");
+		assertEquals("Unexpected type", "String @Marker(\"i0\") @Marker2 [][] @Marker(\"i1\") []", field.getType().toString());
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=417669
 	public void testBug417669() throws JavaModelException {
