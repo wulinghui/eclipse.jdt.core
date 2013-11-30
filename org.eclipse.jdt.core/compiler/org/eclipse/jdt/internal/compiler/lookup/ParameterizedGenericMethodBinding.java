@@ -20,6 +20,7 @@
 package org.eclipse.jdt.internal.compiler.lookup;
 
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 
 /**
  * Binding denoting a generic method after type parameter substitutions got performed.
@@ -59,7 +60,9 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 			// initializes the map of substitutes (var --> type[][]{ equal, extends, super}
 			TypeBinding[] parameters = originalMethod.parameters;
 // 1.8
-			InferenceContext18 infCtx18 = invocationSite.inferenceContext(scope);
+			InferenceContext18 infCtx18 = null;
+			if (scope.compilerOptions().sourceLevel >= ClassFileConstants.JDK1_8)
+				infCtx18 = invocationSite.inferenceContext(scope);
 			if (infCtx18 != null) {
 				int checkKind = InferenceContext18.CHECK_LOOSE; // FIXME(stephan) do inference in the required three phases.
 				// 18.5.1 (Applicability):
@@ -84,6 +87,8 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 						TypeBinding[] solutions = infCtx18.getSolutions(typeVariables, result);
 						if (solutions != null) {
 							methodSubstitute = scope.environment().createParameterizedGenericMethod(originalMethod, solutions);
+							if (InferenceContext18.SIMULATE_BUG_JDK_8026527 && expectedType != null && methodSubstitute.returnType instanceof ReferenceBinding)
+								hasReturnProblem &= !methodSubstitute.returnType.erasure().isCompatibleWith(expectedType);
 							if (hasReturnProblem) {
 								ProblemMethodBinding problemMethod = new ProblemMethodBinding(methodSubstitute, methodSubstitute.selector, parameters, ProblemReasons.ParameterizedMethodExpectedTypeProblem);
 								problemMethod.returnType = invocationSite.expectedType();
