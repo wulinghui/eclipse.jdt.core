@@ -16198,7 +16198,6 @@ public void test0500(){
 		);
 	}
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=84348
-	// Awaiting clarification on http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-November/000428.html
 	public void test0515(){
 		runConformTest(
 			new String[] {
@@ -17814,7 +17813,6 @@ X.java:4: method foo in class X cannot be applied to given types
 		);
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=87550
-	// Awaiting clarification on http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-November/000428.html
 	public void test0562() {
 		this.runConformTest(
 			new String[] {
@@ -18643,7 +18641,6 @@ X.java:6: name clash: <T#1>foo(Object) and <T#2>foo(Object) have the same erasur
             },
 			"");
 	}
-	// Awaiting clarification on http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-November/000428.html
 	public void test0592() {
 	    this.runConformTest(
             new String[] {
