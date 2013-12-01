@@ -39,7 +39,7 @@ public class InferenceContext18 {
 	ConstraintFormula[] initialConstraints;
 	int variableCount = 0;
 
-	List/*<Expression>*/ innerPolies = new ArrayList();
+	List/*<InvocationSite>*/ innerPolies = new ArrayList();
 	TypeBinding targetType;
 
 	Scope scope;
@@ -47,6 +47,7 @@ public class InferenceContext18 {
 	ReferenceBinding object;
 	
 	// interim, processed by createInitialConstraintsForParameters()
+	InvocationSite currentInvocation;
 	Expression[] invocationArguments;
 	
 	// TODO make me an enum:
@@ -54,12 +55,24 @@ public class InferenceContext18 {
 	public static final int CHECK_LOOSE = 2;
 	public static final int CHECK_VARARG = 3;
 	
+	static class InvocationRecord {
+		InvocationSite site;
+		Expression[] invocationArguments;
+		InferenceVariable[] inferenceVariables;
+		InvocationRecord(InvocationSite site, Expression[] invocationArguments, InferenceVariable[] inferenceVariables) {
+			this.site = site;
+			this.invocationArguments = invocationArguments;
+			this.inferenceVariables = inferenceVariables;
+		}
+	}
+	
 	/** Construct an inference context for an invocation (method/constructor). */
-	public InferenceContext18(Scope scope, Expression[] arguments) {
+	public InferenceContext18(Scope scope, Expression[] arguments, InvocationSite site) {
 		this.scope = scope;
 		this.environment = scope.environment();
 		this.object = scope.getJavaLangObject();
 		this.invocationArguments = arguments;
+		this.currentInvocation = site;
 	}
 
 	/**
@@ -92,27 +105,34 @@ public class InferenceContext18 {
 		if (this.invocationArguments == null)
 			return;
 		int len = checkVararg ? parameters.length - 1 : Math.min(parameters.length, this.invocationArguments.length);
-		int numConstraints = checkVararg ? this.invocationArguments.length : len;
-		this.initialConstraints = new ConstraintFormula[numConstraints];
-		int created = 0;
+		int maxConstraints = checkVararg ? this.invocationArguments.length : len;
+		int numConstraints = 0;
+		if (this.initialConstraints == null) {
+			this.initialConstraints = new ConstraintFormula[maxConstraints];
+		} else {
+			numConstraints = this.initialConstraints.length;
+			maxConstraints += numConstraints;
+			System.arraycopy(this.initialConstraints, 0,
+					this.initialConstraints=new ConstraintFormula[maxConstraints], 0, numConstraints);
+		}
 		for (int i = 0; i < len; i++) {
 			if (this.invocationArguments[i].isPertinentToApplicability(parameters[i])) {
 				TypeBinding thetaF = substitute(parameters[i]);
-				this.initialConstraints[created++] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
+				this.initialConstraints[numConstraints++] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
 			}
 		}
 		if (checkVararg && varArgsType instanceof ArrayBinding) {
 			TypeBinding thetaF = substitute(((ArrayBinding) varArgsType).elementsType());
 			for (int i = len; i < this.invocationArguments.length; i++) {
 				if (this.invocationArguments[i].isPertinentToApplicability(varArgsType)) {
-					this.initialConstraints[created++] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
+					this.initialConstraints[numConstraints++] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
 				}
 			}
 		}
-		if (created == 0)
+		if (numConstraints == 0)
 			this.initialConstraints = ConstraintFormula.NO_CONSTRAINTS;
-		else if (created < numConstraints)
-			System.arraycopy(this.initialConstraints, 0, this.initialConstraints = new ConstraintFormula[created], 0, created);
+		else if (numConstraints < maxConstraints)
+			System.arraycopy(this.initialConstraints, 0, this.initialConstraints = new ConstraintFormula[numConstraints], 0, numConstraints);
 	}
 
 	public void setInitialConstraint(ConstraintFormula constraintFormula) {
@@ -125,7 +145,7 @@ public class InferenceContext18 {
 			return Binding.NO_INFERENCE_VARIABLES;
 		InferenceVariable[] newVariables = new InferenceVariable[len];
 		for (int i = 0; i < len; i++)
-			newVariables[i] = new InferenceVariable(typeVariables[i], this.variableCount++, this.environment);
+			newVariables[i] = new InferenceVariable(typeVariables[i], this.variableCount++, this.currentInvocation, this.environment);
 		if (this.inferenceVariables == null || this.inferenceVariables.length == 0) {
 			this.inferenceVariables = newVariables;
 		} else {
@@ -142,7 +162,7 @@ public class InferenceContext18 {
 		int len2 = typeVariables.length;
 		InferenceVariable[] newVariables = new InferenceVariable[len2];
 		for (int i = 0; i < typeVariables.length; i++)
-			newVariables[i] = new InferenceVariable(typeVariables[i], this.variableCount++, this.environment);
+			newVariables[i] = new InferenceVariable(typeVariables[i], this.variableCount++, this.currentInvocation, this.environment);
 
 		int start = 0;
 		if (this.inferenceVariables != null) {
@@ -346,13 +366,13 @@ public class InferenceContext18 {
 	 * @param boundSet where instantiations are to be found
 	 * @return array containing the substituted types or <code>null</code> elements for any type variable that could not be substituted.
 	 */
-	public TypeBinding /*@Nullable*/[] getSolutions(final TypeVariableBinding[] typeParameters, BoundSet boundSet) {
+	public TypeBinding /*@Nullable*/[] getSolutions(TypeVariableBinding[] typeParameters, InvocationSite site, BoundSet boundSet) {
 		int len = typeParameters.length;
 		TypeBinding[] substitutions = new TypeBinding[len];
 		for (int i = 0; i < typeParameters.length; i++) {
 			for (int j = 0; j < this.inferenceVariables.length; j++) {
 				InferenceVariable variable = this.inferenceVariables[j];
-				if (TypeBinding.equalsEquals(variable.typeParameter, typeParameters[i])) {
+				if (variable.site == site && TypeBinding.equalsEquals(variable.typeParameter, typeParameters[i])) {
 					substitutions[i] = boundSet.getInstantiation(variable);
 					break;
 				}
@@ -536,6 +556,30 @@ public class InferenceContext18 {
 		return types;
 	}
 	
+	public InvocationRecord enterPolyInvocation(InvocationSite invocation, Expression[] innerArguments) {
+		InvocationRecord record = new InvocationRecord(this.currentInvocation, this.invocationArguments, this.inferenceVariables);
+		this.inferenceVariables = null;
+		this.invocationArguments = innerArguments;
+		this.currentInvocation = invocation;
+		
+		// schedule for re-binding the inner after inference success:
+		this.innerPolies.add(invocation);
+		return record;
+	}
+
+	public void leavePolyInvocation(InvocationRecord record) {
+		// merge inference variables:
+		int l1 = this.inferenceVariables.length;
+		int l2 = record.inferenceVariables.length;
+		// move to back, add previous to front:
+		System.arraycopy(this.inferenceVariables, 0, this.inferenceVariables=new InferenceVariable[l1+l2], l2, l1);
+		System.arraycopy(record.inferenceVariables, 0, this.inferenceVariables, 0, l2);
+
+		// replace invocation site & arguments:
+		this.currentInvocation = record.site;
+		this.invocationArguments = record.invocationArguments;
+	}
+	
 	public void rebindInnerPolies(BoundSet bounds, TypeBinding[] arguments) {
 		int len = this.innerPolies.size();
 		for (int i = 0; i < len; i++) {
@@ -543,7 +587,8 @@ public class InferenceContext18 {
 			if (inner instanceof MessageSend) {
 				MessageSend innerMessage = (MessageSend) inner;
 				MethodBinding original = innerMessage.binding.original();
-				TypeBinding[] solutions = getSolutions(original.typeVariables(), bounds);
+				TypeBinding[] solutions = getSolutions(original.typeVariables(), innerMessage, bounds);
+				if (solutions == null) continue; // play safe, but shouldn't happen in a resolved context
 				innerMessage.binding = this.environment.createParameterizedGenericMethod(original, solutions);
 				innerMessage.resolvedType = innerMessage.binding.returnType;
 				for (int j = 0; j < this.invocationArguments.length; j++) {

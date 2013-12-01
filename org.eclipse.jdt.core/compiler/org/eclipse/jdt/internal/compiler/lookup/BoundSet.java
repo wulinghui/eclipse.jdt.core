@@ -75,6 +75,8 @@ class BoundSet {
 				if (!onlyProper || boundType.isProperType(true))
 					boundTypes[i++] = boundType;
 			}
+			if (i == 0)
+				return Binding.NO_TYPES;
 			if (i < boundTypes.length)
 				System.arraycopy(boundTypes, 0, boundTypes=new TypeBinding[i], 0, i);
 			return boundTypes;

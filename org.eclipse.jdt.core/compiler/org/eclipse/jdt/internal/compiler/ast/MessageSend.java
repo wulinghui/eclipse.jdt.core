@@ -99,6 +99,14 @@ public class MessageSend extends Expression implements InvocationSite {
 	public TypeReference[] typeArguments;
 	public TypeBinding[] genericTypeArguments;
 	private ExpressionContext expressionContext = VANILLA_CONTEXT;
+	/**
+	 * Here inference signals if applicability is established as variable-arity invocation.
+	 * When later the message send is touched again as an element in an outer expression,
+	 * we re-use this bit to perform only one kind of check.
+	 * TODO(stephan): check if this is sanctioned by the spec.
+	 * TODO(stephan): can we spare an ASTNode.bitX for this (or create a new vector)?
+	 */
+	public boolean isVarArgs = false;
 
 public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo) {
 	boolean nonStatic = !this.binding.isStatic();
@@ -453,7 +461,7 @@ public TypeBinding[] genericTypeArguments() {
 }
 
 public InferenceContext18 inferenceContext(Scope scope) {
-	return new InferenceContext18(scope, this.arguments);
+	return new InferenceContext18(scope, this.arguments, this);
 }
 
 public boolean isSuperAccess() {

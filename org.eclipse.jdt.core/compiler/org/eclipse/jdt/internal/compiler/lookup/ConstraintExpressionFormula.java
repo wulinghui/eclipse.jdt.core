@@ -29,6 +29,7 @@ import org.eclipse.jdt.internal.compiler.ast.MessageSend;
 import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
 import org.eclipse.jdt.internal.compiler.ast.ReturnStatement;
 import org.eclipse.jdt.internal.compiler.ast.Statement;
+import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18.InvocationRecord;
 
 /**
  * Implementation of 18.1.2 in JLS8, case:
@@ -67,21 +68,23 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 				MessageSend messageSend = (MessageSend) this.left;
 				// ignore previous (inner) inference result and do a fresh start:
 				MethodBinding method = messageSend.binding.original();
-				// and schedule for re-binding the inner after inference success:
-				inferenceContext.innerPolies.add(messageSend);
+				InvocationRecord prevInvocation = inferenceContext.enterPolyInvocation(messageSend, messageSend.arguments);
 
 				// Invocation Applicability Inference: 18.5.1
-				// TODO(stephan): may not need all argument types (only last one used for varargs)
-				Expression[] arguments = messageSend.arguments;
-				TypeBinding[] argumentTypes = arguments == null ? Binding.NO_PARAMETERS : new TypeBinding[arguments.length];
-				for (int i = 0; i < argumentTypes.length; i++)
-					argumentTypes[i] = arguments[i].resolvedType;
-				inferInvocationApplicability(inferenceContext, method, argumentTypes, InferenceContext18.CHECK_LOOSE); // FIXME 3 phases?
-				// TODO(stephan): do we need InferenceContext18.purgeInstantiations() here, too?
-				
-				if (!inferPolyInvocationType(inferenceContext, messageSend, this.right, method))
-					return FALSE;
-				return null; // already incorporated
+				try {
+					Expression[] arguments = messageSend.arguments;
+					TypeBinding[] argumentTypes = arguments == null ? Binding.NO_PARAMETERS : new TypeBinding[arguments.length];
+					for (int i = 0; i < argumentTypes.length; i++)
+						argumentTypes[i] = arguments[i].resolvedType;
+					int checkType = messageSend.isVarArgs ? InferenceContext18.CHECK_VARARG : InferenceContext18.CHECK_LOOSE;
+					inferInvocationApplicability(inferenceContext, method, argumentTypes, checkType); // FIXME 3 phases?
+					
+					if (!inferPolyInvocationType(inferenceContext, messageSend, this.right, method))
+						return FALSE;
+					return null; // already incorporated
+				} finally {
+					inferenceContext.leavePolyInvocation(prevInvocation);
+				}
 			} else if (this.left instanceof ConditionalExpression) {
 				InferenceContext18.missingImplementation("NYI");
 			} else if (this.left instanceof LambdaExpression) {

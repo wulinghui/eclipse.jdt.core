@@ -23,11 +23,13 @@ import org.eclipse.jdt.core.compiler.CharOperation;
  */
 public class InferenceVariable extends TypeVariableBinding {
 
+	InvocationSite site;
 	TypeBinding typeParameter;
 	
-	public InferenceVariable(TypeBinding typeParameter, int variableRank, LookupEnvironment environment) {
+	public InferenceVariable(TypeBinding typeParameter, int variableRank, InvocationSite site, LookupEnvironment environment) {
 		super(CharOperation.concat(typeParameter.shortReadableName(), Integer.toString(variableRank).toCharArray(), '#'), 
 				null/*declaringElement*/, variableRank, environment);
+		this.site = site;
 		this.typeParameter = typeParameter;
 	}
 

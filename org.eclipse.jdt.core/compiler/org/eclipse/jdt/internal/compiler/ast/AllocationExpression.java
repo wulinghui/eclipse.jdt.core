@@ -508,7 +508,7 @@ public TypeBinding[] inferElidedTypes(ReferenceBinding allocationType, Reference
 }
 
 public InferenceContext18 inferenceContext(Scope scope) {
-	return new InferenceContext18(scope, this.arguments);
+	return new InferenceContext18(scope, this.arguments, this);
 }
 
 public void checkTypeArgumentRedundancy(ParameterizedTypeBinding allocationType, ReferenceBinding enclosingType, TypeBinding[] argumentTypes, final BlockScope scope) {

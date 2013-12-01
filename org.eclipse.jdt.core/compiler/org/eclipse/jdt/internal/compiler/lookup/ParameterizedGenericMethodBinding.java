@@ -19,6 +19,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import org.eclipse.jdt.internal.compiler.ast.MessageSend;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 
@@ -76,6 +77,8 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 						checkKind = InferenceContext18.CHECK_VARARG;
 						infCtx18.inferInvocationApplicability(originalMethod, arguments, checkKind);
 						provisionalResult = infCtx18.solve();
+						if (provisionalResult != null && invocationSite instanceof MessageSend) // FIXME AllocationExpression
+							((MessageSend)invocationSite).isVarArgs = true;							
 					}
 					BoundSet result = infCtx18.currentBounds.copy(); // the result after reduction, without effects of resolve()
 					if (provisionalResult != null /*&& infCtx18.isResolved(provisionalResult)*/) { // FIXME(stephan): second condition breaks BatchCompilerTest.test032
@@ -85,7 +88,7 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 						boolean hasReturnProblem = result == null;
 						if (hasReturnProblem)
 							result = provisionalResult; // we prefer a type error regarding the return type over reporting no match at all
-						TypeBinding[] solutions = infCtx18.getSolutions(typeVariables, result);
+						TypeBinding[] solutions = infCtx18.getSolutions(typeVariables, invocationSite, result);
 						if (solutions != null) {
 							methodSubstitute = scope.environment().createParameterizedGenericMethod(originalMethod, solutions);
 							if (InferenceContext18.SIMULATE_BUG_JDK_8026527 && expectedType != null && methodSubstitute.returnType instanceof ReferenceBinding)
