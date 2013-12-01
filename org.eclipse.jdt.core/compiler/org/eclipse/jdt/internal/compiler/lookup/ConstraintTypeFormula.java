@@ -214,6 +214,8 @@ class ConstraintTypeFormula extends ConstraintFormula {
 					if (cb.isRawType())
 						return InferenceContext18.SIMULATE_BUG_JDK_8026527 ? TRUE : FALSE; // FALSE would conform to the spec 
 					TypeBinding[] bi = ((ParameterizedTypeBinding) cb).arguments;
+					if (ai == null && bi == null)
+						return TRUE;
 					ConstraintFormula[] results = new ConstraintFormula[ai.length];
 					for (int i = 0; i < ai.length; i++)
 						results[i] = new ConstraintTypeFormula(bi[i], ai[i], TYPE_ARGUMENT_CONTAINED);

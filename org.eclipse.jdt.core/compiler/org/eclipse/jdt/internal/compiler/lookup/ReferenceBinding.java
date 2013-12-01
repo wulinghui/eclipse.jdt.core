@@ -1199,6 +1199,13 @@ public boolean isClass() {
 	return (this.modifiers & (ClassFileConstants.AccInterface | ClassFileConstants.AccAnnotation | ClassFileConstants.AccEnum)) == 0;
 }
 
+boolean isProperType(boolean admitCapture18) {
+	ReferenceBinding outer = enclosingType();
+	if (outer != null && !outer.isProperType(admitCapture18))
+		return false;
+	return super.isProperType(admitCapture18);
+}
+
 /**
  * Answer true if the receiver type can be assigned to the argument type (right)
  * In addition to improving performance, caching also ensures there is no infinite regression

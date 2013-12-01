@@ -77,8 +77,6 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 						checkKind = InferenceContext18.CHECK_VARARG;
 						infCtx18.inferInvocationApplicability(originalMethod, arguments, checkKind);
 						provisionalResult = infCtx18.solve();
-						if (provisionalResult != null && invocationSite instanceof MessageSend) // FIXME AllocationExpression
-							((MessageSend)invocationSite).isVarArgs = true;							
 					}
 					BoundSet result = infCtx18.currentBounds.copy(); // the result after reduction, without effects of resolve()
 					if (provisionalResult != null /*&& infCtx18.isResolved(provisionalResult)*/) { // FIXME(stephan): second condition breaks BatchCompilerTest.test032
@@ -98,6 +96,8 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 								problemMethod.returnType = invocationSite.expectedType();
 								return problemMethod;
 							}
+							if (invocationSite instanceof MessageSend) // FIXME AllocationExpression
+								((MessageSend)invocationSite).inferenceKind = checkKind;
 							infCtx18.rebindInnerPolies(result, arguments);
 							break computeSubstitutes;
 						}

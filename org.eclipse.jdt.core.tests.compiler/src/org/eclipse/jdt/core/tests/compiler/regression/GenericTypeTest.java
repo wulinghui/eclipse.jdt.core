@@ -28626,7 +28626,7 @@ public void test0882() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=121369 - variation
-// FAIL MISSING CAST ERR
+// FAIL ERRMSG
 public void test0883() {
 	this.runNegativeTest(
 		new String[] {
@@ -28646,6 +28646,7 @@ public void test0883() {
 			"	}\n" +
 			"}\n",
 		},
+		(this.complianceLevel < ClassFileConstants.JDK1_8 ?
 		"----------\n" +
 		"1. ERROR in X.java (at line 6)\n" +
 		"	String s = (String)foo(listu);\n" +
@@ -28666,7 +28667,19 @@ public void test0883() {
 		"	String s = (String)foo(listv);\n" +
 		"	                   ^^^\n" +
 		"Bound mismatch: The generic method foo(U) of type X is not applicable for the arguments (List<V>). The inferred type List<V> is not a valid substitute for the bounded parameter <U extends List<U>>\n" +
-		"----------\n");
+		"----------\n"
+		:
+		"----------\n" +
+		"1. ERROR in X.java (at line 6)\n" +
+		"	String s = (String)foo(listu);\n" +
+		"	                   ^^^\n" +
+		"Bound mismatch: The generic method foo(U) of type X is not applicable for the arguments (List<U>). The inferred type List<U> is not a valid substitute for the bounded parameter <U extends List<U>>\n" +
+		"----------\n" +
+		"2. ERROR in X.java (at line 11)\n" +
+		"	String s = (String)foo(listv);\n" +
+		"	                   ^^^\n" +
+		"Bound mismatch: The generic method foo(U) of type X is not applicable for the arguments (List<V>). The inferred type List<V> is not a valid substitute for the bounded parameter <U extends List<U>>\n" +
+		"----------\n" ));
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=123078
 // SHOULD FAIL AT 1.8 (18.2.3): The method getDefault(Class<T>) in the type X<C> is not applicable for the arguments (Class<capture#2-of ? extends X>)
@@ -33528,6 +33541,7 @@ public void test1009() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
+// FAIL FIXME: javac rejects (correctly? how?)
 public void test1010() {
 	this.runNegativeTest(
 		new String[] {
@@ -33883,6 +33897,7 @@ public void test1016() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
+// FAIL FIXME: javac rejects (correctly? how?)
 public void test1017() {
 	this.runNegativeTest(
 		new String[] {
@@ -39432,6 +39447,7 @@ public void test1145() {
 		"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=190945 - variation
+// FIXME: javac rejects (correctly? how?) (intermittent FAIL ?)
 public void test1146() {
 	this.runNegativeTest(
 		new String[] {
@@ -40057,6 +40073,7 @@ public void test1156() {
 	);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=202624
+// FAIL FIXME: javac rejects (correctly? how?)
 public void test1157() {
 	this.runNegativeTest(
 		new String[] {

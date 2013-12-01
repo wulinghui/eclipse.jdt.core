@@ -681,7 +681,7 @@ public abstract class Scope {
 			if (CompilerOptions.tolerateIllegalAmbiguousVarargsInvocation && compilerOptions.complianceLevel < ClassFileConstants.JDK1_7)
 				tiebreakingVarargsMethods = false;
 		}
-		if ((compatibilityLevel = parameterCompatibilityLevel(method, arguments, tiebreakingVarargsMethods)) > NOT_COMPATIBLE) {
+		if ((compatibilityLevel = myParameterCompatibilityLevel(method, arguments, tiebreakingVarargsMethods, invocationSite)) > NOT_COMPATIBLE) {
 			if (compatibilityLevel == VARARGS_COMPATIBLE) {
 				TypeBinding varargsElementType = method.parameters[method.parameters.length - 1].leafComponentType();
 				if (varargsElementType instanceof ReferenceBinding) {
@@ -704,6 +704,14 @@ public abstract class Scope {
 		return null; // incompatible
 	}
 
+	// FIXME(stephan): final integration into the code
+	private int myParameterCompatibilityLevel(MethodBinding method, TypeBinding[] arguments, boolean tiebreakingVarargsMethods, InvocationSite site) {
+		if (site instanceof MessageSend) {
+			if (((MessageSend) site).inferenceKind > 0)
+				return COMPATIBLE;
+		}
+		return parameterCompatibilityLevel(method, arguments, tiebreakingVarargsMethods);
+	}
 	/**
 	 * Connect type variable supertypes, and returns true if no problem was detected
 	 * @param typeParameters

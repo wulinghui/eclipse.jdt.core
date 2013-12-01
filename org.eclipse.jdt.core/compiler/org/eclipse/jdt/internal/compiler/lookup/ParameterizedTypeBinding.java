@@ -805,7 +805,7 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 				if (!this.arguments[i].isProperType(admitCapture18))
 					return false;
 		}
-		return true;
+		return super.isProperType(admitCapture18);
 	}
 
 	TypeBinding substituteInferenceVariable(InferenceVariable var, TypeBinding substituteType) {

@@ -76,7 +76,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 					TypeBinding[] argumentTypes = arguments == null ? Binding.NO_PARAMETERS : new TypeBinding[arguments.length];
 					for (int i = 0; i < argumentTypes.length; i++)
 						argumentTypes[i] = arguments[i].resolvedType;
-					int checkType = messageSend.isVarArgs ? InferenceContext18.CHECK_VARARG : InferenceContext18.CHECK_LOOSE;
+					int checkType = (messageSend.inferenceKind != 0) ? messageSend.inferenceKind : InferenceContext18.CHECK_LOOSE;
 					inferInvocationApplicability(inferenceContext, method, argumentTypes, checkType); // FIXME 3 phases?
 					
 					if (!inferPolyInvocationType(inferenceContext, messageSend, this.right, method))
