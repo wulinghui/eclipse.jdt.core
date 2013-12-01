@@ -14381,7 +14381,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 	}
 
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=83225
-	// FAIL ERRMSG: random order
+	// FAIL ERRMSG: random order (intermittent)
 	public void test0470() {
 		this.runNegativeTest(
 			new String[] {
@@ -19664,7 +19664,7 @@ public void test0617() {
     		"Incompatible conditional operand types X.B<X.A> and X.C\n" +
     		"----------\n");
 	}
-	// FAIL ERRMSG (random order)
+	// FAIL ERRMSG (random order) (intermittent)
 	public void test0627() {
 	    this.runNegativeTest(
             new String[] {
@@ -30839,7 +30839,7 @@ public void test0938() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=129190 - variation
-// FAIL EXTRA ERR: The method method(Outer<I>.Inner) in the type Outer is not applicable for the arguments (ExtendedOuter<E>.ExtendedInner)
+// Fixed, awaiting confirmation, see http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-December/000442.html
 public void test0939() {
 	this.runNegativeTest(
 		new String[] {
@@ -33541,7 +33541,7 @@ public void test1009() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
-// FAIL FIXME: javac rejects (correctly? how?)
+// FAIL FIXME: javac rejects (correctly? how?), see http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-December/000443.html
 public void test1010() {
 	this.runNegativeTest(
 		new String[] {
@@ -33897,7 +33897,7 @@ public void test1016() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061 - variation
-// FAIL FIXME: javac rejects (correctly? how?)
+// FAIL FIXME: javac rejects (correctly? how?), see http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-December/000443.html
 public void test1017() {
 	this.runNegativeTest(
 		new String[] {
@@ -39447,7 +39447,7 @@ public void test1145() {
 		"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=190945 - variation
-// FIXME: javac rejects (correctly? how?) (intermittent FAIL ?)
+// FIXME: javac rejects (correctly? how?) (intermittent FAIL ?), see http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-December/000443.html
 public void test1146() {
 	this.runNegativeTest(
 		new String[] {
@@ -40073,7 +40073,7 @@ public void test1156() {
 	);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=202624
-// FAIL FIXME: javac rejects (correctly? how?)
+// FAIL FIXME: javac rejects (correctly? how?), see http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-December/000443.html
 public void test1157() {
 	this.runNegativeTest(
 		new String[] {
@@ -42587,7 +42587,6 @@ public void test1224() {
 		},
 		"");
 }
-// FAIL EXTRA ERR
 public void test1225() {
 	runConformTest(
 		// test directory preparation
@@ -44323,7 +44322,7 @@ public void test1280() {
 			"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=216686 - variation
-// FAIL EXTRA ERR
+// FAIL EXTRA ERR, see http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-December/000444.html
 public void test1281() {
 	this.runConformTest(
 			new String[] {
@@ -45769,7 +45768,7 @@ public void test1322() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=231094 - variation
-// FAIL ERRMSG and MISSING WARNING
+// FAIL ERRMSG and MISSING WARNINGS(?)
 public void test1323() {
 	this.runNegativeTest(
 			new String[] {
@@ -49486,7 +49485,7 @@ public void test1428() {
 			"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=258798
-// FAIL MISSING WARNINGS and ERRMSG (type display)
+// FAIL ERRMSG (type display) and MISSING WARNINGS(?)
 public void test1429() {
 	this.runNegativeTest(
 			new String[] {
@@ -49834,7 +49833,6 @@ public void test1438() {
 			"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=258798 - variation
-// FAIL MISSING ERR
 public void test1439() {
 	this.runNegativeTest(
 			new String[] {
@@ -49854,6 +49852,7 @@ public void test1439() {
 				"	}\n" + 
 				"}\n",//-----------------------------------------------------------------------
 			},
+			(this.complianceLevel < ClassFileConstants.JDK1_8 ?
 			"----------\n" + 
 			"1. WARNING in X.java (at line 7)\n" + 
 			"	this((List) null, null);\n" + 
@@ -49894,7 +49893,44 @@ public void test1439() {
 			"	super((List)lu, t);\n" + 
 			"	       ^^^^\n" + 
 			"List is a raw type. References to generic type List<E> should be parameterized\n" + 
-			"----------\n");
+			"----------\n"
+			: // Line 7: in 1.8 <T> is infered to <null> => not a checked exception 
+			"----------\n" + 
+			"1. WARNING in X.java (at line 7)\n" + 
+			"	this((List) null, null);\n" + 
+			"	^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked invocation X(List, null) of the generic constructor X(List<U>, T) of type X\n" + 
+			"----------\n" + 
+			"2. WARNING in X.java (at line 7)\n" + 
+			"	this((List) null, null);\n" + 
+			"	     ^^^^^^^^^^^\n" + 
+			"Type safety: The expression of type List needs unchecked conversion to conform to List<List<?>>\n" + 
+			"----------\n" + 
+			"3. WARNING in X.java (at line 7)\n" + 
+			"	this((List) null, null);\n" + 
+			"	      ^^^^\n" + 
+			"List is a raw type. References to generic type List<E> should be parameterized\n" + 
+			"----------\n" + 
+			"4. WARNING in X.java (at line 12)\n" + 
+			"	super((List)lu, t);\n" + 
+			"	^^^^^^^^^^^^^^^^^^^\n" + 
+			"Type safety: Unchecked invocation X(List, T) of the generic constructor X(List<U>, T) of type X\n" + 
+			"----------\n" + 
+			"5. ERROR in X.java (at line 12)\n" + 
+			"	super((List)lu, t);\n" + 
+			"	^^^^^^^^^^^^^^^^^^^\n" + 
+			"Unhandled exception type Throwable\n" + 
+			"----------\n" + 
+			"6. WARNING in X.java (at line 12)\n" + 
+			"	super((List)lu, t);\n" + 
+			"	      ^^^^^^^^\n" + 
+			"Type safety: The expression of type List needs unchecked conversion to conform to List<List<?>>\n" + 
+			"----------\n" + 
+			"7. WARNING in X.java (at line 12)\n" + 
+			"	super((List)lu, t);\n" + 
+			"	       ^^^^\n" + 
+			"List is a raw type. References to generic type List<E> should be parameterized\n" + 
+			"----------\n"));
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=260567
 public void test1440() {
@@ -50654,7 +50690,7 @@ public void test1459() {
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=277643
 // SHOULD FAIL AT 1.8 (18.2.3): The method get(Class<W>, T) in the type Test is not applicable for the arguments (Class<Test.W_Description>, Object)
-// FIXME: javac rejects (correctly? how?)
+// FIXME: javac rejects (correctly? how?), see http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-December/000443.html
 public void test277643() {
 	this.runNegativeTest(
 		new String[] {
@@ -50750,7 +50786,7 @@ public void test280054() {
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=283306
 // SHOULD FAIL AT 1.8 (18.2.3): The method get(Class<V>, Class<S>) in the type X.L is not applicable for the arguments (Class<V>, Class<X.B>)
-// FIXME: javac rejects (correctly? how?)
+// FIXME: javac rejects (correctly? how?), see http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-December/000443.html
 public void test283306() {
 	this.runNegativeTest(
 		new String[] {
