@@ -1137,6 +1137,14 @@ public boolean isTypeArgumentContainedBy(TypeBinding otherType) {
 						return true; // ? super T  <=  ? super ? super T
 					if (lowerBound == null)
 						return false;
+					// FIXME experimental (see GenericTypeTest.test1060())
+					if (otherBound instanceof IntersectionCastTypeBinding) {
+						TypeBinding[] intersecting = ((IntersectionCastTypeBinding)otherBound).intersectingTypes;
+						for (int i = 0; i < intersecting.length; i++)
+							if (this.isTypeArgumentContainedBy(intersecting[i]))
+								return true;
+					}
+					// .
 					match = otherBound.findSuperTypeOriginatingFrom(lowerBound);
 					if (match != null && (match = match.leafComponentType()).isRawType()) {
 						return TypeBinding.equalsEquals(match, lowerBound.leafComponentType()); // forbide: Collection <=  ? super Collection<?>

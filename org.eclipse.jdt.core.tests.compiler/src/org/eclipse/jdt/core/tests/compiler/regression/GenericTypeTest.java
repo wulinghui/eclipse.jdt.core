@@ -34383,7 +34383,7 @@ public void test1030() {
 		"");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=156765
-// FAIL EXTRA ERR?
+// FAIL EXTRA ERR: outer non-generic invocation cannot yet feed expected type into inner inference
 public void test1031() {
 	this.runNegativeTest(
 		new String[] {
@@ -35722,7 +35722,7 @@ public void test1059() {
 		"Type mismatch: cannot convert from capture#1-of ? to Number\n" +
 		"----------\n");
 }
-// FAIL EXTRA ERR?
+// See corresponding FIXME in TypeBinding.isTypeArgumentContainedBy(..)
 public void test1060() {
 	runConformTest(
 		// test directory preparation
