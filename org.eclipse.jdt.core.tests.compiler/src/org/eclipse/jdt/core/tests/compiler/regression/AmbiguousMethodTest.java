@@ -3827,8 +3827,12 @@ public void test078() {
 		"----------\n" + 
 		"1. ERROR in X.java (at line 12)\n" + 
 		"	x.b(null);\n" + 
-		"	  ^\n" + 
-		"The method b(Number) is ambiguous for the type X\n" + 
+		"	  ^\n" +
+		(this.complianceLevel < ClassFileConstants.JDK1_8 ?
+		"The method b(Number) is ambiguous for the type X\n" 
+		:
+		"The method b(null) is ambiguous for the type X\n"
+		) +
 		"----------\n" + 
 		"2. ERROR in X.java (at line 13)\n" + 
 		"	x.<Integer>b(null);\n" + 
