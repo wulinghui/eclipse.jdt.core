@@ -30373,13 +30373,12 @@ public void test0926() {
 	}
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=129261 - variation
-// FAIL EXTRA ERR?
 public void test0927() {
 	this.runNegativeTest(
 		new String[] {
 		"X.java",
 		"import java.util.*;\n" +
-		"public class X {\n" +
+		"@SuppressWarnings(\"null\") public class X {\n" +
 		"	public void foo() {\n" +
 		"		List<? extends List<Object>> RESULT = null;\n" +
 		"		List<? extends Object> lst = null;\n" +
@@ -39599,6 +39598,7 @@ public void test1148() {
 		"	       ^^^^^^^^\n" +
 		"The method compound(Iterable<? extends Comparator<? super U>>) in the type X is not applicable for the arguments (List<Comparator<?>>)\n" +
 		"----------\n":
+		this.complianceLevel == ClassFileConstants.JDK1_7 ?
 			"----------\n" + 
 			"1. WARNING in X.java (at line 3)\n" + 
 			"	public static <T> Comparator<T> compound(Comparator<? super T> a, Comparator<? super T> b, Comparator<? super T>... rest) {\n" + 
@@ -39636,6 +39636,38 @@ public void test1148() {
 			"The method compound(Iterable<? extends Comparator<? super U>>) in the type X is not applicable for the arguments (List<Comparator<?>>)\n" + 
 			"----------\n" + 
 			"8. WARNING in X.java (at line 16)\n" + 
+			"	public static <E> List<E> asList(E a, E b, E... rest) {\n" + 
+			"	                                                ^^^^\n" + 
+			"Type safety: Potential heap pollution via varargs parameter rest\n" + 
+			"----------\n"
+		: // fewer errors in 1.8+:
+			"----------\n" + 
+			"1. WARNING in X.java (at line 3)\n" + 
+			"	public static <T> Comparator<T> compound(Comparator<? super T> a, Comparator<? super T> b, Comparator<? super T>... rest) {\n" + 
+			"	                                                                                                                    ^^^^\n" + 
+			"Type safety: Potential heap pollution via varargs parameter rest\n" + 
+			"----------\n" + 
+			"2. ERROR in X.java (at line 4)\n" + 
+			"	int i = asList(a, b, rest);\n" + 
+			"	        ^^^^^^^^^^^^^^^^^^\n" + 
+			"Type mismatch: cannot convert from List<Comparator<?>> to int\n" + 
+			"----------\n" + 
+			"3. ERROR in X.java (at line 5)\n" + 
+			"	int j = compound(asList(a, b, rest));\n" + 
+			"	        ^^^^^^^^\n" + 
+			"The method compound(Iterable<? extends Comparator<? super U>>) in the type X is not applicable for the arguments (List<Comparator<?>>)\n" + 
+			"----------\n" + 
+			"5. ERROR in X.java (at line 10)\n" + 
+			"	compound(c);\n" + 
+			"	^^^^^^^^\n" + 
+			"The method compound(Iterable<? extends Comparator<? super U>>) in the type X is not applicable for the arguments (List<Comparator<?>>)\n" + 
+			"----------\n" + 
+			"6. ERROR in X.java (at line 11)\n" + 
+			"	return compound(c);\n" + 
+			"	       ^^^^^^^^\n" + 
+			"The method compound(Iterable<? extends Comparator<? super U>>) in the type X is not applicable for the arguments (List<Comparator<?>>)\n" + 
+			"----------\n" + 
+			"7. WARNING in X.java (at line 16)\n" + 
 			"	public static <E> List<E> asList(E a, E b, E... rest) {\n" + 
 			"	                                                ^^^^\n" + 
 			"Type safety: Potential heap pollution via varargs parameter rest\n" + 
@@ -41398,7 +41430,6 @@ public void test1199() {
 		"SUCCESS");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=205594
-// FAIL: SHOULD 1.8 RAISE FEWER ERRORS?
 public void test1200() {
 	this.runNegativeTest(
 		new String[] {
@@ -41431,6 +41462,7 @@ public void test1200() {
 			"	}	\n" +
 			"}\n", // =================
 		},
+		(this.complianceLevel < ClassFileConstants.JDK1_8 ?
 		"----------\n" +
 		"1. ERROR in X.java (at line 12)\n" +
 		"	return make(type, value);//1\n" +
@@ -41451,7 +41483,19 @@ public void test1200() {
 		"	return (Map<Class<?>, X>) make(X.class, value);//4\n" +
 		"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
 		"Cannot cast from X.Map<Class<X>,X> to X.Map<Class<?>,X>\n" +
-		"----------\n");
+		"----------\n"
+		: // fewer errors in 1.8+:
+			"----------\n" +
+			"1. ERROR in X.java (at line 17)\n" +
+			"	return (Map<Class<?>, X>) make(type, value);//2\n" +
+			"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+			"Cannot cast from X.Map<Class<capture#2-of ?>,X> to X.Map<Class<?>,X>\n" + // FIXME: javac8 only reports a warning here
+			"----------\n" +
+			"2. ERROR in X.java (at line 25)\n" +
+			"	return (Map<Class<?>, X>) make(X.class, value);//4\n" +
+			"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
+			"Cannot cast from X.Map<Class<X>,X> to X.Map<Class<?>,X>\n" +
+			"----------\n"));
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=174282
 public void test1201() {
@@ -49418,7 +49462,6 @@ public void test1428() {
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=258798
 // FAIL MISSING WARNINGS and ERRMSG (type display)
-// FIXME javac8 rejects
 public void test1429() {
 	this.runNegativeTest(
 			new String[] {
