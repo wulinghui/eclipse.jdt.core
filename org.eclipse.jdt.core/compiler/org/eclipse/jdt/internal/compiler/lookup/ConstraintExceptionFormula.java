@@ -14,9 +14,11 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.eclipse.jdt.internal.compiler.ast.ConditionalExpression;
@@ -42,8 +44,59 @@ public class ConstraintExceptionFormula extends ConstraintFormula {
 	
 	public Object reduce(InferenceContext18 inferenceContext) {
 		// JSL 18.2.5
-		if (this.left instanceof LambdaExpression || this.left instanceof ReferenceExpression) {		
-			InferenceContext18.missingImplementation("NYI");
+		if (this.left instanceof LambdaExpression || this.left instanceof ReferenceExpression) {
+			Scope scope = inferenceContext.scope;
+			if (!this.right.isFunctionalInterface(scope))
+				return FALSE;
+			MethodBinding sam = this.right.getSingleAbstractMethod(scope);
+			if (sam == null)
+				return FALSE;
+			int nParam = sam.parameters.length;
+			for (int i = 0; i < nParam; i++)
+				if (!sam.parameters[i].isProperType(true))
+					return FALSE;
+			if (sam.returnType != TypeBinding.VOID && !sam.returnType.isProperType(true))
+				return FALSE;
+			TypeBinding[] thrown = sam.thrownExceptions;
+			TypeBinding[] e = new TypeBinding[thrown.length];
+			int n = 0;
+			for (int i = 0; i < thrown.length; i++)
+				if (!thrown[i].isProperType(true))
+					e[n++] = thrown[i];
+			TypeBinding[] ePrime = null;
+			if (this.left instanceof LambdaExpression) {
+// TODO find exceptions thrown by the lambda's body
+//				((LambdaExpression)this.left).
+				InferenceContext18.missingImplementation("NYI");
+			} else {
+				ReferenceExpression referenceExpression = (ReferenceExpression)this.left;
+				// TODO: can we avoid this resolve() (which in turn may invoke inference)?
+				referenceExpression.resolveTypeExpecting(referenceExpression.enclosingScope, this.right);
+				MethodBinding method = referenceExpression.binding;
+				ePrime = method.thrownExceptions;
+			}
+			int m = ePrime.length;
+			if (n == 0) {
+				actual: for (int i = 0; i < m; i++) {
+					for (int j = 0; j < thrown.length; j++)
+						if (ePrime[i].isCompatibleWith(thrown[j]))
+							continue actual;
+					return FALSE;
+				}
+				return TRUE;
+			} else {
+				List result = new ArrayList();
+				actual: for (int i = 0; i < m; i++) {
+					for (int j = 0; j < thrown.length; j++)
+						if (ePrime[i].isCompatibleWith(thrown[j]))
+							continue actual;
+					for (int j = 0; j < n; j++)
+						result.add(new ConstraintTypeFormula(ePrime[i], e[j], SUBTYPE));
+				}				
+				for (int j = 0; j < n; j++)
+					result.add(new ConstraintExceptionFormula(this.left, e[j]));
+				return result.toArray(new ConstraintFormula[result.size()]);
+			}
 		} else if (this.left.isPolyExpression()) {
 			// parenthesized: transparent in our AST
 			if (this.left instanceof ConditionalExpression) {
@@ -100,4 +153,11 @@ public class ConstraintExceptionFormula extends ConstraintFormula {
 		return EMPTY_VARIABLE_LIST;
 	}
 
+	public String toString() {
+		StringBuffer buf = new StringBuffer().append('⟨');
+		this.left.printExpression(4, buf);
+		buf.append(" inThrows "); //$NON-NLS-1$
+		buf.append(this.right.readableName()).append('⟩');
+		return buf.toString();
+	}
 }
