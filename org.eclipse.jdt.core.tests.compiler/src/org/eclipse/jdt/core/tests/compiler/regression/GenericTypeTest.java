@@ -41972,7 +41972,7 @@ public void test1209() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=207573 - variation
-// FAIL MISSING ERR and ERRMSG (type display)
+// FAIL ERRMSG
 public void test1210() {
 	this.runNegativeTest(
 		new String[] {
@@ -41986,6 +41986,7 @@ public void test1210() {
 			"    }\n" +
 			"}\n", // =================
 		},
+		(this.complianceLevel < ClassFileConstants.JDK1_8 ?
 		"----------\n" + 
 		"1. ERROR in X.java (at line 6)\n" + 
 		"	Object[] o  = throwE(objs);\n" + 
@@ -41996,7 +41997,14 @@ public void test1210() {
 		"	Object[] o  = throwE(objs);\n" + 
 		"	              ^^^^^^^^^^^^\n" + 
 		"Type mismatch: cannot convert from Object[]&Exception to Object[]\n" + 
-		"----------\n");
+		"----------\n"
+		:
+		"----------\n" + 
+		"1. ERROR in X.java (at line 6)\n" + 
+		"	Object[] o  = throwE(objs);\n" + 
+		"	              ^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from Object[]&Exception to Object[]\n" + 
+		"----------\n"));
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=208030
 public void test1211() {
