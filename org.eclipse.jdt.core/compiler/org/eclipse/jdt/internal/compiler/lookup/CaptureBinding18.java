@@ -85,7 +85,14 @@ public class CaptureBinding18 extends CaptureBinding {
 		}
 		return false;
 	}
-	
+
+	public boolean isCompatibleWith(TypeBinding otherType, Scope captureScope) {
+		if (this.firstBound != null
+				&& this.firstBound.isCompatibleWith(otherType, captureScope))
+			return true;
+		return super.isCompatibleWith(otherType, captureScope);
+	}
+
 	boolean isProperType(boolean admitCapture18) {
 		return admitCapture18;
 	}

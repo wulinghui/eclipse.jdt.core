@@ -61,4 +61,12 @@ abstract class ConstraintFormula extends ReductionResult {
 			this.right = this.right.substituteInferenceVariable(variable, instantiation);
 		}
 	}
+
+	// for debug toString():
+	protected void appendTypeName(StringBuffer buf, TypeBinding type) {
+		if (type instanceof CaptureBinding18)
+			buf.append(type.toString()); // contains more info than readable name
+		else
+			buf.append(type.readableName());
+	}
 }

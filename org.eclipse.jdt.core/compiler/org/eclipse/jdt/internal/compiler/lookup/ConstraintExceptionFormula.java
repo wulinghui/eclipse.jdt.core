@@ -158,7 +158,8 @@ public class ConstraintExceptionFormula extends ConstraintFormula {
 		StringBuffer buf = new StringBuffer().append('⟨');
 		this.left.printExpression(4, buf);
 		buf.append(" inThrows "); //$NON-NLS-1$
-		buf.append(this.right.readableName()).append('⟩');
+		appendTypeName(buf, this.right);
+		buf.append('⟩');
 		return buf.toString();
 	}
 }
