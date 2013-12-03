@@ -5147,14 +5147,36 @@ this.runNegativeTest(
 				"----------\n" + 
 				"3. ERROR in X.java (at line 7)\n" + 
 				"	new X().foo(()->{});\n" + 
-				"	        ^^^\n" + 
-				"The method foo(I<T>) in the type X is not applicable for the arguments (() -> {\n" + 
-				"})\n" + 
-				"----------\n" + 
-				"4. ERROR in X.java (at line 7)\n" + 
-				"	new X().foo(()->{});\n" + 
 				"	            ^^^^\n" + 
 				"The target type of this expression is not a well formed parameterized type due to bound(s) mismatch\n" + 
+				"----------\n");
+}
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=401610, [1.8][compiler] Allow lambda/reference expressions in non-overloaded method invocation contexts
+// demonstrate that the bound problem is the only real issue in test401610e()
+public void test401610ee() {
+this.runNegativeTest(
+		new String[] {
+				"X.java",
+				"interface I<T extends String> {\n" +
+				"	void foo();\n" +
+				"}\n" +
+				"public class X {\n" +
+				"	<T extends String> T foo(I<T> it) { return null; }\n" +
+				"	public static void main(String[] args) {\n" +
+				"		new X().foo(()->{});\n" +
+				"	}\n" +
+				"}\n",
+				},
+				"----------\n" + 
+				"1. WARNING in X.java (at line 1)\n" + 
+				"	interface I<T extends String> {\n" + 
+				"	                      ^^^^^^\n" + 
+				"The type parameter T should not be bounded by the final type String. Final types cannot be further extended\n" + 
+				"----------\n" + 
+				"2. WARNING in X.java (at line 5)\n" + 
+				"	<T extends String> T foo(I<T> it) { return null; }\n" + 
+				"	           ^^^^^^\n" + 
+				"The type parameter T should not be bounded by the final type String. Final types cannot be further extended\n" + 
 				"----------\n");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=401610, [1.8][compiler] Allow lambda/reference expressions in non-overloaded method invocation contexts
