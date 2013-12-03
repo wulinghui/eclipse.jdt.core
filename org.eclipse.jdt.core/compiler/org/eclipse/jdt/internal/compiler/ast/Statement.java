@@ -91,12 +91,13 @@ protected void analyseArguments(BlockScope currentScope, FlowContext flowContext
 				&& compilerOptions.isAnnotationBasedNullAnalysisEnabled;
 		boolean hasJDK15NullAnnotations = methodBinding.parameterNonNullness != null;
 		int numParamsToCheck = methodBinding.parameters.length;
+		int varArgPos = -1;
 		TypeBinding varArgsType = null;
 		boolean passThrough = false;
 		if (considerTypeAnnotations || hasJDK15NullAnnotations) {
 			// check if varargs need special treatment:
 			if (methodBinding.isVarargs()) {
-				int varArgPos = numParamsToCheck-1;
+				varArgPos = numParamsToCheck-1;
 				// this if-block essentially copied from generateArguments(..):
 				if (numParamsToCheck == arguments.length) {
 					varArgsType = methodBinding.parameters[varArgPos];
@@ -113,12 +114,16 @@ protected void analyseArguments(BlockScope currentScope, FlowContext flowContext
 		if (considerTypeAnnotations) {
 			for (int i=0; i<numParamsToCheck; i++) {
 				TypeBinding expectedType = methodBinding.parameters[i];
-				analyseOneArgument18(currentScope, flowContext, flowInfo, expectedType, arguments[i]);
+				Boolean specialCaseNonNullness = hasJDK15NullAnnotations ? methodBinding.parameterNonNullness[i] : null;
+				analyseOneArgument18(currentScope, flowContext, flowInfo, expectedType, arguments[i],
+						specialCaseNonNullness, methodBinding.original().parameters[i]);
 			}
 			if (!passThrough && varArgsType instanceof ArrayBinding) {
 				TypeBinding expectedType = ((ArrayBinding) varArgsType).elementsType();
+				Boolean specialCaseNonNullness = hasJDK15NullAnnotations ? methodBinding.parameterNonNullness[varArgPos] : null;
 				for (int i = numParamsToCheck; i < arguments.length; i++) {
-					analyseOneArgument18(currentScope, flowContext, flowInfo, expectedType, arguments[i]);
+					analyseOneArgument18(currentScope, flowContext, flowInfo, expectedType, arguments[i],
+							specialCaseNonNullness, methodBinding.original().parameters[varArgPos]);
 				}
 			}
 		} else if (hasJDK15NullAnnotations) {
@@ -135,13 +140,21 @@ protected void analyseArguments(BlockScope currentScope, FlowContext flowContext
 	}
 }
 void analyseOneArgument18(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo,
-		TypeBinding expectedType, Expression argument) {
+		TypeBinding expectedType, Expression argument, Boolean expectedNonNullness, TypeBinding originalExpected) {
 	int nullStatus = argument.nullStatus(flowInfo, flowContext);
+	
+	// here we consume special case information generated in the ctor of ParameterizedGenericMethodBinding (see there):
+	int statusFromAnnotatedNull = expectedNonNullness == Boolean.TRUE ? nullStatus : 0;  
+	
 	NullAnnotationMatching annotationStatus = NullAnnotationMatching.analyse(expectedType, argument.resolvedType, nullStatus);
-	if (annotationStatus.isDefiniteMismatch()) {
+	
+	if (!annotationStatus.isAnyMismatch() && statusFromAnnotatedNull != 0)
+		expectedType = originalExpected; // to avoid reports mentioning '@NonNull null'!
+	
+	if (annotationStatus.isDefiniteMismatch() || statusFromAnnotatedNull == FlowInfo.NULL) {
 		// immediate reporting:
 		currentScope.problemReporter().nullityMismatchingTypeAnnotation(argument, argument.resolvedType, expectedType, annotationStatus);
-	} else if (annotationStatus.isUnchecked()) {
+	} else if (annotationStatus.isUnchecked() || (statusFromAnnotatedNull & FlowInfo.POTENTIALLY_NULL) != 0) {
 		flowContext.recordNullityMismatch(currentScope, argument, argument.resolvedType, expectedType, nullStatus);
 	}
 }

@@ -415,6 +415,19 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 		}
 	    this.wasInferred = true;// resulting from method invocation inferrence
 	    this.parameterNonNullness = originalMethod.parameterNonNullness;
+	    // special case: @NonNull for parameter inferred to 'null' is encoded the old way
+	    // because we cannot (and don't want to) add type annotations to NullTypeBinding.
+	    int len = this.parameters.length;
+	    for (int i = 0; i < len; i++) {
+	    	if (this.parameters[i] == TypeBinding.NULL) {
+	    		long nullBits = originalMethod.parameters[i].tagBits & TagBits.AnnotationNullMASK;
+	    		if (nullBits == TagBits.AnnotationNonNull) {
+	    			if (this.parameterNonNullness == null)
+	    				this.parameterNonNullness = new Boolean[len];
+	    			this.parameterNonNullness[i] = Boolean.TRUE;
+	    		}
+	    	}
+	    }
 	}
 
 	/*
