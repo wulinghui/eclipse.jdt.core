@@ -211,10 +211,11 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 		if (method.typeVariables != Binding.NO_TYPE_VARIABLES && typeArguments == null) {
 			if (method.typeVariables != Binding.NO_TYPE_VARIABLES) {
 				// invocation type inference (18.5.2):
-				if (method.returnType == TypeBinding.VOID && !method.isConstructor()) // FIXME: 2nd part not sanctioned by the spec!
+				TypeBinding returnType = method.isConstructor() ? method.declaringClass : method.returnType;
+				if (returnType == TypeBinding.VOID)
 					throw new InferenceFailureException("expression has no value");
 
-				ParameterizedTypeBinding parameterizedType = parameterizedWithWildcard(method.returnType);
+				ParameterizedTypeBinding parameterizedType = parameterizedWithWildcard(returnType);
 				if (parameterizedType != null) {
 					TypeBinding[] arguments = parameterizedType.arguments;
 					InferenceVariable[] betas = inferenceContext.addTypeVariableSubstitutions(arguments);
@@ -227,7 +228,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 				}
 
 				if (targetType.isBaseType()) {
-					TypeBinding thetaR = inferenceContext.substitute(method.returnType);
+					TypeBinding thetaR = inferenceContext.substitute(returnType);
 					if (thetaR instanceof InferenceVariable) {
 						TypeBinding wrapper = inferenceContext.currentBounds.findWrapperTypeBound((InferenceVariable)thetaR);
 						if (wrapper != null) {
@@ -238,7 +239,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 					}
 				}
 
-				ConstraintTypeFormula newConstraint = new ConstraintTypeFormula(inferenceContext.substitute(method.returnType), targetType, COMPATIBLE);
+				ConstraintTypeFormula newConstraint = new ConstraintTypeFormula(inferenceContext.substitute(returnType), targetType, COMPATIBLE);
 				if (!inferenceContext.reduceAndIncorporate(newConstraint))
 					return false;
 			} else {

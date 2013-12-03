@@ -3666,6 +3666,21 @@ public void invalidConstructor(Statement statement, MethodBinding targetConstruc
 				sourceStart,
 				sourceEnd);
 			return;
+		case ProblemReasons.ParameterizedMethodExpectedTypeProblem:
+			// FIXME(stephan): construct suitable message
+			problemConstructor = (ProblemMethodBinding) targetConstructor;
+			shownConstructor = problemConstructor.closestMatch;
+			this.handle(
+				IProblem.TypeMismatch,
+				new String[] {
+				        String.valueOf(shownConstructor.returnType.readableName()),
+				        (problemConstructor.returnType != null ? String.valueOf(problemConstructor.returnType.readableName()) : "<unknown>")},
+				new String[] {
+				        String.valueOf(shownConstructor.returnType.shortReadableName()),
+				        (problemConstructor.returnType != null ? String.valueOf(problemConstructor.returnType.shortReadableName()) : "<unknown>")},
+				statement.sourceStart,
+				statement.sourceEnd);			
+			return;
 		case ProblemReasons.NoError : // 0
 		default :
 			needImplementation(statement); // want to fail to see why we were here...
