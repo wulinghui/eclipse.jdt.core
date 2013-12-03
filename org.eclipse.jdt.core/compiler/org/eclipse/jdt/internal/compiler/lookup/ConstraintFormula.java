@@ -35,10 +35,15 @@ abstract class ConstraintFormula extends ReductionResult {
 		if (one.isCompatibleWith(two, context.scope))
 			return true;
 		if (one.isBaseType()) {
-			if (one != TypeBinding.NULL && !two.isBaseType())
-				return context.environment.computeBoxingType(one) != one; //$IDENTITY-COMPARISON$ just checking if boxing could help
+			if (one != TypeBinding.NULL && !two.isBaseType()) {
+				TypeBinding boxingType = context.environment.computeBoxingType(one);
+				if (boxingType != one) //$IDENTITY-COMPARISON$ just checking if boxing could help
+					return boxingType.isCompatibleWith(two, context.scope);
+			}
 		} else if (two.isBaseType() && two != TypeBinding.NULL) {
-			return context.environment.computeBoxingType(two) != two; //$IDENTITY-COMPARISON$ just checking if boxing could help
+			TypeBinding boxingType = context.environment.computeBoxingType(two);
+			if (boxingType != two) //$IDENTITY-COMPARISON$ just checking if boxing could help
+				return one.isCompatibleWith(boxingType, context.scope);
 		}
 		return false;
 	}
