@@ -455,8 +455,16 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		if (argumentsTypeElided())
 			return false;
 		
-		if (targetType instanceof TypeVariableBinding && ((TypeVariableBinding)targetType).declaringElement == method)
-			return false;
+		if (targetType instanceof TypeVariableBinding) {
+			if (method != null) { // when called from type inference
+				if (((TypeVariableBinding)targetType).declaringElement == method)
+					return false;
+			} else { // for internal calls
+				TypeVariableBinding typeVariable = (TypeVariableBinding) targetType;
+				if (typeVariable.declaringElement instanceof MethodBinding)
+					return false;
+			}
+		}
 		
 		Expression [] returnExpressions = this.resultExpressions;
 		for (int i = 0, length = returnExpressions.length; i < length; i++) {
@@ -571,7 +579,7 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 				}
 				// Do not proceed with data/control flow analysis if resolve encountered errors.
 				if (type == null || !type.isValidBinding() || this.hasIgnoredMandatoryErrors || enclosingScopesHaveErrors()) {
-					if (!isPertinentToApplicability(left, null)) // FIXME is null OK?
+					if (!isPertinentToApplicability(left, null))
 						return true;
 					return this.arguments.length == 0; // error not because of the target type imposition, but is inherent. Just say compatible since errors in body aren't to influence applicability.
 				}
@@ -588,7 +596,7 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 			}
 		}
 
-		if (!isPertinentToApplicability(left, null)) // FIXME is null OK?
+		if (!isPertinentToApplicability(left, null))
 			return true;
 	
 		if (sam.returnType.id == TypeIds.T_void) {
