@@ -47,7 +47,10 @@ public class InferenceVariable extends TypeVariableBinding {
 	}
 
 	public boolean isCompatibleWith(TypeBinding right, Scope scope) {
-		return false;
+		// if inference variables are ever checked for compatibility
+		// (like during inner resolve of a ReferenceExpression during inference)
+		// treat it as a wildcard, compatible with any any and every type.
+		return true;
 	}
 
 	boolean isProperType(boolean admitCapture18) {
