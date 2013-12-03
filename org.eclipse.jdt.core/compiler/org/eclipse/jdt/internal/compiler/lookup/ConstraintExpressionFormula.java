@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
+import org.eclipse.jdt.internal.compiler.ast.Argument;
 import org.eclipse.jdt.internal.compiler.ast.ConditionalExpression;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
@@ -88,7 +89,49 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 			} else if (this.left instanceof ConditionalExpression) {
 				InferenceContext18.missingImplementation("NYI");
 			} else if (this.left instanceof LambdaExpression) {
-				InferenceContext18.missingImplementation("NYI");
+				LambdaExpression lambda = (LambdaExpression) this.left;
+				Scope scope = inferenceContext.scope;
+				TypeBinding t = this.right;
+				if (!t.isFunctionalInterface(scope))
+					return FALSE;
+				MethodBinding functionType = t.getSingleAbstractMethod(scope);
+				if (functionType == null)
+					return FALSE;
+				TypeBinding[] parameters = functionType.parameters;
+				if (parameters.length != lambda.arguments().length)
+					return FALSE;
+				if (lambda.argumentsTypeElided())
+					for (int i = 0; i < parameters.length; i++)
+						if (!parameters[i].isProperType(true))
+							return FALSE;
+				// FIXME: force shape analysis:
+				lambda.isCompatibleWith(t, scope);
+				if (functionType.returnType == TypeBinding.VOID) {
+					if (!lambda.isVoidCompatible())
+						return FALSE;
+				} else {
+					if (!lambda.isValueCompatible())
+						return FALSE;
+				}
+				List result = new ArrayList();
+				if (!lambda.argumentsTypeElided()) {
+					Argument[] arguments = lambda.arguments();
+					for (int i = 0; i < parameters.length; i++)
+						result.add(new ConstraintTypeFormula(parameters[i], arguments[i].type.resolvedType, SAME));
+				}
+				if (functionType.returnType != TypeBinding.VOID) {
+					TypeBinding r = functionType.returnType;
+					if (lambda.body() instanceof Expression) {
+						result.add(new ConstraintExpressionFormula((Expression)lambda.body(), r, COMPATIBLE));
+					} else {
+						Expression[] exprs = lambda.resultExpressions();
+						for (int i = 0; i < exprs.length; i++)
+							result.add(new ConstraintExpressionFormula(exprs[i], r, COMPATIBLE));
+					}
+				}
+				if (result.size() == 0)
+					return TRUE;
+				return result.toArray(new ConstraintFormula[result.size()]);
 			} else if (this.left instanceof ReferenceExpression) {
 				return reduceReferenceExpressionCompatibility((ReferenceExpression) this.left, inferenceContext);
 			}
@@ -157,7 +200,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 			int varArgPos = paramLength-1;
 			varArgsType = method.parameters[varArgPos];
 		}
-		inferenceContext.createInitialConstraintsForParameters(parameters, checkType==InferenceContext18.CHECK_VARARG, varArgsType);
+		inferenceContext.createInitialConstraintsForParameters(parameters, checkType==InferenceContext18.CHECK_VARARG, varArgsType, method);
 		inferenceContext.addThrowsContraints(typeVariables, inferenceVariables, method.thrownExceptions);
 	}
 

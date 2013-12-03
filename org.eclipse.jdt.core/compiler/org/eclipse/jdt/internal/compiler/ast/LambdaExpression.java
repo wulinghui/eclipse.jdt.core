@@ -56,6 +56,7 @@ import org.eclipse.jdt.internal.compiler.lookup.TagBits;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
+import org.eclipse.jdt.internal.compiler.lookup.TypeVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.VariableBinding;
 import org.eclipse.jdt.internal.compiler.parser.Parser;
 import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
@@ -106,6 +107,10 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 	
 	public Statement body() {
 		return this.body;
+	}
+
+	public Expression[] resultExpressions() {
+		return this.resultExpressions;
 	}
 
 	public void setArrowPosition(int arrowPosition) {
@@ -443,30 +448,35 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		}
 	}
 
-	public boolean isPertinentToApplicability(TypeBinding targetType) {
-		if (targetType == null)
-			return true;
-
-		// Add the rule about type variable of the generic method.
-		
-		final MethodBinding sam = targetType.getSingleAbstractMethod(this.enclosingScope); // cached/cheap call.
-		
-		if (sam == null || !sam.isValidBinding())
-			return true;
-		
-		if (sam.parameters.length != this.argumentTypes.length)
+	public boolean isPertinentToApplicability(TypeBinding targetType, MethodBinding method) {
+		if (targetType == null) // assumed to signal another primary error
 			return true;
 		
 		if (argumentsTypeElided())
 			return false;
 		
+		if (targetType instanceof TypeVariableBinding && ((TypeVariableBinding)targetType).declaringElement == method)
+			return false;
+		
 		Expression [] returnExpressions = this.resultExpressions;
 		for (int i = 0, length = returnExpressions.length; i < length; i++) {
-			if (!returnExpressions[i].isPertinentToApplicability(targetType))
+			if (!returnExpressions[i].isPertinentToApplicability(targetType, method))
 				return false;
 		}
 		
 		return true;
+	}
+	
+	public boolean isVoidCompatible() {
+		if (!this.shapeAnalysisComplete)
+			throw new IllegalStateException("asking isVoidCompatible before shape analysis is complete");
+		return this.voidCompatible;
+	}
+
+	public boolean isValueCompatible() {
+		if (!this.shapeAnalysisComplete)
+			throw new IllegalStateException("asking isValueCompatible before shape analysis is complete");
+		return this.valueCompatible;
 	}
 	
 	public StringBuffer printExpression(int tab, StringBuffer output) {
@@ -561,7 +571,7 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 				}
 				// Do not proceed with data/control flow analysis if resolve encountered errors.
 				if (type == null || !type.isValidBinding() || this.hasIgnoredMandatoryErrors || enclosingScopesHaveErrors()) {
-					if (!isPertinentToApplicability(left))
+					if (!isPertinentToApplicability(left, null)) // FIXME is null OK?
 						return true;
 					return this.arguments.length == 0; // error not because of the target type imposition, but is inherent. Just say compatible since errors in body aren't to influence applicability.
 				}
@@ -578,7 +588,7 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 			}
 		}
 
-		if (!isPertinentToApplicability(left))
+		if (!isPertinentToApplicability(left, null)) // FIXME is null OK?
 			return true;
 	
 		if (sam.returnType.id == TypeIds.T_void) {

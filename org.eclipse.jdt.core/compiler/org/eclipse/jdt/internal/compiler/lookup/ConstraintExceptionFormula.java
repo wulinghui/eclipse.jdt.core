@@ -67,7 +67,8 @@ public class ConstraintExceptionFormula extends ConstraintFormula {
 			if (this.left instanceof LambdaExpression) {
 // TODO find exceptions thrown by the lambda's body
 //				((LambdaExpression)this.left).
-				InferenceContext18.missingImplementation("NYI");
+//				InferenceContext18.missingImplementation("NYI");
+				return TRUE;
 			} else {
 				ReferenceExpression referenceExpression = (ReferenceExpression)this.left;
 				// TODO: can we avoid this resolve() (which in turn may invoke inference)?

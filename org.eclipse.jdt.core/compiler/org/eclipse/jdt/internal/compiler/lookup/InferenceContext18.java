@@ -100,7 +100,7 @@ public class InferenceContext18 {
 	}
 
 	/** JLS 18.5.1: compute bounds from formal and actual parameters. */
-	public void createInitialConstraintsForParameters(TypeBinding[] parameters, boolean checkVararg, TypeBinding varArgsType) {
+	public void createInitialConstraintsForParameters(TypeBinding[] parameters, boolean checkVararg, TypeBinding varArgsType, MethodBinding method) {
 		// TODO discriminate strict vs. loose invocations
 		if (this.invocationArguments == null)
 			return;
@@ -116,7 +116,7 @@ public class InferenceContext18 {
 					this.initialConstraints=new ConstraintFormula[maxConstraints], 0, numConstraints);
 		}
 		for (int i = 0; i < len; i++) {
-			if (this.invocationArguments[i].isPertinentToApplicability(parameters[i])) {
+			if (this.invocationArguments[i].isPertinentToApplicability(parameters[i], method)) {
 				TypeBinding thetaF = substitute(parameters[i]);
 				this.initialConstraints[numConstraints++] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
 			}
@@ -124,7 +124,7 @@ public class InferenceContext18 {
 		if (checkVararg && varArgsType instanceof ArrayBinding) {
 			TypeBinding thetaF = substitute(((ArrayBinding) varArgsType).elementsType());
 			for (int i = len; i < this.invocationArguments.length; i++) {
-				if (this.invocationArguments[i].isPertinentToApplicability(varArgsType)) {
+				if (this.invocationArguments[i].isPertinentToApplicability(varArgsType, method)) {
 					this.initialConstraints[numConstraints++] = new ConstraintExpressionFormula(this.invocationArguments[i], thetaF, ReductionResult.COMPATIBLE);
 				}
 			}
@@ -236,7 +236,7 @@ public class InferenceContext18 {
 					TypeBinding fsi = fs[Math.min(i, p-1)];
 					TypeBinding substF = substitute(fsi);
 					// For all i (1 ≤ i ≤ k), if ei is not pertinent to applicability, the set contains ⟨ei → θ Fi⟩.
-					if (!arguments[i].isPertinentToApplicability(fsi)) {
+					if (!arguments[i].isPertinentToApplicability(fsi, method)) {
 						c.add(new ConstraintExpressionFormula(arguments[i], substF, ReductionResult.COMPATIBLE));
 					}
 					c.add(new ConstraintExceptionFormula(arguments[i], substF));

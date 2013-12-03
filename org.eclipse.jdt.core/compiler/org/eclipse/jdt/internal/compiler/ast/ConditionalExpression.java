@@ -649,8 +649,9 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		this.expressionContext = context;
 	}
 	
-	public boolean isPertinentToApplicability(TypeBinding targetType) {
-		return this.valueIfTrue.isPertinentToApplicability(targetType) && this.valueIfFalse.isPertinentToApplicability(targetType);
+	public boolean isPertinentToApplicability(TypeBinding targetType, MethodBinding method) {
+		return this.valueIfTrue.isPertinentToApplicability(targetType, method) 
+				&& this.valueIfFalse.isPertinentToApplicability(targetType, method);
 	}
 	
 	public boolean isPolyExpression() throws UnsupportedOperationException {
