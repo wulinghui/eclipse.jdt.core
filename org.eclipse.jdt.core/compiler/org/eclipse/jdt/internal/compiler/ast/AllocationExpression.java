@@ -533,7 +533,14 @@ public void checkTypeArgumentRedundancy(ParameterizedTypeBinding allocationType,
 			}	
 		}
 	}
-	TypeBinding [] inferredTypes = inferElidedTypes(allocationType.genericType(), enclosingType, argumentTypes, scope);
+	TypeBinding [] inferredTypes;
+	int previousBits = this.type.bits;
+	try {
+		this.type.bits |= IsDiamond;
+		inferredTypes = inferElidedTypes(allocationType.genericType(), enclosingType, argumentTypes, scope);
+	} finally {
+		this.type.bits = previousBits;
+	}
 	if (inferredTypes == null) {
 		return;
 	}
