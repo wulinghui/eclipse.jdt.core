@@ -3268,9 +3268,7 @@ public void testBug413958_2() {
 		"----------\n");
 }
 public void testBug415734() {
-	runNegativeTest(
-		new String[] {
-			"Compile.java",
+	String compileSrc =
 			"import java.util.ArrayList;\n" +
 			"import java.util.List;\n" +
 			"\n" +
@@ -3283,13 +3281,25 @@ public void testBug415734() {
 			"    public void call() {\n" +
 			"        ArrayList<String> list = typedNull();\n" +
 			"    }\n" +
-			"}\n"
-		},
-		"----------\n" +
-		"1. ERROR in Compile.java (at line 11)\n" +
-		"	ArrayList<String> list = typedNull();\n" +
-		"	                         ^^^^^^^^^^^\n" +
-		"Type mismatch: cannot convert from List<Object> to ArrayList<String>\n" +
-		"----------\n");
+			"}\n";
+	if (this.complianceLevel < ClassFileConstants.JDK1_8) {
+		runNegativeTest(
+			new String[] {
+				"Compile.java",
+				compileSrc
+			},
+			"----------\n" +
+			"1. ERROR in Compile.java (at line 11)\n" +
+			"	ArrayList<String> list = typedNull();\n" +
+			"	                         ^^^^^^^^^^^\n" +
+			"Type mismatch: cannot convert from List<Object> to ArrayList<String>\n" +
+			"----------\n");
+	} else {
+		runConformTest(
+			new String[] {
+				"Compile.java",
+				compileSrc
+			});
+	}
 }
 }
