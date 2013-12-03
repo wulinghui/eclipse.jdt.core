@@ -706,8 +706,8 @@ public abstract class Scope {
 
 	// FIXME(stephan): final integration into the code
 	private int myParameterCompatibilityLevel(MethodBinding method, TypeBinding[] arguments, boolean tiebreakingVarargsMethods, InvocationSite site) {
-		if (site instanceof MessageSend) {
-			if (((MessageSend) site).inferenceKind > 0)
+		if (site instanceof Invocation) {
+			if (((Invocation) site).inferenceKind() > 0)
 				return COMPATIBLE;
 		}
 		return parameterCompatibilityLevel(method, arguments, tiebreakingVarargsMethods);

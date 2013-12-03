@@ -23,7 +23,7 @@ import java.util.Set;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
-import org.eclipse.jdt.internal.compiler.ast.MessageSend;
+import org.eclipse.jdt.internal.compiler.ast.Invocation;
 
 /**
  * Main class for new type inference as per JLS8 sect 18.
@@ -584,16 +584,19 @@ public class InferenceContext18 {
 		int len = this.innerPolies.size();
 		for (int i = 0; i < len; i++) {
 			Expression inner = (Expression) this.innerPolies.get(i);
-			if (inner instanceof MessageSend) {
-				MessageSend innerMessage = (MessageSend) inner;
-				MethodBinding original = innerMessage.binding.original();
+			if (inner instanceof Invocation) {
+				Invocation innerMessage = (Invocation) inner;
+				MethodBinding original = innerMessage.binding().original();
 				TypeBinding[] solutions = getSolutions(original.typeVariables(), innerMessage, bounds);
 				if (solutions == null) continue; // play safe, but shouldn't happen in a resolved context
-				innerMessage.binding = this.environment.createParameterizedGenericMethod(original, solutions);
-				innerMessage.resolvedType = innerMessage.binding.returnType;
-				for (int j = 0; j < this.invocationArguments.length; j++) {
-					if (inner == this.invocationArguments[j])
-						arguments[j] = innerMessage.binding.returnType;
+				TypeBinding returnType = innerMessage.updateBindings(this.environment.createParameterizedGenericMethod(original, solutions));
+				if (returnType != TypeBinding.VOID) {
+					for (int j = 0; j < this.invocationArguments.length; j++) {
+						if (inner == this.invocationArguments[j]) {
+							arguments[j] = returnType;
+							break;
+						}
+					}
 				}
 			}
 		}

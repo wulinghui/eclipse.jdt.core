@@ -63,7 +63,6 @@ import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ImplicitNullAnnotationVerifier;
 import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
-import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MissingTypeBinding;
@@ -83,7 +82,7 @@ import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
 import org.eclipse.jdt.internal.compiler.lookup.TypeVariableBinding;
 import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
 
-public class MessageSend extends Expression implements InvocationSite {
+public class MessageSend extends Expression implements Invocation {
 
 	public Expression receiver;
 	public char[] selector;
@@ -99,15 +98,7 @@ public class MessageSend extends Expression implements InvocationSite {
 	public TypeReference[] typeArguments;
 	public TypeBinding[] genericTypeArguments;
 	private ExpressionContext expressionContext = VANILLA_CONTEXT;
-	/**
-	 * Here inference signals if it has established applicability.
-	 * If so, it sets the corresponding checkKind (see {@link InferenceContext18#CHECK_STRICT} etc.).
-	 * When later the message send is touched again as an element in an outer expression,
-	 * we re-use this bit to perform only one kind of check.
-	 * TODO(stephan): check if this is sanctioned by the spec.
-	 * TODO(stephan): cf. {@link Expression#tagAsEllipsisArgument} (not implemented in this class)
-	 */
-	public int inferenceKind = 0;
+	private int inferenceKind = 0;
 
 public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo) {
 	boolean nonStatic = !this.binding.isStatic();
@@ -939,5 +930,30 @@ public boolean statementExpression() {
 }
 public boolean receiverIsImplicitThis() {
 	return this.receiver.isImplicitThis();
+}
+// -- interface Invocation: --
+public MethodBinding binding() {
+	return this.binding;
+}
+public Expression[] arguments() {
+	return this.arguments;
+}
+/**
+ * Here inference signals if it has established applicability.
+ * If so, it sets the corresponding checkKind (see {@link InferenceContext18#CHECK_STRICT} etc.).
+ * When later the message send is touched again as an element in an outer expression,
+ * we re-use this bit to perform only one kind of check.
+ * TODO(stephan): check if this is sanctioned by the spec.
+ * TODO(stephan): cf. {@link Expression#tagAsEllipsisArgument} (not implemented in this class)
+ */
+public void setInferenceKind(int checkKind) {
+	this.inferenceKind = checkKind;
+}
+public int inferenceKind() {
+	return this.inferenceKind;
+}
+public TypeBinding updateBindings(MethodBinding updatedBinding) {
+	this.binding = updatedBinding;
+	return this.resolvedType = updatedBinding.returnType;
 }
 }

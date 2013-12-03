@@ -19,7 +19,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
-import org.eclipse.jdt.internal.compiler.ast.MessageSend;
+import org.eclipse.jdt.internal.compiler.ast.Invocation;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 
@@ -96,8 +96,8 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 								problemMethod.returnType = invocationSite.expectedType();
 								return problemMethod;
 							}
-							if (invocationSite instanceof MessageSend) // FIXME AllocationExpression
-								((MessageSend)invocationSite).inferenceKind = checkKind;
+							if (invocationSite instanceof Invocation)
+								((Invocation)invocationSite).setInferenceKind(checkKind);
 							infCtx18.rebindInnerPolies(result, arguments);
 							break computeSubstitutes;
 						}

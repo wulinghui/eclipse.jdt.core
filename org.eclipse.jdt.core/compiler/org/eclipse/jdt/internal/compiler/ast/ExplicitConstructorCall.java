@@ -33,7 +33,6 @@ import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
-import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.LocalTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodScope;
@@ -48,7 +47,7 @@ import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
 import org.eclipse.jdt.internal.compiler.lookup.VariableBinding;
 
-public class ExplicitConstructorCall extends Statement implements InvocationSite, ExpressionContext {
+public class ExplicitConstructorCall extends Statement implements Invocation, ExpressionContext {
 
 	public Expression[] arguments;
 	public Expression qualification;
@@ -67,6 +66,7 @@ public class ExplicitConstructorCall extends Statement implements InvocationSite
 	// TODO Remove once DOMParser is activated
 	public int typeArgumentsSourceStart;
 	private InferenceContext18 inferenceContext;
+	private int inferenceKind;
 
 	public ExplicitConstructorCall(int accessMode) {
 		this.accessMode = accessMode;
@@ -489,5 +489,23 @@ public class ExplicitConstructorCall extends Statement implements InvocationSite
 			}
 		}
 		visitor.endVisit(this, scope);
+	}
+
+	// -- interface Invocation: --
+	public MethodBinding binding() {
+		return this.binding;
+	}
+	public Expression[] arguments() {
+		return this.arguments;
+	}
+	public int inferenceKind() {
+		return this.inferenceKind;
+	}
+	public void setInferenceKind(int checkKind) {
+		this.inferenceKind = checkKind;
+	}
+	public TypeBinding updateBindings(MethodBinding updatedBinding) {
+		this.binding = updatedBinding;
+		return TypeBinding.VOID; // not an expression
 	}
 }

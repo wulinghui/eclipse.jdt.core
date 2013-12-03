@@ -45,7 +45,7 @@ import org.eclipse.jdt.internal.compiler.lookup.*;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
 
-public class AllocationExpression extends Expression implements InvocationSite {
+public class AllocationExpression extends Expression implements Invocation {
 
 	public TypeReference type;
 	public Expression[] arguments;
@@ -59,6 +59,7 @@ public class AllocationExpression extends Expression implements InvocationSite {
 
 	public FakedTrackingVariable closeTracker;	// when allocation a Closeable store a pre-liminary tracking variable here
 	private ExpressionContext expressionContext = VANILLA_CONTEXT;
+	private int inferenceKind;
 
 public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo) {
 	// check captured variables are initialized in current context (26134)
@@ -603,6 +604,24 @@ public TypeBinding expectedType() {
 
 public boolean statementExpression() {
 	return true;
+}
+
+//-- interface Invocation: --
+public MethodBinding binding() {
+	return this.binding;
+}
+public Expression[] arguments() {
+	return this.arguments;
+}
+public int inferenceKind() {
+	return this.inferenceKind;
+}
+public void setInferenceKind(int checkKind) {
+	this.inferenceKind = checkKind;
+}
+public TypeBinding updateBindings(MethodBinding updatedBinding) {
+	this.binding = updatedBinding;
+	return this.resolvedType = updatedBinding.declaringClass;
 }
 
 }

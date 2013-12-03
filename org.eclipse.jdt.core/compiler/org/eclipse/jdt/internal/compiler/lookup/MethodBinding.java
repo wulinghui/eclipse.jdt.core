@@ -172,7 +172,7 @@ public final boolean areTypeVariableErasuresEqual(MethodBinding method) {
 			return false;
 	return true;
 }
-MethodBinding asRawMethod(LookupEnvironment env) {
+public MethodBinding asRawMethod(LookupEnvironment env) {
 	if (this.typeVariables == Binding.NO_TYPE_VARIABLES) return this;
 
 	// substitute type arguments with raw types

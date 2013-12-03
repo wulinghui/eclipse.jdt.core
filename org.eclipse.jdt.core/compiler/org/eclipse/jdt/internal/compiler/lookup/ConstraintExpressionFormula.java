@@ -25,8 +25,8 @@ import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.ast.Argument;
 import org.eclipse.jdt.internal.compiler.ast.ConditionalExpression;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
+import org.eclipse.jdt.internal.compiler.ast.Invocation;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
-import org.eclipse.jdt.internal.compiler.ast.MessageSend;
 import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
 import org.eclipse.jdt.internal.compiler.ast.ReturnStatement;
 import org.eclipse.jdt.internal.compiler.ast.Statement;
@@ -65,22 +65,22 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 		} else {
 			// shapes of poly expressions (18.2.1)
 			// - parenthesized expression : these are transparent in our AST
-			if (this.left instanceof MessageSend) {
-				MessageSend messageSend = (MessageSend) this.left;
+			if (this.left instanceof Invocation) {
+				Invocation invocation = (Invocation) this.left;
 				// ignore previous (inner) inference result and do a fresh start:
-				MethodBinding method = messageSend.binding.original();
-				InvocationRecord prevInvocation = inferenceContext.enterPolyInvocation(messageSend, messageSend.arguments);
+				MethodBinding method = invocation.binding().original();
+				InvocationRecord prevInvocation = inferenceContext.enterPolyInvocation(invocation, invocation.arguments());
 
 				// Invocation Applicability Inference: 18.5.1
 				try {
-					Expression[] arguments = messageSend.arguments;
+					Expression[] arguments = invocation.arguments();
 					TypeBinding[] argumentTypes = arguments == null ? Binding.NO_PARAMETERS : new TypeBinding[arguments.length];
 					for (int i = 0; i < argumentTypes.length; i++)
 						argumentTypes[i] = arguments[i].resolvedType;
-					int checkType = (messageSend.inferenceKind != 0) ? messageSend.inferenceKind : InferenceContext18.CHECK_LOOSE;
+					int checkType = (invocation.inferenceKind() != 0) ? invocation.inferenceKind() : InferenceContext18.CHECK_LOOSE;
 					inferInvocationApplicability(inferenceContext, method, argumentTypes, checkType); // FIXME 3 phases?
 					
-					if (!inferPolyInvocationType(inferenceContext, messageSend, this.right, method))
+					if (!inferPolyInvocationType(inferenceContext, invocation, this.right, method))
 						return FALSE;
 					return null; // already incorporated
 				} finally {
