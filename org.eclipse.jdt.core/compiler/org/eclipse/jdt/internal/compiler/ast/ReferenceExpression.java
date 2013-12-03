@@ -532,7 +532,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 		return !CharOperation.equals(this.selector,  ConstantPool.Init);
 	}
 	
-	public boolean isPertinentToApplicability(TypeBinding targetType) {
+	public boolean isPertinentToApplicability(TypeBinding targetType, MethodBinding candidateMethod) {
 		if (targetType == null)
 			return true;
 
