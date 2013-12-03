@@ -39673,17 +39673,17 @@ public void test1148() {
 			"	        ^^^^^^^^\n" + 
 			"The method compound(Iterable<? extends Comparator<? super U>>) in the type X is not applicable for the arguments (List<Comparator<?>>)\n" + 
 			"----------\n" + 
-			"5. ERROR in X.java (at line 10)\n" + 
+			"4. ERROR in X.java (at line 10)\n" + 
 			"	compound(c);\n" + 
 			"	^^^^^^^^\n" + 
 			"The method compound(Iterable<? extends Comparator<? super U>>) in the type X is not applicable for the arguments (List<Comparator<?>>)\n" + 
 			"----------\n" + 
-			"6. ERROR in X.java (at line 11)\n" + 
+			"5. ERROR in X.java (at line 11)\n" + 
 			"	return compound(c);\n" + 
 			"	       ^^^^^^^^\n" + 
 			"The method compound(Iterable<? extends Comparator<? super U>>) in the type X is not applicable for the arguments (List<Comparator<?>>)\n" + 
 			"----------\n" + 
-			"7. WARNING in X.java (at line 16)\n" + 
+			"6. WARNING in X.java (at line 16)\n" + 
 			"	public static <E> List<E> asList(E a, E b, E... rest) {\n" + 
 			"	                                                ^^^^\n" + 
 			"Type safety: Potential heap pollution via varargs parameter rest\n" + 
