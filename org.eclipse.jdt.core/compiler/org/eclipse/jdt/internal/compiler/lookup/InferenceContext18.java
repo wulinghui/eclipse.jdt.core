@@ -40,7 +40,6 @@ public class InferenceContext18 {
 	int variableCount = 0;
 
 	List/*<InvocationSite>*/ innerPolies = new ArrayList();
-	TypeBinding targetType;
 
 	Scope scope;
 	LookupEnvironment environment;
@@ -201,8 +200,7 @@ public class InferenceContext18 {
 			throws InferenceFailureException 
 	{
 		BoundSet previous = this.currentBounds;
-		if (b1 != null)
-			this.currentBounds = b1;
+		this.currentBounds = b1;
 		try {
 			// bullets 1&2: definitions only.
 			if (expectedType != null
@@ -280,6 +278,32 @@ public class InferenceContext18 {
 			this.currentBounds = previous;
 		}
 	}
+
+	/**
+	 * Simplified API to perform Invocation Type Inference (JLS 18.5.2)
+	 * and (if successful) return the solution.
+	 * @param invocation invocation being inferred
+	 * @param targetType target type for this invocation
+	 * @return a method binding with updated type parameters, or null if no solution was found
+	 */
+	public MethodBinding getInvocationTypeInferenceSolution(Invocation invocation, TypeBinding targetType) {
+		// start over from a previous candidate but discard its type variable instantiations
+		// TODO: should we retain any instantiations of type variables not owned by the method? 
+		MethodBinding method = invocation.binding().original();
+		BoundSet result = null;
+		try {
+			result = inferInvocationType(this.currentBounds, targetType, invocation, method, invocation.inferenceKind());
+		} catch (InferenceFailureException e) {
+			return null;
+		}
+		if (result != null) {
+			TypeBinding[] solutions = getSolutions(method.typeVariables(), invocation, result);
+			if (solutions != null)
+				return this.environment.createParameterizedGenericMethod(method, solutions);
+		}
+		return null;
+	}
+
 	private Object pickFromCycle(Set c) {
 		missingImplementation("Breaking a dependency cycle NYI");
 		return null; // never

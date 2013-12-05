@@ -42,11 +42,9 @@ import org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
-import org.eclipse.jdt.internal.compiler.lookup.BoundSet;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
-import org.eclipse.jdt.internal.compiler.lookup.InferenceFailureException;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
@@ -658,21 +656,11 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 					Invocation invocation = (Invocation) argument;
 					InferenceContext18 infCtx18 = invocation.inferenceContext();
 					if (infCtx18 != null) {
-						try {
-							MethodBinding method = invocation.binding().original();
-							BoundSet result = infCtx18.inferInvocationType(null, parameterType, invocation, method, invocation.inferenceKind());
-							if (result != null) {
-								TypeBinding[] solutions = infCtx18.getSolutions(method.typeVariables(), invocation, result);
-								if (solutions != null) {
-									MethodBinding updatedMethod = scope.environment().createParameterizedGenericMethod(method, solutions);
-									invocation.updateBindings(updatedMethod);
-									argumentTypes[i] = updatedMethod.returnType;
-									hasUpdatedInner = true;
-								}
-							}
-						} catch (InferenceFailureException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
+						MethodBinding updatedMethod = infCtx18.getInvocationTypeInferenceSolution(invocation, parameterType);
+						if (updatedMethod != null) {
+							invocation.updateBindings(updatedMethod);
+							argumentTypes[i] = updatedMethod.returnType;
+							hasUpdatedInner = true;
 						}
 					}
 				}

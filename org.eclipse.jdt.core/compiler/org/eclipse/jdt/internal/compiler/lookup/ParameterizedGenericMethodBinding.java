@@ -66,7 +66,6 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 			if (scope.compilerOptions().sourceLevel >= ClassFileConstants.JDK1_8)
 				infCtx18 = invocationSite.inferenceContext(scope);
 			if (infCtx18 != null) {
-				infCtx18.targetType = invocationSite.expectedType();
 				int checkKind = InferenceContext18.CHECK_LOOSE; // FIXME(stephan) do inference in the required three phases.
 				// 18.5.1 (Applicability):
 				infCtx18.inferInvocationApplicability(originalMethod, arguments, checkKind);
