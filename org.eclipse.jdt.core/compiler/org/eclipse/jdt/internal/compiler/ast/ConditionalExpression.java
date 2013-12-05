@@ -658,7 +658,22 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		if (this.expressionContext != ASSIGNMENT_CONTEXT && this.expressionContext != INVOCATION_CONTEXT)
 			return false;
 		
-		return this.isPolyExpression;
+		if (this.isPolyExpression) // TODO(stephan): is this still needed?
+			return true;
+
+		// ... unless both operands produce primitives (or boxed primitives):
+		TypeBinding opType = this.valueIfTrue.resolvedType;
+		if (opType != null) {
+			if (opType.isBaseType() || (opType.id >= TypeIds.T_JavaLangByte && opType.id <= TypeIds.T_JavaLangBoolean))
+				return false;
+		}
+		opType = this.valueIfFalse.resolvedType;
+		if (opType != null) {
+			if (opType.isBaseType() || (opType.id >= TypeIds.T_JavaLangByte && opType.id <= TypeIds.T_JavaLangBoolean))
+				return false;
+		}
+
+		return true;
 	}
 	
 	public boolean isCompatibleWith(TypeBinding left, Scope scope) {

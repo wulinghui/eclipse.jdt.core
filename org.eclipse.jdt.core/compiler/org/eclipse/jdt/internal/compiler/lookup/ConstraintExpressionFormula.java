@@ -87,7 +87,11 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 					inferenceContext.leavePolyInvocation(prevInvocation);
 				}
 			} else if (this.left instanceof ConditionalExpression) {
-				InferenceContext18.missingImplementation("NYI");
+				ConditionalExpression conditional = (ConditionalExpression) this.left;
+				return new ConstraintFormula[] {
+					new ConstraintExpressionFormula(conditional.valueIfTrue, this.right, this.relation),
+					new ConstraintExpressionFormula(conditional.valueIfFalse, this.right, this.relation)
+				};
 			} else if (this.left instanceof LambdaExpression) {
 				LambdaExpression lambda = (LambdaExpression) this.left;
 				Scope scope = inferenceContext.scope;

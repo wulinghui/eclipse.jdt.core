@@ -43,7 +43,7 @@ public class ConstraintExceptionFormula extends ConstraintFormula {
 	}
 	
 	public Object reduce(InferenceContext18 inferenceContext) {
-		// JSL 18.2.5
+		// JLS 18.2.5
 		if (this.left instanceof LambdaExpression || this.left instanceof ReferenceExpression) {
 			Scope scope = inferenceContext.scope;
 			if (!this.right.isFunctionalInterface(scope))
@@ -100,8 +100,13 @@ public class ConstraintExceptionFormula extends ConstraintFormula {
 			}
 		} else if (this.left.isPolyExpression()) {
 			// parenthesized: transparent in our AST
+
 			if (this.left instanceof ConditionalExpression) {
-				InferenceContext18.missingImplementation("NYI");				
+				ConditionalExpression conditional = (ConditionalExpression) this.left;
+				return new ConstraintFormula[] {
+						new ConstraintExceptionFormula(conditional.valueIfTrue, this.right),
+						new ConstraintExceptionFormula(conditional.valueIfFalse, this.right)
+				};
 			}
 		}
 		return TRUE;

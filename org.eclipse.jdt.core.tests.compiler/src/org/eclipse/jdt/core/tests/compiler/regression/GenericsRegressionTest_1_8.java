@@ -19,7 +19,7 @@ import junit.framework.Test;
 public class GenericsRegressionTest_1_8 extends AbstractRegressionTest {
 
 static {
-//	TESTS_NAMES = new String[] { "test0056c" };
+//	TESTS_NAMES = new String[] { "testConditionalExpression2" };
 //	TESTS_NUMBERS = new int[] { 40, 41, 43, 45, 63, 64 };
 //	TESTS_RANGE = new int[] { 11, -1 };
 }
@@ -68,6 +68,49 @@ public void testBug423070() {
 			"        this(works);\n" + 
 			"    }\n" + 
 			"}",
+		});
+}
+
+public void testConditionalExpression1() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"class A {}\n" +
+			"class B extends A {}\n" +
+			"public class X {\n" +
+			"	<T> T combine(T x, T y) { return x; }\n" +
+			"	A test(A a, B b, boolean flag) {\n" +
+			"		return combine(flag ? a : b, a);\n" +
+			"	}\n" +
+			"}\n"
+		});
+}
+
+public void _testConditionalExpression2() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"class A{/**/}\n" + 
+			"class B extends A {/**/}\n" + 
+			"class C extends B {/**/}\n" + 
+			"class G<T> {/**/}\n" + 
+			"\n" + 
+			"public class X {\n" + 
+			"G<A> ga=null;\n" + 
+			"G<B> gb=null;\n" + 
+			"G<C> gc=null;\n" + 
+			"G<? super A> gsa=null;\n" + 
+			"G<? super B> gsb=null;\n" + 
+			"G<? super C> gsc=null;\n" + 
+			"\n" + 
+			"@SuppressWarnings(\"unused\")\n" + 
+			"    public void test(boolean f) {\n" + 
+			"		G<? super B> l1 = (f) ? gsa : gb;\n" +
+			"		G<? super B> l2 = (f) ? gsb : gb;\n" +
+			"       G<? super C> l3 = (f) ? gsc : gb;\n" +
+			"       G<? super B> l4 = (f) ? gsb : gsb;\n" +
+			"	}\n" +
+			"}"
 		});
 }
 }
