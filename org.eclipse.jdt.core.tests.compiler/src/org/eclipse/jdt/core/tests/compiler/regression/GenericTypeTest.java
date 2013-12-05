@@ -43651,7 +43651,7 @@ public void test1259() {
 			"	                                           ^^^^^^^^^^^^^\n" +
 			"Type mismatch: cannot convert from XList<X.Foo.Sub<? extends Integer>> to XList<X.Foo.Sub<? extends Number>>\n" +
 			"----------\n" +
-			"2. WARNING in X.java (at line 7)\n" +
+			"2. WARNING in X.java (at line 8)\n" +
 			"	static Sub<? extends Integer>[] ARRAY = new Sub[] { };\n" +
 			"	                                        ^^^^^^^^^^^^^\n" +
 			"Type safety: The expression of type X.Foo.Sub[] needs unchecked conversion to conform to X.Foo.Sub<? extends Integer>[]\n" +
@@ -43769,7 +43769,7 @@ public void test1263() {
 			"	                            ^^^^^^^^^^^^^\n" +
 			"Type mismatch: cannot convert from XList<X.Foo.Sub<? super Object>> to XList<X.Foo.Sub<?>>\n" +
 			"----------\n" +
-			"2. WARNING in X.java (at line 7)\n" +
+			"2. WARNING in X.java (at line 8)\n" +
 			"	static Sub<? super Object>[] ARRAY = new Sub[] { };\n" +
 			"	                                     ^^^^^^^^^^^^^\n" +
 			"Type safety: The expression of type X.Foo.Sub[] needs unchecked conversion to conform to X.Foo.Sub<? super Object>[]\n" +
