@@ -284,6 +284,9 @@ private static void checkAlternateBinding(BlockScope scope, Expression receiver,
 				// FIXME Auto-generated method stub
 				return null;
 			}
+			public ExpressionContext getExpressionContext() {
+				return ExpressionContext.VANILLA_CONTEXT; // FIXME
+			}
 		};
 		MethodBinding bindingIfNoCast;
 		if (binding.isConstructor()) {

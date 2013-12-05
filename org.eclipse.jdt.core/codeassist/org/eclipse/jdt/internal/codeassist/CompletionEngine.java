@@ -627,6 +627,9 @@ public final class CompletionEngine
 			// FIXME Auto-generated method stub
 			return null;
 		}
+		public ExpressionContext getExpressionContext() {
+			return ExpressionContext.VANILLA_CONTEXT; // FIXME
+		}
 	};
 
 	private int foundTypesCount;

@@ -388,6 +388,8 @@ public class ExplicitConstructorCall extends Statement implements Invocation, Ex
 					}
 					if (argumentType != null && argumentType.kind() == Binding.POLY_TYPE)
 						polyExpressionSeen = true;
+					if (argument instanceof Invocation && ((Invocation)argument).inferenceKind() > 0)
+						polyExpressionSeen = true;
 				}
 				if (argHasError) {
 					if (receiverType == null) {
@@ -425,10 +427,8 @@ public class ExplicitConstructorCall extends Statement implements Invocation, Ex
 				return;
 			}
 			this.inferenceContext = new InferenceContext18(scope, this.arguments, this);
-			this.binding = scope.getConstructor(receiverType, argumentTypes, this);
-			if (polyExpressionSeen)
-				resolvePolyExpressionArguments(scope, this.binding, this.arguments, argumentTypes);
-				
+			this.binding = findConstructorBinding(scope, this, receiverType, this.arguments, argumentTypes, polyExpressionSeen);	
+			
 			if (this.binding.isValidBinding()) {
 				if ((this.binding.tagBits & TagBits.HasMissingType) != 0) {
 					if (!methodScope.enclosingSourceType().isAnonymousType()) {
@@ -507,5 +507,8 @@ public class ExplicitConstructorCall extends Statement implements Invocation, Ex
 	public TypeBinding updateBindings(MethodBinding updatedBinding) {
 		this.binding = updatedBinding;
 		return TypeBinding.VOID; // not an expression
+	}
+	public InferenceContext18 inferenceContext() {
+		return this.inferenceContext;
 	}
 }

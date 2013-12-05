@@ -208,8 +208,9 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 				throws InferenceFailureException 
 	{
 		TypeBinding[] typeArguments = invocationSite.genericTypeArguments();
-		if (method.typeVariables != Binding.NO_TYPE_VARIABLES && typeArguments == null) {
-			if (method.typeVariables != Binding.NO_TYPE_VARIABLES) {
+		boolean isGenericMethod = method.original().typeVariables != Binding.NO_TYPE_VARIABLES;
+		if (isGenericMethod) {
+			if (typeArguments == null) {
 				// invocation type inference (18.5.2):
 				TypeBinding returnType = method.isConstructor() ? method.declaringClass : method.returnType;
 				if (returnType == TypeBinding.VOID)
@@ -242,9 +243,9 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 				ConstraintTypeFormula newConstraint = new ConstraintTypeFormula(inferenceContext.substitute(returnType), targetType, COMPATIBLE);
 				if (!inferenceContext.reduceAndIncorporate(newConstraint))
 					return false;
-			} else {
-				throw new IllegalStateException("Method as PolyExpression must be generic");
 			}
+		} else {
+			throw new IllegalStateException("Method as PolyExpression must be generic");
 		}
 		return true;
 	}

@@ -42,8 +42,11 @@ import org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
+import org.eclipse.jdt.internal.compiler.lookup.BoundSet;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
+import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
+import org.eclipse.jdt.internal.compiler.lookup.InferenceFailureException;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
@@ -625,7 +628,6 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 	}
 
 	public static boolean resolvePolyExpressionArguments(BlockScope scope, MethodBinding methodBinding, Expression [] arguments, TypeBinding[] argumentTypes) {
-		boolean polyExpressionsHaveErrors = false;
 		MethodBinding candidateMethod;
 		if (methodBinding.isValidBinding()) {
 			candidateMethod = methodBinding;
@@ -634,27 +636,49 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 		} else {
 			candidateMethod = null;
 		}
+		boolean hasUpdatedInner = false;
 		if (candidateMethod != null) {
 			boolean variableArity = candidateMethod.isVarargs();
 			final TypeBinding[] parameters = candidateMethod.parameters;
 			final int parametersLength = parameters.length;
 			for (int i = 0, length = arguments == null ? 0 : arguments.length; i < length; i++) {
+				Expression argument = arguments[i];
+				TypeBinding parameterType = i < parametersLength ? parameters[i] : variableArity ? parameters[parametersLength - 1] : null;
 				if (argumentTypes[i] instanceof PolyTypeBinding) {
-					Expression argument = arguments[i];
-					TypeBinding parameterType = i < parametersLength ? parameters[i] : variableArity ? parameters[parametersLength - 1] : null;
 					argument.setExpressionContext(parameterType != null ? ExpressionContext.INVOCATION_CONTEXT: ExpressionContext.ASSIGNMENT_CONTEXT); // force the errors to surface.
 					if (variableArity && i >= parametersLength - 1)
 						argument.tagAsEllipsisArgument();
 					argument.setExpectedType(parameterType);
 					TypeBinding argumentType = argument.resolveType(scope);
-					if (argumentType == null || !argumentType.isValidBinding())
-						polyExpressionsHaveErrors = true;
-					if (argument instanceof LambdaExpression && ((LambdaExpression) argument).hasErrors())
-						polyExpressionsHaveErrors = true;
+//					if (argumentType == null || !argumentType.isValidBinding())
+//						polyExpressionsHaveErrors = true;
+//					if (argument instanceof LambdaExpression && ((LambdaExpression) argument).hasErrors())
+//						polyExpressionsHaveErrors = true;
+				} else if (argument instanceof Invocation) {
+					Invocation invocation = (Invocation) argument;
+					InferenceContext18 infCtx18 = invocation.inferenceContext();
+					if (infCtx18 != null) {
+						try {
+							MethodBinding method = invocation.binding().original();
+							BoundSet result = infCtx18.inferInvocationType(null, parameterType, invocation, method, invocation.inferenceKind());
+							if (result != null) {
+								TypeBinding[] solutions = infCtx18.getSolutions(method.typeVariables(), invocation, result);
+								if (solutions != null) {
+									MethodBinding updatedMethod = scope.environment().createParameterizedGenericMethod(method, solutions);
+									invocation.updateBindings(updatedMethod);
+									argumentTypes[i] = updatedMethod.returnType;
+									hasUpdatedInner = true;
+								}
+							}
+						} catch (InferenceFailureException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					}
 				}
 			}
 		}
-		return polyExpressionsHaveErrors;
+		return hasUpdatedInner;
 	}
 
 	public static void resolveAnnotations(BlockScope scope, Annotation[] sourceAnnotations, Binding recipient) {

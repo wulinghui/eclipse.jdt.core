@@ -33,7 +33,6 @@ public static Test suite() {
 	return buildMinimalComplianceTestSuite(testClass(), F_1_8);
 }
 
-//FAIL EXTRA ERR: outer non-generic invocation cannot yet feed expected type into inner inference
 public void testBug423070() {
 	this.runConformTest(
 		new String[] {

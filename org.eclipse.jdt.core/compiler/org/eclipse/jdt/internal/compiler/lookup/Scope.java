@@ -4118,6 +4118,9 @@ public abstract class Scope {
 				// FIXME Auto-generated method stub
 				return null;
 			}
+			public ExpressionContext getExpressionContext() {
+				return ExpressionContext.VANILLA_CONTEXT; // FIXME
+			}
 		};
 		MethodBinding[] moreSpecific = new MethodBinding[visibleSize];
 		int count = 0;

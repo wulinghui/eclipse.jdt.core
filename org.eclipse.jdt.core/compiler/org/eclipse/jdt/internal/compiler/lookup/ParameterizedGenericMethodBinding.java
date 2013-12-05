@@ -19,6 +19,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import org.eclipse.jdt.internal.compiler.ast.ExpressionContext;
 import org.eclipse.jdt.internal.compiler.ast.Invocation;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
@@ -82,10 +83,16 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 					if (provisionalResult != null /*&& infCtx18.isResolved(provisionalResult)*/) { // FIXME(stephan): second condition breaks BatchCompilerTest.test032
 						// 18.5.2 (Invocation type):
 						TypeBinding expectedType = invocationSite.expectedType();
-						result = infCtx18.inferInvocationType(result, expectedType, invocationSite, originalMethod, checkKind);
-						boolean hasReturnProblem = result == null;
-						if (hasReturnProblem)
-							result = provisionalResult; // we prefer a type error regarding the return type over reporting no match at all
+						boolean hasReturnProblem = false;
+						if (expectedType != null || invocationSite.getExpressionContext() == ExpressionContext.VANILLA_CONTEXT) {
+							result = infCtx18.inferInvocationType(result, expectedType, invocationSite, originalMethod, checkKind);
+							hasReturnProblem = result == null;
+							if (hasReturnProblem)
+								result = provisionalResult; // we prefer a type error regarding the return type over reporting no match at all
+						} else {
+							// we're not yet ready for invocation type inference
+							result = provisionalResult;
+						}
 						TypeBinding[] solutions = infCtx18.getSolutions(typeVariables, invocationSite, result);
 						if (solutions != null) {
 							methodSubstitute = scope.environment().createParameterizedGenericMethod(originalMethod, solutions);
@@ -98,7 +105,7 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 							}
 							if (invocationSite instanceof Invocation)
 								((Invocation)invocationSite).setInferenceKind(checkKind);
-							infCtx18.rebindInnerPolies(result, arguments);
+							infCtx18.rebindInnerPolies(result, arguments); // FIXME if done
 							break computeSubstitutes;
 						}
 					}

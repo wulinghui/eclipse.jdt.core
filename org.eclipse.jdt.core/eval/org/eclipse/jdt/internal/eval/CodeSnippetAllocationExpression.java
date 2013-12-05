@@ -223,9 +223,7 @@ public TypeBinding resolveType(BlockScope scope) {
  	}
 	
 	ReferenceBinding allocatedType = (ReferenceBinding) this.resolvedType;
-	this.binding = scope.getConstructor(allocatedType, argumentTypes, this);
-	if (polyExpressionSeen)
-		resolvePolyExpressionArguments(scope, this.binding, this.arguments, argumentTypes);
+	this.binding = findConstructorBinding(scope, this, allocatedType, this.arguments, argumentTypes, polyExpressionSeen);
 
 	if (!this.binding.isValidBinding()) {	
 		if (this.binding instanceof ProblemMethodBinding

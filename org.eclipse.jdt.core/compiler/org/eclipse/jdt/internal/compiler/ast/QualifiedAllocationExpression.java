@@ -475,9 +475,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 				receiverType = this.type.resolvedType = scope.environment().createParameterizedType(((ParameterizedTypeBinding) receiverType).genericType(), inferredTypes, ((ParameterizedTypeBinding) receiverType).enclosingType());
 			}
 			ReferenceBinding allocationType = (ReferenceBinding) receiverType;
-			this.binding = scope.getConstructor(allocationType, argumentTypes, this);
-			if (polyExpressionSeen)
-				resolvePolyExpressionArguments(scope, this.binding, this.arguments, argumentTypes);
+			this.binding = findConstructorBinding(scope, this, allocationType, this.arguments, argumentTypes, polyExpressionSeen);
 
 			if (this.binding.isValidBinding()) {	
 				if (isMethodUseDeprecated(this.binding, scope, true)) {

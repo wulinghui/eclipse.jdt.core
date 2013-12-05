@@ -257,13 +257,7 @@ public TypeBinding resolveType(BlockScope scope) {
 		return null;
 	}
 
-	this.binding =
-		this.receiver.isImplicitThis()
-			? scope.getImplicitMethod(this.selector, argumentTypes, this)
-			: scope.getMethod(this.actualReceiverType, this.selector, argumentTypes, this);
-	
-	if (polyExpressionSeen)
-		resolvePolyExpressionArguments(scope, this.binding, this.arguments, argumentTypes);
+	findMethodBinding(scope, argumentTypes, polyExpressionSeen);
 		
 	if (!this.binding.isValidBinding()) {
 		if (this.binding instanceof ProblemMethodBinding

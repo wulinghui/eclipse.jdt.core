@@ -319,4 +319,15 @@ public Constant resolveCase(BlockScope scope, TypeBinding testType, SwitchStatem
 public TypeBinding expectedType() {
 	return null;
 }
+public ExpressionContext getExpressionContext() {
+	return ExpressionContext.VANILLA_CONTEXT;
+}
+protected MethodBinding findConstructorBinding(BlockScope scope, InvocationSite site, ReferenceBinding receiverType, Expression[] args, TypeBinding[] argumentTypes, boolean polyExpressionSeen) {
+	MethodBinding ctorBinding = scope.getConstructor(receiverType, argumentTypes, site);
+	if (polyExpressionSeen) {
+		if (resolvePolyExpressionArguments(scope, ctorBinding, args, argumentTypes))
+			return scope.getConstructor(receiverType, argumentTypes, site);
+	}
+	return ctorBinding;
+}
 }

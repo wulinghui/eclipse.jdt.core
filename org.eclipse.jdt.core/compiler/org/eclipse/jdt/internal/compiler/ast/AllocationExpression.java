@@ -60,6 +60,7 @@ public class AllocationExpression extends Expression implements Invocation {
 	public FakedTrackingVariable closeTracker;	// when allocation a Closeable store a pre-liminary tracking variable here
 	private ExpressionContext expressionContext = VANILLA_CONTEXT;
 	private int inferenceKind;
+	private InferenceContext18 inferenceContext;
 
 public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo) {
 	// check captured variables are initialized in current context (26134)
@@ -444,9 +445,7 @@ public TypeBinding resolveType(BlockScope scope) {
  	}
 	
 	ReferenceBinding allocationType = (ReferenceBinding) this.resolvedType;
-	this.binding = scope.getConstructor(allocationType, argumentTypes, this);
-	if (polyExpressionSeen) 
-		resolvePolyExpressionArguments(scope, this.binding, this.arguments, argumentTypes);
+	this.binding = findConstructorBinding(scope, this, allocationType, this.arguments, argumentTypes, polyExpressionSeen);
 	
 	if (!this.binding.isValidBinding()) {
 		if (this.binding.declaringClass == null) {
@@ -630,5 +629,10 @@ public TypeBinding updateBindings(MethodBinding updatedBinding) {
 	this.binding = updatedBinding;
 	return this.resolvedType = updatedBinding.declaringClass;
 }
-
+public ExpressionContext getExpressionContext() {
+	return this.expressionContext;
+}
+public InferenceContext18 inferenceContext() {
+	return this.inferenceContext;
+}
 }

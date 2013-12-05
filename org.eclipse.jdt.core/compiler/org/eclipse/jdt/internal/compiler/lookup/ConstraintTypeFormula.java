@@ -58,7 +58,7 @@ class ConstraintTypeFormula extends ConstraintFormula {
 				if (this.right.leafComponentType().kind() != Binding.PARAMETERIZED_TYPE)
 					break;
 				//$FALL-THROUGH$ array of parameterized is handled below:
-				case Binding.PARAMETERIZED_TYPE:
+			case Binding.PARAMETERIZED_TYPE:
 				{																
 					//															  this.right = G<T1,T2,...> or G<T1,T2,...>[]k
 					TypeBinding gs = this.left.findSuperTypeOriginatingFrom(this.right);	// G<S1,S2,...> or G<S1,S2,...>[]k

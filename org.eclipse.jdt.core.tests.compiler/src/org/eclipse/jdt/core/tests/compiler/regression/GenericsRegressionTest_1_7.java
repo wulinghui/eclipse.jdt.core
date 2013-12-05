@@ -2538,12 +2538,26 @@ public void test0061() {
 			"	 }\n" +
 			"}\n"
 		},
-		"----------\n" + 
-		"1. ERROR in X.java (at line 5)\n" + 
-		"	FileSystems.<String, Object>newFileSystem(uri, Collections.emptyMap());\n" + 
-		"	                            ^^^^^^^^^^^^^\n" + 
-		"The method newFileSystem(URI, Map<String,?>) in the type FileSystems is not applicable for the arguments (URI, Map<Object,Object>)\n" + 
-		"----------\n");
+		(this.complianceLevel < ClassFileConstants.JDK1_8 ?
+			"----------\n" + 
+			"1. ERROR in X.java (at line 5)\n" + 
+			"	FileSystems.<String, Object>newFileSystem(uri, Collections.emptyMap());\n" + 
+			"	                            ^^^^^^^^^^^^^\n" + 
+			"The method newFileSystem(URI, Map<String,?>) in the type FileSystems is not applicable for the arguments (URI, Map<Object,Object>)\n" + 
+			"----------\n"
+		:
+			"----------\n" + 
+			"1. ERROR in X.java (at line 5)\n" + 
+			"	FileSystems.<String, Object>newFileSystem(uri, Collections.emptyMap());\n" + 
+			"	^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+			"Unhandled exception type IOException\n" + 
+			"----------\n" + 
+			"2. WARNING in X.java (at line 5)\n" + 
+			"	FileSystems.<String, Object>newFileSystem(uri, Collections.emptyMap());\n" + 
+			"	             ^^^^^^^^^^^^^^\n" + 
+			"Unused type arguments for the non generic method newFileSystem(URI, Map<String,?>) of type FileSystems; it should not be parameterized with arguments <String, Object>\n" + 
+			"----------\n"
+		));
 }
 public static Class testClass() {
 	return GenericsRegressionTest_1_7.class;

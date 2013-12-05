@@ -201,7 +201,8 @@ public class InferenceContext18 {
 			throws InferenceFailureException 
 	{
 		BoundSet previous = this.currentBounds;
-		this.currentBounds = b1;
+		if (b1 != null)
+			this.currentBounds = b1;
 		try {
 			// bullets 1&2: definitions only.
 			if (expectedType != null

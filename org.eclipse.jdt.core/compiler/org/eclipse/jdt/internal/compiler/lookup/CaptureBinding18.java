@@ -55,6 +55,12 @@ public class CaptureBinding18 extends CaptureBinding {
 		return new CaptureBinding18(this.sourceType, this.sourceName, this.captureID, this.environment);
 	}
 
+	public MethodBinding[] getMethods(char[] selector) {
+		if (this.upperBounds.length == 1 && this.upperBounds[0] instanceof ReferenceBinding)
+			return ((ReferenceBinding)this.upperBounds[0]).getMethods(selector);
+		return super.getMethods(selector);
+	}
+
 	/**
 	 * @see TypeBinding#isEquivalentTo(TypeBinding)
 	 */
@@ -87,9 +93,12 @@ public class CaptureBinding18 extends CaptureBinding {
 	}
 
 	public boolean isCompatibleWith(TypeBinding otherType, Scope captureScope) {
-		if (this.firstBound != null
-				&& this.firstBound.isCompatibleWith(otherType, captureScope))
-			return true;
+		if (this.upperBounds != null) {
+			for (int i = 0; i < this.upperBounds.length; i++) {
+				if (this.upperBounds[i].isCompatibleWith(otherType, captureScope))
+					return true;
+			}
+		}
 		return super.isCompatibleWith(otherType, captureScope);
 	}
 

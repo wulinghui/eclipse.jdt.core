@@ -17,6 +17,7 @@
 package org.eclipse.jdt.internal.compiler.lookup;
 
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
+import org.eclipse.jdt.internal.compiler.ast.ExpressionContext;
 
 public interface InvocationSite {
 
@@ -35,6 +36,7 @@ public interface InvocationSite {
 	TypeBinding expectedType();
 	boolean receiverIsImplicitThis();
 	InferenceContext18 inferenceContext(Scope scope);
+	ExpressionContext getExpressionContext();
 	
 	static class EmptyWithAstNode implements InvocationSite {
 		ASTNode node;
@@ -52,5 +54,6 @@ public interface InvocationSite {
 		public TypeBinding expectedType() { return null; }
 		public boolean receiverIsImplicitThis() { return false; }
 		public InferenceContext18 inferenceContext(Scope scope) { return null; }
+		public ExpressionContext getExpressionContext() { return ExpressionContext.VANILLA_CONTEXT; }
 	}
 }

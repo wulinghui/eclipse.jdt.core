@@ -14,6 +14,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
+import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
@@ -23,6 +24,8 @@ public interface Invocation extends InvocationSite {
 	Expression[] arguments();
 
 	MethodBinding binding();
+
+	InferenceContext18 inferenceContext();
 
 	int inferenceKind();
 	void setInferenceKind(int checkKind);

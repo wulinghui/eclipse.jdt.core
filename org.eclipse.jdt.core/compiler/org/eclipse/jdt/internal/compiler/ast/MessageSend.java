@@ -99,6 +99,7 @@ public class MessageSend extends Expression implements Invocation {
 	public TypeBinding[] genericTypeArguments;
 	private ExpressionContext expressionContext = VANILLA_CONTEXT;
 	private int inferenceKind = 0;
+	private InferenceContext18 inferenceContext;
 
 public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo) {
 	boolean nonStatic = !this.binding.isStatic();
@@ -453,7 +454,7 @@ public TypeBinding[] genericTypeArguments() {
 }
 
 public InferenceContext18 inferenceContext(Scope scope) {
-	return new InferenceContext18(scope, this.arguments, this);
+	return this.inferenceContext = new InferenceContext18(scope, this.arguments, this);
 }
 
 public boolean isSuperAccess() {
@@ -635,6 +636,8 @@ public TypeBinding resolveType(BlockScope scope) {
 			}
 			if (argumentType != null && argumentType.kind() == Binding.POLY_TYPE)
 				polyExpressionSeen = true;
+			if (argument instanceof Invocation && ((Invocation)argument).inferenceKind() > 0)
+				polyExpressionSeen = true;
 		}
 		if (argHasError) {
 			if (this.actualReceiverType instanceof ReferenceBinding) {
@@ -675,12 +678,7 @@ public TypeBinding resolveType(BlockScope scope) {
 		return null;
 	}
 
-	this.binding = this.receiver.isImplicitThis()
-			? scope.getImplicitMethod(this.selector, argumentTypes, this)
-			: scope.getMethod(this.actualReceiverType, this.selector, argumentTypes, this);
-	
-	if (polyExpressionSeen)
-		resolvePolyExpressionArguments(scope, this.binding, this.arguments, argumentTypes);
+	findMethodBinding(scope, argumentTypes, polyExpressionSeen);
 
 	if (!this.binding.isValidBinding()) {
 		if (this.binding.declaringClass == null) {
@@ -839,6 +837,18 @@ public TypeBinding resolveType(BlockScope scope) {
 				? this.resolvedType
 				: null;
 }
+protected void findMethodBinding(BlockScope scope, TypeBinding[] argumentTypes, boolean polyExpressionSeen) {
+	this.binding = this.receiver.isImplicitThis()
+			? scope.getImplicitMethod(this.selector, argumentTypes, this)
+			: scope.getMethod(this.actualReceiverType, this.selector, argumentTypes, this);
+	
+	if (polyExpressionSeen)
+		if (resolvePolyExpressionArguments(scope, this.binding, this.arguments, argumentTypes)) {
+			this.binding = this.receiver.isImplicitThis()
+					? scope.getImplicitMethod(this.selector, argumentTypes, this)
+					: scope.getMethod(this.actualReceiverType, this.selector, argumentTypes, this);
+		}
+}
 
 public void setActualReceiverType(ReferenceBinding receiverType) {
 	if (receiverType == null) return; // error scenario only
@@ -955,5 +965,11 @@ public int inferenceKind() {
 public TypeBinding updateBindings(MethodBinding updatedBinding) {
 	this.binding = updatedBinding;
 	return this.resolvedType = updatedBinding.returnType;
+}
+public ExpressionContext getExpressionContext() {
+	return this.expressionContext;
+}
+public InferenceContext18 inferenceContext() {
+	return this.inferenceContext;
 }
 }
