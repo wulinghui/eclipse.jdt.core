@@ -546,7 +546,8 @@ public class InferenceContext18 {
 			TypeBinding[] glbs = Scope.greaterLowerBound(substitutedUpperBounds, this.scope, this.environment);
 			if (glbs == null)
 				return false;
-			typeVariable.setUpperBounds(glbs, this.object);
+			if (!typeVariable.setUpperBounds(glbs, this.object))
+				return false;
 		}
 		return true;
 	}
