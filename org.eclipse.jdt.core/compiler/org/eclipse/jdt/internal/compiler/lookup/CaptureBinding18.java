@@ -131,7 +131,8 @@ public class CaptureBinding18 extends CaptureBinding {
 				TypeBinding candidate = this.upperBounds[i].findSuperTypeOriginatingFrom(otherType);
 				if (candidate != null)
 					return candidate;
-				// TODO: do we need explicit handling of cases where several upperBounds produce a non-null candidate?
+				// FIXME: we need explicit handling of cases where several upperBounds produce a non-null candidate!
+				// see intermittent regression in GenericsRegressionTest.testBug415734() toggled by order in upperBounds!!
 			}
 		}
 		return super.findSuperTypeOriginatingFrom(otherType);
@@ -197,7 +198,7 @@ public class CaptureBinding18 extends CaptureBinding {
 		}
 	}
 
-	boolean isProperType(boolean admitCapture18) {
+	public boolean isProperType(boolean admitCapture18) {
 		return admitCapture18;
 	}
 	

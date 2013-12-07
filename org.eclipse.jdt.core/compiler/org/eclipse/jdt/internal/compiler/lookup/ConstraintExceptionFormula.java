@@ -68,14 +68,16 @@ public class ConstraintExceptionFormula extends ConstraintFormula {
 // TODO find exceptions thrown by the lambda's body
 //				((LambdaExpression)this.left).
 //				InferenceContext18.missingImplementation("NYI");
-				return TRUE;
 			} else {
 				ReferenceExpression referenceExpression = (ReferenceExpression)this.left;
 				// TODO: can we avoid this resolve() (which in turn may invoke inference)?
 				referenceExpression.resolveTypeExpecting(referenceExpression.enclosingScope, this.right);
 				MethodBinding method = referenceExpression.binding;
-				ePrime = method.thrownExceptions;
+				if (method != null)
+					ePrime = method.thrownExceptions;
 			}
+			if (ePrime == null)
+				return TRUE; // TODO is it a bug if we actually get here?
 			int m = ePrime.length;
 			if (n == 0) {
 				actual: for (int i = 0; i < m; i++) {
