@@ -510,7 +510,10 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
     				}
     			}
     		}
-    		if (!returnType.isCompatibleWith(this.descriptor.returnType, scope) && !isBoxingCompatible(returnType, this.descriptor.returnType, this, scope)) {
+    		if (this.descriptor.returnType.isProperType(true) // otherwise we cannot yet check compatibility
+    				&& !returnType.isCompatibleWith(this.descriptor.returnType, scope)
+    				&& !isBoxingCompatible(returnType, this.descriptor.returnType, this, scope))
+    		{
     			scope.problemReporter().incompatibleReturnType(this, this.binding, this.descriptor.returnType);
     			this.binding = null;
     			this.resolvedType = null;

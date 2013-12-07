@@ -525,7 +525,7 @@ public class WildcardBinding extends ReferenceBinding {
 	}
 
 	boolean inRecursiveFunction = false;
-	boolean isProperType(boolean admitCapture18) {
+	public boolean isProperType(boolean admitCapture18) {
 		if (this.inRecursiveFunction)
 			return true;
 		this.inRecursiveFunction = true;

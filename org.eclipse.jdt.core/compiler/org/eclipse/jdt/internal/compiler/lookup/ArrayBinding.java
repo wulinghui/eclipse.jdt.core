@@ -268,7 +268,7 @@ public boolean isCompatibleWith(TypeBinding otherType, Scope captureScope) {
 	return false;
 }
 
-boolean isProperType(boolean admitCapture18) {
+public boolean isProperType(boolean admitCapture18) {
 	return this.leafComponentType.isProperType(admitCapture18);
 }
 
