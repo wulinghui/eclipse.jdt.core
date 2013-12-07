@@ -4616,7 +4616,9 @@ public abstract class Scope {
 			for (int j = 0; j < classTypeVariablesArity; j++) {
 				returnTypeParameters[j] = (TypeVariableBinding) map.get(classTypeVariables[j]);
 			}
-			staticFactory.returnType = environment.createParameterizedType(allocationType, returnTypeParameters, allocationType.enclosingType());
+			// make sure to use the original enclosing, so we don't loose the outer type information, which we already have
+			// (I saw unbound type variables from enclosing enter type inference, which cannot handle such 'alien' type variables).
+			staticFactory.returnType = environment.createParameterizedType(allocationType, returnTypeParameters, originalEnclosingType);
 			staticFactory.parameters = Scope.substitute(substitution, method.parameters);
 			staticFactory.thrownExceptions = Scope.substitute(substitution, method.thrownExceptions);
 			if (staticFactory.thrownExceptions == null) { 

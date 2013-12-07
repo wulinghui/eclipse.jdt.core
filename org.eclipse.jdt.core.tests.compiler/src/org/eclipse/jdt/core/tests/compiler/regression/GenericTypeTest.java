@@ -30839,7 +30839,6 @@ public void test0938() {
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=129190 - variation
-// Fixed, awaiting confirmation, see http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-December/000442.html
 public void test0939() {
 	this.runNegativeTest(
 		new String[] {
@@ -30860,6 +30859,37 @@ public void test0939() {
 		"    Zork zk;\n" +
 		"  }\n" +
 		"}\n",
+		},
+		"----------\n" +
+		"1. ERROR in ExtendedOuter.java (at line 14)\n" +
+		"	Zork zk;\n" +
+		"	^^^^\n" +
+		"Zork cannot be resolved to a type\n" +
+		"----------\n");
+}
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=129190 - variation
+// force check that I is inferred to E, not Object
+public void test0939b() {
+	this.runNegativeTest(
+		new String[] {
+		"ExtendedOuter.java", //================================
+		"class Outer<O> {\n" +
+		"  class Inner {}\n" +
+		"\n" +
+		"  static <I> I method(Outer<I>.Inner x) { return null; }\n" +
+		"}\n" +
+		"\n" +
+		"public class ExtendedOuter<E extends A> extends Outer<E> {\n" +
+		"  class ExtendedInner extends Inner {\n" +
+		"    {\n" +
+		"      Outer.method(this).bar();\n" +
+		"    }\n" +
+		"  }\n" +
+		"  void foo() {\n" +
+		"    Zork zk;\n" +
+		"  }\n" +
+		"}\n" +
+		"class A { void bar() {} }\n",
 		},
 		"----------\n" +
 		"1. ERROR in ExtendedOuter.java (at line 14)\n" +

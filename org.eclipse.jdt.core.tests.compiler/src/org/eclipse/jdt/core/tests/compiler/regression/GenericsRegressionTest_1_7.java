@@ -239,7 +239,11 @@ public void test001f() {
 		"2. ERROR in X.java (at line 8)\n" + 
 		"	X<String>.X2<String> x = new X<>().new X2<>();\n" + 
 		"	                         ^^^^^^^^^^^^^^^^^^^^\n" + 
-		"Type mismatch: cannot convert from X<Object>.X2<String> to X<String>.X2<String>\n" + 
+		(this.complianceLevel < ClassFileConstants.JDK1_8 ?
+		"Type mismatch: cannot convert from X<Object>.X2<String> to X<String>.X2<String>\n"
+		:
+		"Cannot infer type arguments for X2<>\n"
+		) +
 		"----------\n");
 }
 // fields
@@ -284,7 +288,11 @@ public void test001g() {
 		"1. ERROR in X.java (at line 9)\n" + 
 		"	X<String>.X2<Integer> x = new X<>().new X2<>();\n" + 
 		"	                          ^^^^^^^^^^^^^^^^^^^^\n" + 
-		"Type mismatch: cannot convert from X<Object>.X2<Integer> to X<String>.X2<Integer>\n" + 
+		(this.complianceLevel < ClassFileConstants.JDK1_8 ?
+		"Type mismatch: cannot convert from X<Object>.X2<Integer> to X<String>.X2<Integer>\n"
+		:
+		"Cannot infer type arguments for X2<>\n"
+		) +
 		"----------\n");
 }
 public void test001g_1() {
@@ -333,7 +341,11 @@ public void test001h() {
 		"2. ERROR in X.java (at line 8)\n" + 
 		"	X<String>.X2<String> x = new X<>().new X2<>();\n" + 
 		"	                         ^^^^^^^^^^^^^^^^^^^^\n" + 
-		"Type mismatch: cannot convert from X<Object>.X2<String> to X<String>.X2<String>\n" + 
+		(this.complianceLevel < ClassFileConstants.JDK1_8 ?
+		"Type mismatch: cannot convert from X<Object>.X2<String> to X<String>.X2<String>\n"
+		:
+		"Cannot infer type arguments for X2<>\n"
+		) +
 		"----------\n" + 
 		"3. ERROR in X.java (at line 9)\n" + 
 		"	x.methodx(1);\n" + 
@@ -429,7 +441,11 @@ public void test001i() {
 		"1. ERROR in X.java (at line 10)\n" + 
 		"	X<String> test = new X<>();		X<String>.X2<Integer>.X22<X<String>> x = new X<>().new X2<>().new X22<>();\n" + 
 		"	                           		                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
-		"Type mismatch: cannot convert from X<Object>.X2<Object>.X22<X<String>> to X<String>.X2<Integer>.X22<X<String>>\n" + 
+		(this.complianceLevel < ClassFileConstants.JDK1_8 ?
+		"Type mismatch: cannot convert from X<Object>.X2<Object>.X22<X<String>> to X<String>.X2<Integer>.X22<X<String>>\n" 
+		:
+		"Cannot infer type arguments for X22<>\n"
+		) +
 		"----------\n");
 }
 public void test002() {
@@ -1386,7 +1402,11 @@ public void test0034() {
 		"6. ERROR in X.java (at line 19)\n" + 
 		"	X<Integer>.Y<String> y6 = new X<>().new Y<>(1,\"\");\n" + 
 		"	                          ^^^^^^^^^^^^^^^^^^^^^^^\n" + 
-		"Type mismatch: cannot convert from X<Object>.Y<String> to X<Integer>.Y<String>\n" + 
+		(this.complianceLevel < ClassFileConstants.JDK1_8 ?
+		"Type mismatch: cannot convert from X<Object>.Y<String> to X<Integer>.Y<String>\n"
+		:
+		"Cannot infer type arguments for Y<>\n"
+		) +
 		"----------\n" + 
 		"7. ERROR in X.java (at line 20)\n" + 
 		"	X<Integer>.Y<String> y7 = new X<>().new Y<>(1,1);\n" + 
@@ -1798,7 +1818,11 @@ public void test0044() {
 		"1. ERROR in X.java (at line 7)\n" + 
 		"	X<String>.Y<String> x = new X<>().new Y<>(\"\",\"\");\n" + 
 		"	                        ^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
-		"Type mismatch: cannot convert from X<Object>.Y<String> to X<String>.Y<String>\n" + 
+		(this.complianceLevel < ClassFileConstants.JDK1_8 ?
+		"Type mismatch: cannot convert from X<Object>.Y<String> to X<String>.Y<String>\n"
+		:
+		"Cannot infer type arguments for Y<>\n"
+		) +
 		"----------\n");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=345968

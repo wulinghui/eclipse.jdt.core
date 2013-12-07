@@ -14,6 +14,9 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 
 /**
@@ -207,19 +210,21 @@ class ConstraintTypeFormula extends ConstraintFormula {
 				}
 			case Binding.PARAMETERIZED_TYPE:
 				{
-					ParameterizedTypeBinding ca = (ParameterizedTypeBinding) superCandidate;	// C<A1,A2,...>
-					TypeBinding[] ai = ca.arguments;
-					TypeBinding cb = subCandidate.findSuperTypeOriginatingFrom(superCandidate);	// C<B1,B2,...>
-					if (cb == null) return FALSE;
-					if (cb.isRawType())
-						return InferenceContext18.SIMULATE_BUG_JDK_8026527 ? TRUE : FALSE; // FALSE would conform to the spec 
-					TypeBinding[] bi = ((ParameterizedTypeBinding) cb).arguments;
-					if (ai == null && bi == null)
-						return TRUE;
-					ConstraintFormula[] results = new ConstraintFormula[ai.length];
-					for (int i = 0; i < ai.length; i++)
-						results[i] = new ConstraintTypeFormula(bi[i], ai[i], TYPE_ARGUMENT_CONTAINED);
-					return results;
+					List constraints = new ArrayList();
+					while (superCandidate instanceof ParameterizedTypeBinding && subCandidate != null)  {
+						if (!addConstraintsFromTypeParamters(subCandidate, (ParameterizedTypeBinding) superCandidate, constraints))
+							return FALSE;
+						// travel to enclosing types to check if they have type parameters, too:
+						// (Note: this is not explicit in the spec but has been confirmed on the EG list, see:
+						//  http://mail.openjdk.java.net/pipermail/lambda-spec-experts/2013-December/000449.html ).
+						superCandidate = superCandidate.enclosingType();
+						subCandidate = subCandidate.enclosingType();
+					}
+					switch (constraints.size()) {
+						case 0 : return TRUE;
+						case 1 : return constraints.get(0);
+						default: return constraints.toArray(new ConstraintFormula[constraints.size()]);
+					}
 				}
 			case Binding.ARRAY_TYPE:
 				TypeBinding tPrime = ((ArrayBinding)superCandidate).elementsType();
@@ -273,6 +278,21 @@ class ConstraintTypeFormula extends ConstraintFormula {
 		if (superCandidate.id == TypeIds.T_null)
 			return FALSE;
 		throw new IllegalStateException("Unexpected RHS "+superCandidate); //$NON-NLS-1$
+	}
+
+	boolean addConstraintsFromTypeParamters(TypeBinding subCandidate, ParameterizedTypeBinding ca, List constraints) {
+		TypeBinding[] ai = ca.arguments;								// C<A1,A2,...>
+		if (ai == null)
+			return true; // no arguments here means nothing to check
+		TypeBinding cb = subCandidate.findSuperTypeOriginatingFrom(ca);	// C<B1,B2,...>
+		if (cb == null)
+			return false; // nothing here means we failed 
+		if (cb.isRawType())
+			return InferenceContext18.SIMULATE_BUG_JDK_8026527 ? true : false; // FALSE would conform to the spec 
+		TypeBinding[] bi = ((ParameterizedTypeBinding) cb).arguments;
+		for (int i = 0; i < ai.length; i++)
+			constraints.add(new ConstraintTypeFormula(bi[i], ai[i], TYPE_ARGUMENT_CONTAINED));
+		return true;
 	}
 
 	public void applySubstitution(BoundSet solutionSet, InferenceVariable[] variables) {
