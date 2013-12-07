@@ -312,12 +312,17 @@ public Constant resolveCase(BlockScope scope, TypeBinding testType, SwitchStatem
 	return Constant.NotAConstant;
 }
 /** 
- * Implementation of {@link org.eclipse.jdt.internal.compiler.lookup.InvocationSite#expectedType}
+ * Implementation of {@link org.eclipse.jdt.internal.compiler.lookup.InvocationSite#invocationTargetType}
  * suitable at this level. Subclasses should override as necessary.
- * @see org.eclipse.jdt.internal.compiler.lookup.InvocationSite#expectedType()
+ * @see org.eclipse.jdt.internal.compiler.lookup.InvocationSite#invocationTargetType()
  */
-public TypeBinding expectedType() {
+public TypeBinding invocationTargetType() {
 	return null;
+}
+/** Simpler notion of expected type, suitable for code assist purposes. */
+public TypeBinding expectedType() {
+	// for all but FunctionalExpressions, this is the same as invocationTargetType.
+	return invocationTargetType();
 }
 public ExpressionContext getExpressionContext() {
 	return ExpressionContext.VANILLA_CONTEXT;

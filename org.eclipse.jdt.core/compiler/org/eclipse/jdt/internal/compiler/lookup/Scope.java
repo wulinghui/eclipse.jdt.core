@@ -4112,7 +4112,7 @@ public abstract class Scope {
 			public void setFieldIndex(int depth) { /* ignore */}
 			public int sourceStart() { return invocationSite.sourceStart(); }
 			public int sourceEnd() { return invocationSite.sourceStart(); }
-			public TypeBinding expectedType() { return invocationSite.expectedType(); }
+			public TypeBinding invocationTargetType() { return invocationSite.invocationTargetType(); }
 			public boolean receiverIsImplicitThis() { return invocationSite.receiverIsImplicitThis();}
 			public InferenceContext18 inferenceContext(Scope scope) {
 				// FIXME Auto-generated method stub

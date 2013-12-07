@@ -81,7 +81,7 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 					BoundSet result = infCtx18.currentBounds.copy(); // the result after reduction, without effects of resolve()
 					if (provisionalResult != null /*&& infCtx18.isResolved(provisionalResult)*/) { // FIXME(stephan): second condition breaks BatchCompilerTest.test032
 						// 18.5.2 (Invocation type):
-						TypeBinding expectedType = invocationSite.expectedType();
+						TypeBinding expectedType = invocationSite.invocationTargetType();
 						boolean hasReturnProblem = false;
 						if (expectedType != null || invocationSite.getExpressionContext() == ExpressionContext.VANILLA_CONTEXT) {
 							result = infCtx18.inferInvocationType(result, expectedType, invocationSite, originalMethod, checkKind);
@@ -99,7 +99,7 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 								hasReturnProblem &= !methodSubstitute.returnType.erasure().isCompatibleWith(expectedType);
 							if (hasReturnProblem) {
 								ProblemMethodBinding problemMethod = new ProblemMethodBinding(methodSubstitute, methodSubstitute.selector, parameters, ProblemReasons.ParameterizedMethodExpectedTypeProblem);
-								problemMethod.returnType = invocationSite.expectedType();
+								problemMethod.returnType = invocationSite.invocationTargetType();
 								return problemMethod;
 							}
 							if (invocationSite instanceof Invocation)
@@ -128,7 +128,7 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 						System.arraycopy(inferenceContext.substitutes, 0, uncheckedArguments = new TypeBinding[length], 0, length);
 					}
 					if (methodSubstitute.returnType != TypeBinding.VOID) {
-						TypeBinding expectedType = invocationSite.expectedType();
+						TypeBinding expectedType = invocationSite.invocationTargetType();
 						if (expectedType != null) {
 							// record it was explicit from context, as opposed to assumed by default (see below)
 							inferenceContext.hasExplicitExpectedType = true;

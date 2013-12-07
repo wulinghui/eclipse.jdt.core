@@ -75,10 +75,23 @@ public abstract class FunctionalExpression extends Expression {
 	public void tagAsEllipsisArgument() {
 		this.ellipsisArgument = true;
 	}
+	public boolean isPolyExpression(MethodBinding candidate) {
+		return true;
+	}
 	public boolean isPolyExpression() {
-		return this.expressionContext != VANILLA_CONTEXT;
+		return true; // always as per introduction of part D, JSR 335
 	}
 
+	public TypeBinding invocationTargetType() {
+		if (this.expectedType == null) return null;
+		// when during inference this expression mimics as an invocationSite,
+		// we simulate an *invocation* of this functional expression,
+		// where the expected type of the expression is the return type of the sam:
+		MethodBinding sam = this.expectedType.getSingleAbstractMethod(this.enclosingScope);
+		if (sam != null)
+			return sam.returnType;
+		return null;
+	}
 	public TypeBinding expectedType() {
 		return this.expectedType;
 	}

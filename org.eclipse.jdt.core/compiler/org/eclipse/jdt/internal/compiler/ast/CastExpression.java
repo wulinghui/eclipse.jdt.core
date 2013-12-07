@@ -278,7 +278,7 @@ private static void checkAlternateBinding(BlockScope scope, Expression receiver,
 			public void setFieldIndex(int depth){ /* ignore */}
 			public int sourceStart() { return 0; }
 			public int sourceEnd() { return 0; }
-			public TypeBinding expectedType() { return invocationSite.expectedType(); }
+			public TypeBinding invocationTargetType() { return invocationSite.invocationTargetType(); }
 			public boolean receiverIsImplicitThis() { return invocationSite.receiverIsImplicitThis();}
 			public InferenceContext18 inferenceContext(Scope scope) {
 				// FIXME Auto-generated method stub

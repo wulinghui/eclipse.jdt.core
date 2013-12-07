@@ -33,7 +33,7 @@ public interface InvocationSite {
 	void setFieldIndex(int depth);
 	int sourceEnd();
 	int sourceStart();
-	TypeBinding expectedType();
+	TypeBinding invocationTargetType();
 	boolean receiverIsImplicitThis();
 	InferenceContext18 inferenceContext(Scope scope);
 	ExpressionContext getExpressionContext();
@@ -51,7 +51,7 @@ public interface InvocationSite {
 		public void setFieldIndex(int depth) {/* empty */ }
 		public int sourceEnd() {return this.node.sourceEnd; }
 		public int sourceStart() {return this.node.sourceStart; }
-		public TypeBinding expectedType() { return null; }
+		public TypeBinding invocationTargetType() { return null; }
 		public boolean receiverIsImplicitThis() { return false; }
 		public InferenceContext18 inferenceContext(Scope scope) { return null; }
 		public ExpressionContext getExpressionContext() { return ExpressionContext.VANILLA_CONTEXT; }

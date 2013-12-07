@@ -71,6 +71,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 	MethodBinding syntheticAccessor;	// synthetic accessor for inner-emulation
 	private int depth;
 	private MethodBinding exactMethodBinding; // != null ==> exact method reference.
+	private InferenceContext18 inferenceContext;
 	
 	public ReferenceExpression() {
 		super();
@@ -86,8 +87,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 	}
 	
 	public InferenceContext18 inferenceContext(Scope scope) {
-		// FIXME Auto-generated method stub
-		return null;
+		return this.inferenceContext = new InferenceContext18(scope, null/*no arguments*/, this);
 	}
  
 	public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {

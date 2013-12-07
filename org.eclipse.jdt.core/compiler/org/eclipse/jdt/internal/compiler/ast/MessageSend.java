@@ -915,7 +915,7 @@ public boolean sIsMoreSpecific(TypeBinding s, TypeBinding t) {
 public void setFieldIndex(int depth) {
 	// ignore for here
 }
-public TypeBinding expectedType() {
+public TypeBinding invocationTargetType() {
 	return this.expectedType;
 }
 

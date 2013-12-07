@@ -602,9 +602,9 @@ public boolean isPolyExpression(MethodBinding method) {
 			this.type != null && (this.type.bits & ASTNode.IsDiamond) != 0;
 }
 /**
- * @see org.eclipse.jdt.internal.compiler.lookup.InvocationSite#expectedType()
+ * @see org.eclipse.jdt.internal.compiler.lookup.InvocationSite#invocationTargetType()
  */
-public TypeBinding expectedType() {
+public TypeBinding invocationTargetType() {
 	return this.typeExpected;
 }
 

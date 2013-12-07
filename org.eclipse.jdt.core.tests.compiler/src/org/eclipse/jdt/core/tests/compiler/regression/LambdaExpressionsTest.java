@@ -22,7 +22,7 @@ import junit.framework.Test;
 public class LambdaExpressionsTest extends AbstractRegressionTest {
 
 static {
-//	TESTS_NAMES = new String[] { "test053"};
+//	TESTS_NAMES = new String[] { "testReferenceExpressionInference1"};
 //	TESTS_NUMBERS = new int[] { 50 };
 //	TESTS_RANGE = new int[] { 11, -1 };
 }
@@ -1880,6 +1880,22 @@ public void test421927() {
 			"42");
 }
 
+public void testReferenceExpressionInference1() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"interface I<E> {\n" +
+			"	E foo(E e);\n" +
+			"}\n" +
+			"public class X {\n" +
+			"	<T> T print(I<T> i) { return null; }\n" +
+			"	void test() {\n" +
+			"		String s = print(this::bar);" +
+			"	}\n" +
+			"	<S> S bar(S s) { return s; }\n" +
+			"}\n"
+		});
+}
 
 public static Class testClass() {
 	return LambdaExpressionsTest.class;

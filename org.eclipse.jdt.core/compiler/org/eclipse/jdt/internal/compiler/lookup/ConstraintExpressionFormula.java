@@ -146,7 +146,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 	private Object reduceReferenceExpressionCompatibility(ReferenceExpression reference, InferenceContext18 inferenceContext) {
 		TypeBinding t = this.right;
 		if (t.isProperType(true))
-			InferenceContext18.missingImplementation("Where's the else in 18.2.1.2?");
+			throw new IllegalStateException("Should not reach here with T being a proper type");
 		if (!t.isFunctionalInterface(inferenceContext.scope))
 			return FALSE;
 		MethodBinding functionType = t.getSingleAbstractMethod(inferenceContext.scope);
