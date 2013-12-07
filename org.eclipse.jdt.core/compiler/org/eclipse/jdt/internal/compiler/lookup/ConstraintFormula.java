@@ -28,6 +28,10 @@ abstract class ConstraintFormula extends ReductionResult {
 	static final List EMPTY_VARIABLE_LIST = Collections.EMPTY_LIST;
 	static final ConstraintFormula[] NO_CONSTRAINTS = new ConstraintTypeFormula[0];
 
+	// constants for unicode debug output from ASCII source files:
+	static final char LEFT_ANGLE_BRACKET = '\u27E8';
+	static final char RIGHT_ANGLE_BRACKET = '\u27E9';
+
 	public abstract Object reduce(InferenceContext18 inferenceContext) throws InferenceFailureException;
 
 	/** 5.3: compatibility check which includes the option of boxing/unboxing. */

@@ -45,7 +45,7 @@ public abstract class ReductionResult {
 	protected static String relationToString(int relation) {
 		switch (relation) {
 			case SAME: 			return " = "; //$NON-NLS-1$
-			case COMPATIBLE: 	return " -> "; //$NON-NLS-1$
+			case COMPATIBLE: 	return " \u2192 "; //$NON-NLS-1$
 			case SUBTYPE: 		return " <: "; //$NON-NLS-1$
 			case SUPERTYPE: 	return " :> "; //$NON-NLS-1$
 			case TYPE_ARGUMENT_CONTAINED:

@@ -326,11 +326,11 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 
 	// debugging:
 	public String toString() {
-		StringBuffer buf = new StringBuffer().append('⟨');
+		StringBuffer buf = new StringBuffer().append(LEFT_ANGLE_BRACKET);
 		this.left.printExpression(4, buf);
 		buf.append(relationToString(this.relation));
 		appendTypeName(buf, this.right);
-		buf.append('⟩');
+		buf.append(RIGHT_ANGLE_BRACKET);
 		return buf.toString();
 	}
 }

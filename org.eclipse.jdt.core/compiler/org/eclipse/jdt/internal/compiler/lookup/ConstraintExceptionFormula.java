@@ -162,11 +162,11 @@ public class ConstraintExceptionFormula extends ConstraintFormula {
 	}
 
 	public String toString() {
-		StringBuffer buf = new StringBuffer().append('⟨');
+		StringBuffer buf = new StringBuffer().append(LEFT_ANGLE_BRACKET);
 		this.left.printExpression(4, buf);
-		buf.append(" inThrows "); //$NON-NLS-1$
+		buf.append(" \u2286throws "); //$NON-NLS-1$
 		appendTypeName(buf, this.right);
-		buf.append('⟩');
+		buf.append(RIGHT_ANGLE_BRACKET);
 		return buf.toString();
 	}
 }
