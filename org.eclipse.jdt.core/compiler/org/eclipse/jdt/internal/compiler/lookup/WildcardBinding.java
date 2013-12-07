@@ -16,6 +16,7 @@
  *     							bug 359362 - FUP of bug 349326: Resource leak on non-Closeable resource
  *								bug 358903 - Filter practically unimportant resource leak warnings
  *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -524,7 +525,9 @@ public class WildcardBinding extends ReferenceBinding {
 		return this.superclass != null && this.superInterfaces != null;
 	}
 
+	// to prevent infinite recursion when inspecting recursive generics:
 	boolean inRecursiveFunction = false;
+
 	public boolean isProperType(boolean admitCapture18) {
 		if (this.inRecursiveFunction)
 			return true;

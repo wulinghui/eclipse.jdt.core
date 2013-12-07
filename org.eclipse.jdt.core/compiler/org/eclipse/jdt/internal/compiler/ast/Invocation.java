@@ -19,6 +19,13 @@ import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 
+/**
+ * Abstraction for AST nodes that can trigger 
+ * <ul>
+ * <li>Invocation Applicability Inferences (18.5.1), and</li> 
+ * <li>Invocation Type Inference (18.5.2).</li>
+ * </ul>
+ */
 public interface Invocation extends InvocationSite {
 
 	Expression[] arguments();
@@ -27,9 +34,20 @@ public interface Invocation extends InvocationSite {
 
 	InferenceContext18 inferenceContext();
 
-	int inferenceKind();
+	/** See {@link #inferenceContext()}. */
 	void setInferenceKind(int checkKind);
 
+	/**
+	 * Answer one of {@link InferenceContext18#CHECK_STRICT}, {@link InferenceContext18#CHECK_LOOSE} 
+	 * or {@link InferenceContext18#CHECK_VARARG}, to signal what kind of inference has been used.
+	 */
+	int inferenceKind();
+
+	/**
+	 * Where the AST node may hold references to the results of Invocation Applicability Inference,
+	 * this method allows to update those references to the result of Invocation Type Inference.
+	 * Note that potentially more than just the method binding is updated.
+	 */
 	TypeBinding updateBindings(MethodBinding updatedBinding);
 
 }

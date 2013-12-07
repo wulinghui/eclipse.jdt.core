@@ -13,6 +13,8 @@
  *     IBM Corporation - initial API and implementation
  *     Jesper S Moller - Contributions for
  *								Bug 378674 - "The method can be declared as static" is wrong
+ *     Stephan Herrmann - Contribution for
+ *							Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *******************************************************************************/
 package org.eclipse.jdt.internal.eval;
 
@@ -83,8 +85,7 @@ public class CodeSnippetThisReference extends ThisReference implements Evaluatio
 		return null;
 	}
 	
-	public InferenceContext18 inferenceContext(Scope scope) {
-		// FIXME Auto-generated method stub
+	public InferenceContext18 freshInferenceContext(Scope scope) {
 		return null;
 	}
 

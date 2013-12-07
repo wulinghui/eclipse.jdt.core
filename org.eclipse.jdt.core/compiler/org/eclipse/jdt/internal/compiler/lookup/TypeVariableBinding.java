@@ -9,10 +9,6 @@
  * Community Process (JCP) and is made available for testing and evaluation purposes
  * only. The code is not compatible with any specification of the JCP.
  *
- * This is an implementation of an early-draft specification developed under the Java
- * Community Process (JCP) and is made available for testing and evaluation purposes
- * only. The code is not compatible with any specification of the JCP.
- * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann <stephan@cs.tu-berlin.de> - Contributions for
@@ -24,6 +20,7 @@
  *								bug 392384 - [1.8][compiler][null] Restore nullness info from type annotations in class files
  *								Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
  *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -380,7 +377,6 @@ public class TypeVariableBinding extends ReferenceBinding {
 	 * Compute the initial type bounds for one inference variable as per JLS8 sect 18.1.3.
 	 */
 	TypeBound[] getTypeBounds(InferenceVariable variable, InferenceContext18 context) {
-        // JLS8 sect 18.1.3:
 		int n = boundsCount();
         if (n == 0)
         	return NO_TYPE_BOUNDS;
@@ -461,6 +457,7 @@ public class TypeVariableBinding extends ReferenceBinding {
 		return true;
 	}
 
+	// to prevent infinite recursion when inspecting recursive generics:
 	boolean inRecursiveFunction = false;
 	
 	public boolean isProperType(boolean admitCapture18) {

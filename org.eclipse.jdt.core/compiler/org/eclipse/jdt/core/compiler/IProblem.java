@@ -1799,5 +1799,5 @@ void setSourceStart(int sourceStart);
 	int IllegalDefaultModifierSpecification = MethodRelated + 1058;
 
 	/** @since 3.9 BETA_JAVA8 */
-	int GenericInferenceError = 1100; 	// FIXME: be more specific
+	int GenericInferenceError = 1100; 	// FIXME: This is just a stop-gap measure, be more specific via https://bugs.eclipse.org/404675
 }

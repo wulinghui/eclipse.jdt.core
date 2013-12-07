@@ -19,6 +19,7 @@
  *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
  *								Bug 415291 - [1.8][null] differentiate type incompatibilities due to null annotations
  *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *      Jesper S Moller <jesper@selskabet.org> -  Contributions for
  *								bug 382701 - [1.8][compiler] Implement semantic analysis of Lambda expressions & Reference expression
  *******************************************************************************/
@@ -693,6 +694,12 @@ public boolean isParameterizedWithOwnVariables() {
 public boolean isProperType(boolean admitCapture18) {
 	return true;
 }
+/**
+ * Substitute all occurrences of 'var' within the current type by 'substituteType.
+ * @param var an inference variable (JLS8 18.1.1)
+ * @param substituteType its substitution
+ * @return the current type after a substitution (either 'this' unmodified or a new type with the substitution molded in).
+ */
 TypeBinding substituteInferenceVariable(InferenceVariable var, TypeBinding substituteType) {
 	return this; // default: not substituting anything
 }
@@ -1475,7 +1482,7 @@ public boolean mentionsAny(TypeBinding[] parameters, int idx) {
 	return false;
 }
 
-/** Collect all inference variables mentioned in this type into variables. */
+/** Collect all inference variables mentioned in this type into the set 'variables'. */
 void collectInferenceVariables(Set variables) {
 	// nop
 }

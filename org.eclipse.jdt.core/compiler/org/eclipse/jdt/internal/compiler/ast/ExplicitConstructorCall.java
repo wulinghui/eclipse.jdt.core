@@ -8,7 +8,7 @@
  * This is an implementation of an early-draft specification developed under the Java
  * Community Process (JCP) and is made available for testing and evaluation purposes
  * only. The code is not compatible with any specification of the JCP.
- *
+ * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contributions for
@@ -18,6 +18,7 @@
  *								bug 370639 - [compiler][resource] restore the default for resource leak warnings
  *								bug 388996 - [compiler][resource] Incorrect 'potential resource leak'
  *								bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
  *                          Bug 409245 - [1.8][compiler] Type annotations dropped when call is routed through a synthetic bridge method
  *******************************************************************************/
@@ -191,10 +192,6 @@ public class ExplicitConstructorCall extends Statement implements Invocation, Ex
 	 */
 	public TypeBinding[] genericTypeArguments() {
 		return this.genericTypeArguments;
-	}
-
-	public InferenceContext18 inferenceContext(Scope scope) {
-		return this.inferenceContext;
 	}
 
 	public boolean isImplicitSuper() {
@@ -388,7 +385,7 @@ public class ExplicitConstructorCall extends Statement implements Invocation, Ex
 					}
 					if (argumentType != null && argumentType.kind() == Binding.POLY_TYPE)
 						polyExpressionSeen = true;
-					if (argument instanceof Invocation && ((Invocation)argument).inferenceKind() > 0)
+					else if (argument instanceof Invocation && ((Invocation)argument).inferenceKind() > 0)
 						polyExpressionSeen = true;
 				}
 				if (argHasError) {
@@ -426,9 +423,8 @@ public class ExplicitConstructorCall extends Statement implements Invocation, Ex
 			if (receiverType == null) {
 				return;
 			}
-			this.inferenceContext = new InferenceContext18(scope, this.arguments, this);
-			this.binding = findConstructorBinding(scope, this, receiverType, this.arguments, argumentTypes, polyExpressionSeen);	
-			
+			this.binding = findConstructorBinding(scope, this, receiverType, this.arguments, argumentTypes, polyExpressionSeen);
+
 			if (this.binding.isValidBinding()) {
 				if ((this.binding.tagBits & TagBits.HasMissingType) != 0) {
 					if (!methodScope.enclosingSourceType().isAnonymousType()) {
@@ -498,6 +494,9 @@ public class ExplicitConstructorCall extends Statement implements Invocation, Ex
 	public Expression[] arguments() {
 		return this.arguments;
 	}
+	public InferenceContext18 inferenceContext() {
+		return this.inferenceContext;
+	}
 	public int inferenceKind() {
 		return this.inferenceKind;
 	}
@@ -508,7 +507,9 @@ public class ExplicitConstructorCall extends Statement implements Invocation, Ex
 		this.binding = updatedBinding;
 		return TypeBinding.VOID; // not an expression
 	}
-	public InferenceContext18 inferenceContext() {
-		return this.inferenceContext;
+
+	// -- interface InvocationSite: --
+	public InferenceContext18 freshInferenceContext(Scope scope) {
+		return this.inferenceContext = new InferenceContext18(scope, this.arguments, this);
 	}
 }

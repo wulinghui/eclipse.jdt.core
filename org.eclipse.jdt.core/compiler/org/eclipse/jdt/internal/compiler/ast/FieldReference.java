@@ -12,6 +12,7 @@
  *								bug 331649 - [compiler][null] consider null annotations for fields
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
  *								Bug 412203 - [compiler] Internal compiler error: java.lang.IllegalArgumentException: info cannot be null
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *     Jesper S Moller - Contributions for
  *								Bug 378674 - "The method can be declared as static" is wrong
  *******************************************************************************/
@@ -432,8 +433,7 @@ public TypeBinding[] genericTypeArguments() {
 	return null;
 }
 
-public InferenceContext18 inferenceContext(Scope scope) {
-	// FIXME Auto-generated method stub
+public InferenceContext18 freshInferenceContext(Scope scope) {
 	return null;
 }
 

@@ -23,6 +23,7 @@
  *							Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
  *							Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
  *							Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
+ *							Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -658,10 +659,10 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		if (this.expressionContext != ASSIGNMENT_CONTEXT && this.expressionContext != INVOCATION_CONTEXT)
 			return false;
 		
-		if (this.isPolyExpression) // TODO(stephan): is this still needed?
+		if (this.isPolyExpression) // TODO(stephan): is this still used/needed?
 			return true;
 
-		// ... unless both operands produce primitives (or boxed primitives):
+		// "... unless both operands produce primitives (or boxed primitives)":
 		TypeBinding opType = this.valueIfTrue.resolvedType;
 		if (opType != null) {
 			if (opType.isBaseType() || (opType.id >= TypeIds.T_JavaLangByte && opType.id <= TypeIds.T_JavaLangBoolean))

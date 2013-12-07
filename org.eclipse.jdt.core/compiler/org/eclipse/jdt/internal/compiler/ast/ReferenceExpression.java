@@ -20,6 +20,7 @@
  *							bug 404649 - [1.8][compiler] detect illegal reference to indirect or redundant super via I.super.m() syntax
  *							Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
  *							Bug 415850 - [1.8] Ensure RunJDTCoreTests can cope with null annotations enabled
+ *							Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contribution for
  *                          Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
  *******************************************************************************/
@@ -71,7 +72,6 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 	MethodBinding syntheticAccessor;	// synthetic accessor for inner-emulation
 	private int depth;
 	private MethodBinding exactMethodBinding; // != null ==> exact method reference.
-	private InferenceContext18 inferenceContext;
 	
 	public ReferenceExpression() {
 		super();
@@ -85,11 +85,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 		this.sourceStart = expression.sourceStart;
 		this.sourceEnd = sourceEndPosition;
 	}
-	
-	public InferenceContext18 inferenceContext(Scope scope) {
-		return this.inferenceContext = new InferenceContext18(scope, null/*no arguments*/, this);
-	}
- 
+
 	public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
 		this.actualMethodBinding = this.binding; // grab before synthetics come into play.
 		SourceTypeBinding sourceType = currentScope.enclosingSourceType();
@@ -536,7 +532,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 	}
 	
 	public boolean isPertinentToApplicability(TypeBinding targetType, MethodBinding candidateMethod) {
-		if (targetType == null)
+		if (targetType == null) // assumed to signal another primary error
 			return true;
 
 		final MethodBinding sam = targetType.getSingleAbstractMethod(this.enclosingScope); // cached/cheap call.
@@ -551,6 +547,12 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 		return this.resolvedTypeArguments;
 	}
 
+	public InferenceContext18 freshInferenceContext(Scope scope) {
+		// no need to store the context for later use, since ReferenceExpression 
+		// is not subject to Invocation Type Inference (is not an invocation).
+		return new InferenceContext18(scope, null/*no arguments*/, this);
+	}
+ 
 	public boolean isSuperAccess() {
 		return false;
 	}

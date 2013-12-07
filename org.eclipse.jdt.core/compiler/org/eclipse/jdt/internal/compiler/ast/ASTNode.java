@@ -22,6 +22,7 @@
  *								bug 393719 - [compiler] inconsistent warnings on iteration variables
  *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
  *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *     Jesper S Moller - Contributions for
  *								bug 382721 - [1.8][compiler] Effectively final variables needs special treatment
  *								bug 412153 - [1.8][compiler] Check validity of annotations which may be repeatable
@@ -656,10 +657,17 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 					Invocation invocation = (Invocation) argument;
 					InferenceContext18 infCtx18 = invocation.inferenceContext();
 					if (infCtx18 != null) {
+						// Previous time around we only performed Invocation Applicability Inference, do the rest now:
 						MethodBinding updatedMethod = infCtx18.getInvocationTypeInferenceSolution(invocation, parameterType);
 						if (updatedMethod != null) {
 							invocation.updateBindings(updatedMethod);
-							argumentTypes[i] = updatedMethod.returnType;
+							// update the argumentTypes array (supposed to be owned by the calling method)
+							// in order to give better information into a second round of method lookup:
+							if (updatedMethod.isConstructor())
+								argumentTypes[i] = updatedMethod.declaringClass;
+							else
+								argumentTypes[i] = updatedMethod.returnType;
+							// signal that we need another round of method lookup:
 							hasUpdatedInner = true;
 						}
 					}

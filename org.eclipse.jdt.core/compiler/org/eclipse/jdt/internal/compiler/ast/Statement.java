@@ -28,6 +28,7 @@
  *								Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
  *								Bug 416307 - [1.8][compiler][null] subclass with type parameter substitution confuses null checking
  *								Bug 417758 - [1.8][null] Null safety compromise during array creation.
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *        Andy Clement - Contributions for
  *                          Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
  *                          Bug 409250 - [1.8][compiler] Various loose ends in 308 code generation
@@ -327,6 +328,12 @@ public TypeBinding expectedType() {
 public ExpressionContext getExpressionContext() {
 	return ExpressionContext.VANILLA_CONTEXT;
 }
+/**
+ * For all constructor invocations: find the constructor binding; 
+ * if polyExpressionSeen allow for two attempts where the first round may stop
+ * after applicability checking (18.5.1) to include more information into the final
+ * invocation type inference (18.5.2).
+ */
 protected MethodBinding findConstructorBinding(BlockScope scope, InvocationSite site, ReferenceBinding receiverType, Expression[] args, TypeBinding[] argumentTypes, boolean polyExpressionSeen) {
 	MethodBinding ctorBinding = scope.getConstructor(receiverType, argumentTypes, site);
 	if (polyExpressionSeen) {

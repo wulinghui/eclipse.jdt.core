@@ -26,6 +26,7 @@
  *								Bug 416175 - [1.8][compiler][null] NPE with a code snippet that used null annotations on wildcards
  *								Bug 416174 - [1.8][compiler][null] Bogus name clash error with null annotations
  *								Bug 416176 - [1.8][compiler][null] null type annotations cause grief on type variables
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 

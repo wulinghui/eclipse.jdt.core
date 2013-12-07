@@ -23,6 +23,7 @@
  *								Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
  *								Bug 416183 - [1.8][compiler][null] Overload resolution fails with null annotations
  *								Bug 416176 - [1.8][compiler][null] null type annotations cause grief on type variables
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *     Jesper S Moller - Contributions for
  *								Bug 378674 - "The method can be declared as static" is wrong
  *  							Bug 405066 - [1.8][compiler][codegen] Implement code generation infrastructure for JSR335
@@ -344,7 +345,7 @@ public abstract class Scope {
 							continue; // assume we already have an error here
 						// Skip the following check if inference variables or CaptureBinding18 are involved,
 						// hopefully during inference a contradictory glb will simply not produce a solution
-						// (should essentially be detected in CaptureBinding18.setUpperBounds()): 
+						// (should essentially be detected beforehand in CaptureBinding18.setUpperBounds()): 
 						if (!narrowType.isProperType(false) || !wideType.isProperType(false))
 							continue;
 						int numTypeArgs = wideType.arguments.length;
@@ -662,7 +663,7 @@ public abstract class Scope {
 			}
 			if (newArgs != null)
 				arguments = newArgs;
-			else  // ensure that computeCompatibleMethod() below can update arguments without harming our caller:
+			else  // ensure that computeCompatibleMethod() below can update arguments without harming our caller: (TODO: always copy before the loop? only in 1.8?)
 				System.arraycopy(arguments, 0, arguments=new TypeBinding[argLength], 0, argLength);
 			method = ParameterizedGenericMethodBinding.computeCompatibleMethod(method, arguments, this, invocationSite);
 			if (method == null) return null; // incompatible
@@ -709,7 +710,7 @@ public abstract class Scope {
 	private int myParameterCompatibilityLevel(MethodBinding method, TypeBinding[] arguments, boolean tiebreakingVarargsMethods, InvocationSite site) {
 		if (site instanceof Invocation) {
 			if (((Invocation) site).inferenceKind() > 0)
-				return COMPATIBLE;
+				return COMPATIBLE; // inference is responsible, no need to recheck
 		}
 		return parameterCompatibilityLevel(method, arguments, tiebreakingVarargsMethods);
 	}
@@ -3677,7 +3678,6 @@ public abstract class Scope {
 			if (mec == null) continue;
 			mec = leastContainingInvocation(mec, invocations.get(mec), lubStack);
 			if (mec == null) return null;
-			if (mec == TypeBinding.NULL) continue;
 			int dim = mec.dimensions();
 			if (commonDim == -1) {
 				commonDim = dim;
@@ -3740,8 +3740,9 @@ public abstract class Scope {
 		int indexOfFirst = -1, actualLength = 0;
 		for (int i = 0; i < length; i++) {
 			TypeBinding type = types[i];
+			if (type == TypeBinding.NULL)
+				types[i] = type = null; // completely ignore null-type now and further down
 			if (type == null) continue;
-			if (type == TypeBinding.NULL) continue;
 			if (type.isBaseType()) return null;
 			if (indexOfFirst < 0) indexOfFirst = i;
 			actualLength ++;
@@ -4115,13 +4116,8 @@ public abstract class Scope {
 			public int sourceEnd() { return invocationSite.sourceStart(); }
 			public TypeBinding invocationTargetType() { return invocationSite.invocationTargetType(); }
 			public boolean receiverIsImplicitThis() { return invocationSite.receiverIsImplicitThis();}
-			public InferenceContext18 inferenceContext(Scope scope) {
-				// FIXME Auto-generated method stub
-				return null;
-			}
-			public ExpressionContext getExpressionContext() {
-				return ExpressionContext.VANILLA_CONTEXT; // FIXME
-			}
+			public InferenceContext18 freshInferenceContext(Scope scope) { return null; /* no inference when ignoring genericTypeArgs */ }
+			public ExpressionContext getExpressionContext() { return ExpressionContext.VANILLA_CONTEXT; }
 		};
 		MethodBinding[] moreSpecific = new MethodBinding[visibleSize];
 		int count = 0;

@@ -13,6 +13,7 @@
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contribution for
  *								bug 384380 - False positive on a « Potential null pointer access » after a continue
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -35,7 +36,8 @@ public interface InvocationSite {
 	int sourceStart();
 	TypeBinding invocationTargetType();
 	boolean receiverIsImplicitThis();
-	InferenceContext18 inferenceContext(Scope scope);
+	/** When inference for this invocationSite starts, get a fresh inference context, initialized from this site. */
+	InferenceContext18 freshInferenceContext(Scope scope);
 	ExpressionContext getExpressionContext();
 	
 	static class EmptyWithAstNode implements InvocationSite {
@@ -53,7 +55,7 @@ public interface InvocationSite {
 		public int sourceStart() {return this.node.sourceStart; }
 		public TypeBinding invocationTargetType() { return null; }
 		public boolean receiverIsImplicitThis() { return false; }
-		public InferenceContext18 inferenceContext(Scope scope) { return null; }
+		public InferenceContext18 freshInferenceContext(Scope scope) { return null; }
 		public ExpressionContext getExpressionContext() { return ExpressionContext.VANILLA_CONTEXT; }
 	}
 }

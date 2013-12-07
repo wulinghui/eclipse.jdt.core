@@ -45,6 +45,7 @@
  *								Bug 414380 - [compiler][internal] QualifiedNameReference#indexOfFirstFieldBinding does not point to the first field
  *								Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
  *								Bug 416307 - [1.8][compiler][null] subclass with type parameter substitution confuses null checking
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *      Jesper S Moller <jesper@selskabet.org> -  Contributions for
  *								bug 382701 - [1.8][compiler] Implement semantic analysis of Lambda expressions & Reference expression
  *								bug 382721 - [1.8][compiler] Effectively final variables needs special treatment
@@ -3667,7 +3668,7 @@ public void invalidConstructor(Statement statement, MethodBinding targetConstruc
 				sourceEnd);
 			return;
 		case ProblemReasons.ParameterizedMethodExpectedTypeProblem:
-			// FIXME(stephan): construct suitable message
+			// FIXME(stephan): construct suitable message (https://bugs.eclipse.org/404675)
 			problemConstructor = (ProblemMethodBinding) targetConstructor;
 			shownConstructor = problemConstructor.closestMatch;
 			this.handle(
@@ -3679,7 +3680,7 @@ public void invalidConstructor(Statement statement, MethodBinding targetConstruc
 				        String.valueOf(shownConstructor.returnType.shortReadableName()),
 				        (problemConstructor.returnType != null ? String.valueOf(problemConstructor.returnType.shortReadableName()) : "<unknown>")},
 				statement.sourceStart,
-				statement.sourceEnd);			
+				statement.sourceEnd);
 			return;
 		case ProblemReasons.NoError : // 0
 		default :
@@ -4193,7 +4194,7 @@ public void invalidMethod(MessageSend messageSend, MethodBinding method) {
 				(int) messageSend.nameSourcePosition);
 			return;
 		case ProblemReasons.ParameterizedMethodExpectedTypeProblem:
-			// FIXME(stephan): construct suitable message
+			// FIXME(stephan): construct suitable message (https://bugs.eclipse.org/404675)
 			problemMethod = (ProblemMethodBinding) method;
 			shownMethod = problemMethod.closestMatch;
 			this.handle(
@@ -4205,7 +4206,7 @@ public void invalidMethod(MessageSend messageSend, MethodBinding method) {
 				        String.valueOf(shownMethod.returnType.shortReadableName()),
 				        (problemMethod.returnType != null ? String.valueOf(problemMethod.returnType.shortReadableName()) : "<unknown>")},
 				messageSend.sourceStart,
-				messageSend.sourceEnd);			
+				messageSend.sourceEnd);
 			return;
 		case ProblemReasons.VarargsElementTypeNotVisible: // https://bugs.eclipse.org/bugs/show_bug.cgi?id=346042
 			problemMethod = (ProblemMethodBinding) method;

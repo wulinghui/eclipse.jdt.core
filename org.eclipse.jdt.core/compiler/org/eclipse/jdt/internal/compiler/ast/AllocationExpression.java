@@ -24,6 +24,7 @@
  *							bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
  *							Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
  *							Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
+ *							Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *     Jesper S Moller <jesper@selskabet.org> - Contributions for
  *							bug 378674 - "The method can be declared as static" is wrong
  *     Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
@@ -507,10 +508,6 @@ public TypeBinding[] inferElidedTypes(ReferenceBinding allocationType, Reference
 	return null;
 }
 
-public InferenceContext18 inferenceContext(Scope scope) {
-	return new InferenceContext18(scope, this.arguments, this);
-}
-
 public void checkTypeArgumentRedundancy(ParameterizedTypeBinding allocationType, ReferenceBinding enclosingType, TypeBinding[] argumentTypes, final BlockScope scope) {
 	ProblemReporter reporter = scope.problemReporter();
 	if ((reporter.computeSeverity(IProblem.RedundantSpecificationOfTypeArguments) == ProblemSeverities.Ignore) || scope.compilerOptions().sourceLevel < ClassFileConstants.JDK1_7) return;
@@ -534,11 +531,16 @@ public void checkTypeArgumentRedundancy(ParameterizedTypeBinding allocationType,
 	}
 	TypeBinding [] inferredTypes;
 	int previousBits = this.type.bits;
+	int previousInferenceKind = this.inferenceKind;
 	try {
+		// checking for redundant type parameters must fake a diamond, 
+		// so we infer the same results as we would get with a diamond in source code:
 		this.type.bits |= IsDiamond;
 		inferredTypes = inferElidedTypes(allocationType.genericType(), enclosingType, argumentTypes, scope);
 	} finally {
+		// reset effects of inference
 		this.type.bits = previousBits;
+		this.inferenceKind = previousInferenceKind;
 	}
 	if (inferredTypes == null) {
 		return;
@@ -629,10 +631,14 @@ public TypeBinding updateBindings(MethodBinding updatedBinding) {
 	this.binding = updatedBinding;
 	return this.resolvedType = updatedBinding.declaringClass;
 }
+public InferenceContext18 inferenceContext() {
+	return this.inferenceContext;
+}
+//-- interface InvocationSite: --
 public ExpressionContext getExpressionContext() {
 	return this.expressionContext;
 }
-public InferenceContext18 inferenceContext() {
-	return this.inferenceContext;
+public InferenceContext18 freshInferenceContext(Scope scope) {
+	return this.inferenceContext = new InferenceContext18(scope, this.arguments, this);
 }
 }

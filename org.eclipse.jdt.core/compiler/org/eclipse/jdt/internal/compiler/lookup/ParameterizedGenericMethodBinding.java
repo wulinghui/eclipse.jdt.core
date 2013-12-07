@@ -16,6 +16,7 @@
  *								bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
  *								Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
  *								bug 413958 - Function override returning inherited Generic Type
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -61,40 +62,47 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 			// perform type argument inference (15.12.2.7)
 			// initializes the map of substitutes (var --> type[][]{ equal, extends, super}
 			TypeBinding[] parameters = originalMethod.parameters;
-// 1.8
+
+// ==== 1.8: The main driver for inference of generic methods: ====
 			InferenceContext18 infCtx18 = null;
 			if (scope.compilerOptions().sourceLevel >= ClassFileConstants.JDK1_8)
-				infCtx18 = invocationSite.inferenceContext(scope);
+				infCtx18 = invocationSite.freshInferenceContext(scope);
 			if (infCtx18 != null) {
-				int checkKind = InferenceContext18.CHECK_LOOSE; // FIXME(stephan) do inference in the required three phases.
+				int checkKind = InferenceContext18.CHECK_LOOSE; // TODO: validate if 2 phase checking (strict/loose + vararg) is sufficient.
 				// 18.5.1 (Applicability):
 				infCtx18.inferInvocationApplicability(originalMethod, arguments, checkKind);
 				try {
 					BoundSet provisionalResult = infCtx18.solve();
 					if (provisionalResult == null && originalMethod.isVarargs()) {
 						// check for variable arity applicability
-						infCtx18 = invocationSite.inferenceContext(scope); // start over
+						infCtx18 = invocationSite.freshInferenceContext(scope); // start over
 						checkKind = InferenceContext18.CHECK_VARARG;
 						infCtx18.inferInvocationApplicability(originalMethod, arguments, checkKind);
 						provisionalResult = infCtx18.solve();
 					}
 					BoundSet result = infCtx18.currentBounds.copy(); // the result after reduction, without effects of resolve()
-					if (provisionalResult != null /*&& infCtx18.isResolved(provisionalResult)*/) { // FIXME(stephan): second condition breaks BatchCompilerTest.test032
+					if (provisionalResult != null && infCtx18.isResolved(provisionalResult)) {
 						// 18.5.2 (Invocation type):
 						TypeBinding expectedType = invocationSite.invocationTargetType();
 						boolean hasReturnProblem = false;
+						boolean invocationTypeInferred = false;
 						if (expectedType != null || invocationSite.getExpressionContext() == ExpressionContext.VANILLA_CONTEXT) {
 							result = infCtx18.inferInvocationType(result, expectedType, invocationSite, originalMethod, checkKind);
-							hasReturnProblem = result == null;
+							if (result != null)
+								invocationTypeInferred = true;
+							else
+								hasReturnProblem = true;
 							if (hasReturnProblem)
-								result = provisionalResult; // we prefer a type error regarding the return type over reporting no match at all
+								result = provisionalResult; // let's prefer a type error regarding the return type over reporting no match at all
 						} else {
 							// we're not yet ready for invocation type inference
 							result = provisionalResult;
 						}
 						TypeBinding[] solutions = infCtx18.getSolutions(typeVariables, invocationSite, result);
 						if (solutions != null) {
+							
 							methodSubstitute = scope.environment().createParameterizedGenericMethod(originalMethod, solutions);
+							
 							if (InferenceContext18.SIMULATE_BUG_JDK_8026527 && expectedType != null && methodSubstitute.returnType instanceof ReferenceBinding)
 								hasReturnProblem &= !methodSubstitute.returnType.erasure().isCompatibleWith(expectedType);
 							if (hasReturnProblem) {
@@ -104,17 +112,19 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 							}
 							if (invocationSite instanceof Invocation)
 								((Invocation)invocationSite).setInferenceKind(checkKind);
-							infCtx18.rebindInnerPolies(result, arguments); // FIXME if done
+							if (invocationTypeInferred)
+								infCtx18.rebindInnerPolies(result, arguments);
 							break computeSubstitutes;
 						}
 					}
 					return null;
 				} catch (InferenceFailureException e) {
+					// FIXME stop-gap measure
 					scope.problemReporter().genericInferenceError(e.getMessage(), invocationSite);
 					return null;
 				}
 			} else {
-// 1.8
+// ==== 1.8 ====
 				inferenceContext = new InferenceContext(originalMethod);
 				methodSubstitute = inferFromArgumentTypes(scope, originalMethod, arguments, parameters, inferenceContext);
 				if (methodSubstitute == null)
@@ -421,7 +431,7 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 		}
 	    this.wasInferred = true;// resulting from method invocation inferrence
 	    this.parameterNonNullness = originalMethod.parameterNonNullness;
-	    // special case: @NonNull for parameter inferred to 'null' is encoded the old way
+	    // special case: @NonNull for a parameter that is inferred to 'null' is encoded the old way
 	    // because we cannot (and don't want to) add type annotations to NullTypeBinding.
 	    int len = this.parameters.length;
 	    for (int i = 0; i < len; i++) {

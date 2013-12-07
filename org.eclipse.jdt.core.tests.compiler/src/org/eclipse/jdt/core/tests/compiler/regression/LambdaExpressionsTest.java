@@ -22,7 +22,7 @@ import junit.framework.Test;
 public class LambdaExpressionsTest extends AbstractRegressionTest {
 
 static {
-//	TESTS_NAMES = new String[] { "testReferenceExpressionInference2"};
+//	TESTS_NAMES = new String[] { "testReferenceExpressionInference3b"};
 //	TESTS_NUMBERS = new int[] { 50 };
 //	TESTS_RANGE = new int[] { 11, -1 };
 }
@@ -1913,6 +1913,55 @@ public void testReferenceExpressionInference2() {
 			"	<V,W extends Number> W bar(V v) { return null; }\n" +
 			"}\n"
 		});
+}
+
+public void testReferenceExpressionInference3a() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"interface I<E,F> {\n" +
+			"	F foo(E e);\n" +
+			"}\n" +
+			"public class X {\n" +
+			"	<S,T,U> I<S,U> compose(I<S,T> i1, I<T,U> i2) { return null; }\n" +
+			"	void test() {\n" +
+			"		I<X,String> x2s = compose(this::bar, this::<String>i2s);" + // help inference with an explicit type argument
+			"	}\n" +
+			"	<Z> Z i2s (Integer i) { return null; }\n" +
+			"	<V,W extends Number> W bar(V v) { return null; }\n" +
+			"}\n"
+		});
+}
+
+// previous test demonstrates that a solution exists, just inference doesn't find it.
+// FAIL: the second error is intermittently reported twice
+public void testReferenceExpressionInference3b() {
+	runNegativeTest(
+		new String[] {
+			"X.java",
+			"interface I<E,F> {\n" +
+			"	F foo(E e);\n" +
+			"}\n" +
+			"public class X {\n" +
+			"	<S,T,U> I<S,U> compose(I<S,T> i1, I<T,U> i2) { return null; }\n" +
+			"	void test() {\n" +
+			"		I<X,String> x2s = compose(this::bar, this::i2s);" +
+			"	}\n" +
+			"	<Z> Z i2s (Integer i) { return null; }\n" +
+			"	<V,W extends Number> W bar(V v) { return null; }\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 7)\n" + 
+		"	I<X,String> x2s = compose(this::bar, this::i2s);	}\n" + 
+		"	                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from I<Object,Object> to I<X,String>\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 7)\n" + 
+		"	I<X,String> x2s = compose(this::bar, this::i2s);	}\n" + 
+		"	                                     ^^^^^^^^^\n" + 
+		"The type X does not define i2s(Object) that is applicable here\n" + 
+		"----------\n");
 }
 
 public static Class testClass() {

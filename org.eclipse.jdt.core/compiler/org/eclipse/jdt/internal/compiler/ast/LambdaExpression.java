@@ -19,6 +19,7 @@
  *							bug 401030 - [1.8][null] Null analysis support for lambda methods.
  *							Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
  *							Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
+ *							Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 

@@ -445,8 +445,9 @@ public class InferenceContext18 {
 							TypeBinding[] lowerBounds = tmpBoundSet.lowerBounds(variable, true/*onlyProper*/);
 							if (lowerBounds != Binding.NO_TYPES) {
 								TypeBinding lub = this.scope.lowerUpperBound(lowerBounds);
-								if (lub != TypeBinding.VOID && lub != null)
-									tmpBoundSet.addBound(new TypeBound(variable, lub, ReductionResult.SAME));
+								if (lub == TypeBinding.VOID || lub == null)
+									return null;
+								tmpBoundSet.addBound(new TypeBound(variable, lub, ReductionResult.SAME));
 							} else {
 								TypeBinding[] upperBounds = tmpBoundSet.upperBounds(variable, true/*onlyProper*/);
 								// check exception bounds:

@@ -13,7 +13,9 @@
  *     IBM Corporation - initial API and implementation
  *     Jesper S Moller - Contributions for
  *							bug 382701 - [1.8][compiler] Implement semantic analysis of Lambda expressions & Reference expression
- *							Bug 405066 - [1.8][compiler][codegen] Implement code generation infrastructure for JSR335        
+ *							Bug 405066 - [1.8][compiler][codegen] Implement code generation infrastructure for JSR335
+ *     Stephan Herrmann - Contribution for
+ *							Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec) 
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -88,10 +90,15 @@ public abstract class FunctionalExpression extends Expression {
 		// we simulate an *invocation* of this functional expression,
 		// where the expected type of the expression is the return type of the sam:
 		MethodBinding sam = this.expectedType.getSingleAbstractMethod(this.enclosingScope);
-		if (sam != null)
-			return sam.returnType;
+		if (sam != null) {
+			if (sam.isConstructor())
+				return sam.declaringClass;
+			else
+				return sam.returnType;
+		}
 		return null;
 	}
+
 	public TypeBinding expectedType() {
 		return this.expectedType;
 	}

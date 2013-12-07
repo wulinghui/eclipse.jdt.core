@@ -38,6 +38,7 @@
  *								Bug 405569 - Resource leak check false positive when using DbUtils.closeQuietly
  *								Bug 411964 - [1.8][null] leverage null type annotation in foreach statement
  *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *     Jesper S Moller - Contributions for
  *								Bug 378674 - "The method can be declared as static" is wrong
  *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
@@ -453,10 +454,6 @@ public TypeBinding[] genericTypeArguments() {
 	return this.genericTypeArguments;
 }
 
-public InferenceContext18 inferenceContext(Scope scope) {
-	return this.inferenceContext = new InferenceContext18(scope, this.arguments, this);
-}
-
 public boolean isSuperAccess() {
 	return this.receiver.isSuper();
 }
@@ -636,7 +633,7 @@ public TypeBinding resolveType(BlockScope scope) {
 			}
 			if (argumentType != null && argumentType.kind() == Binding.POLY_TYPE)
 				polyExpressionSeen = true;
-			if (argument instanceof Invocation && ((Invocation)argument).inferenceKind() > 0)
+			else if (argument instanceof Invocation && ((Invocation)argument).inferenceKind() > 0)
 				polyExpressionSeen = true;
 		}
 		if (argHasError) {
@@ -837,6 +834,12 @@ public TypeBinding resolveType(BlockScope scope) {
 				? this.resolvedType
 				: null;
 }
+/**
+ * Find the method binding; 
+ * if polyExpressionSeen allow for two attempts where the first round may stop
+ * after applicability checking (18.5.1) to include more information into the final
+ * invocation type inference (18.5.2).
+ */
 protected void findMethodBinding(BlockScope scope, TypeBinding[] argumentTypes, boolean polyExpressionSeen) {
 	this.binding = this.receiver.isImplicitThis()
 			? scope.getImplicitMethod(this.selector, argumentTypes, this)
@@ -871,7 +874,9 @@ public void setExpectedType(TypeBinding expectedType) {
 public void setExpressionContext(ExpressionContext context) {
 	this.expressionContext = context;
 }
+
 public boolean isPolyExpression() {
+	
 	/* 15.12 has four requirements: 1) The invocation appears in an assignment context or an invocation context
        2) The invocation elides NonWildTypeArguments 3) the method to be invoked is a generic method (8.4.4).
        4) The return type of the method to be invoked mentions at least one of the method's type parameters.
@@ -947,6 +952,9 @@ public MethodBinding binding() {
 }
 public Expression[] arguments() {
 	return this.arguments;
+}
+public InferenceContext18 freshInferenceContext(Scope scope) {
+	return this.inferenceContext = new InferenceContext18(scope, this.arguments, this);
 }
 /**
  * Here inference signals if it has established applicability.
