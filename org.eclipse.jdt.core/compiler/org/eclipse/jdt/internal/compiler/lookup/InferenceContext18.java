@@ -512,7 +512,7 @@ public class InferenceContext18 {
 							for (int k = 0; k < upperBounds.length; k++)
 								upperBounds[k] = Scope.substitute(theta, upperBounds[k]);
 							if (!setUpperBounds(zsj, upperBounds))
-								return null;
+								continue; // at violation of well-formedness skip this candidate and proceed
 						}
 						if (tmpBoundSet == this.currentBounds)
 							tmpBoundSet = tmpBoundSet.copy();
@@ -528,7 +528,7 @@ public class InferenceContext18 {
 		return tmpBoundSet;
 	}
 	
-	// === FIXME(stephan): all this capture business is quite drafty: ===
+	// === FIXME(stephan): this capture business is a bit drafty: ===
 	int captureId = 0;
 	
 	/** For 18.4: "Let Z1, ..., Zn be fresh type variables" use capture bindings. */

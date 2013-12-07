@@ -35,7 +35,7 @@ public class GenericsRegressionTest extends AbstractComparableTest {
 	// Static initializer to specify tests subset using TESTS_* static variables
 	// All specified tests which does not belong to the class are skipped...
 	static {
-//		TESTS_NAMES = new String[] { "testBug405706" };
+//		TESTS_NAMES = new String[] { "testBug415734" };
 //		TESTS_NAMES = new String[] { "testBug413958" };
 //		TESTS_NUMBERS = new int[] { 1465 };
 //		TESTS_RANGE = new int[] { 1097, -1 };
@@ -3267,7 +3267,8 @@ public void testBug413958_2() {
 		"Type mismatch: cannot convert from ReadOnlyWrapper<TestA,TestB> to WritableWrapper<TestA2,TestB>\n" +
 		"----------\n");
 }
-public void testBug415734() {
+// Disabled due to spec bug, see https://bugs.eclipse.org/423496
+public void _testBug415734() {
 	String compileSrc =
 			"import java.util.ArrayList;\n" +
 			"import java.util.List;\n" +

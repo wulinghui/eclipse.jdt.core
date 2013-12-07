@@ -343,7 +343,8 @@ public abstract class Scope {
 						if (wideType.arguments == null)
 							continue; // assume we already have an error here
 						// Skip the following check if inference variables or CaptureBinding18 are involved,
-						// hopefully during inference a contradictory glb will simply not produce a solution:
+						// hopefully during inference a contradictory glb will simply not produce a solution
+						// (should essentially be detected in CaptureBinding18.setUpperBounds()): 
 						if (!narrowType.isProperType(false) || !wideType.isProperType(false))
 							continue;
 						int numTypeArgs = wideType.arguments.length;

@@ -32,12 +32,12 @@ public class CaptureBinding18 extends CaptureBinding {
 		int numReferenceInterfaces = 0;
 		for (int i = 0; i < upperBounds.length; i++) {
 			TypeBinding aBound = upperBounds[i];
-			if (!aBound.isWildcard() && !aBound.isTypeVariable() && aBound.isProperType(false)) {
+			if (!aBound.isWildcard() && !aBound.isTypeVariable() && aBound.isProperType(true)) {
 				// check for inconsistency between any two real types:
 				for (int j = 0; j < upperBounds.length; j++) {
 					if (i == j) continue;
 					TypeBinding otherBound = upperBounds[j];
-					if (!otherBound.isWildcard() && !otherBound.isTypeVariable() && otherBound.isProperType(false))
+					if (!otherBound.isWildcard() && !otherBound.isTypeVariable() && otherBound.isProperType(true))
 						if (aBound.erasure().isCompatibleWith(otherBound.erasure()))
 							if (!aBound.isCompatibleWith(otherBound))
 								return false;
@@ -131,8 +131,8 @@ public class CaptureBinding18 extends CaptureBinding {
 				TypeBinding candidate = this.upperBounds[i].findSuperTypeOriginatingFrom(otherType);
 				if (candidate != null)
 					return candidate;
-				// FIXME: we need explicit handling of cases where several upperBounds produce a non-null candidate!
-				// see intermittent regression in GenericsRegressionTest.testBug415734() toggled by order in upperBounds!!
+				// TODO: maybe we should double check about multiple candidates here,
+				// but upper bounds should be consistent so hopefully the first non-null candidate is good enough. 
 			}
 		}
 		return super.findSuperTypeOriginatingFrom(otherType);

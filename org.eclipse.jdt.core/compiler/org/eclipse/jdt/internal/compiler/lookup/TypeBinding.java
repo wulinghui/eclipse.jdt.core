@@ -685,9 +685,10 @@ public boolean isParameterizedWithOwnVariables() {
 
 /**
  * JLS8 Sect 18.1.1
- * @param admitCapture18 should fresh type variables ({@link CaptureBinding18}) be admitted as proper types?
- *   Hint: for normal behavior say 'true',
- *   exception is in {@link CaptureBinding18#setUpperBounds(TypeBinding[],ReferenceBinding)}.
+ * @param admitCapture18 request if {@link CaptureBinding18} shuld be considered as a proper type.
+ * If unsure say 'true', only in {@link Scope#greaterLowerBound(TypeBinding[], Scope, LookupEnvironment)}
+ * CaptureBinding18 has to be excluded to prevent an NPE on a branch that heuristically tries to avoid
+ * inconsistent intersections.
  */
 public boolean isProperType(boolean admitCapture18) {
 	return true;
