@@ -133,6 +133,21 @@ public abstract class FunctionalExpression extends Expression {
 		return this.resolvedType = null;
 	}
 
+	/** During inference: Try to find an applicable method binding without causing undesired side-effects. */
+	public MethodBinding findCompileTimeMethodTargeting(TypeBinding targetType, Scope scope) {
+		setExpectedType(targetType);
+		IErrorHandlingPolicy oldPolicy = this.enclosingScope.problemReporter().switchErrorHandlingPolicy(silentErrorHandlingPolicy);
+		try {
+			this.binding = null;
+			resolveType(this.enclosingScope);
+			return this.binding;
+		} finally {
+			this.enclosingScope.problemReporter().switchErrorHandlingPolicy(oldPolicy);
+			this.binding = null;
+			setExpectedType(null);
+		}
+	}
+
 	class VisibilityInspector extends TypeBindingVisitor {
 
 		private Scope scope;

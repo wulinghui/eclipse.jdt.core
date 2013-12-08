@@ -70,9 +70,7 @@ public class ConstraintExceptionFormula extends ConstraintFormula {
 //				InferenceContext18.missingImplementation("NYI");
 			} else {
 				ReferenceExpression referenceExpression = (ReferenceExpression)this.left;
-				// TODO: can we avoid this resolve() (which in turn may invoke inference)?
-				referenceExpression.resolveTypeExpecting(referenceExpression.enclosingScope, this.right);
-				MethodBinding method = referenceExpression.binding;
+				MethodBinding method = referenceExpression.findCompileTimeMethodTargeting(this.right, scope);
 				if (method != null)
 					ePrime = method.thrownExceptions;
 			}
