@@ -22,7 +22,7 @@ import junit.framework.Test;
 public class LambdaExpressionsTest extends AbstractRegressionTest {
 
 static {
-//	TESTS_NAMES = new String[] { "testReferenceExpressionInference3b"};
+//	TESTS_NAMES = new String[] { "testLambdaInference2"};
 //	TESTS_NUMBERS = new int[] { 50 };
 //	TESTS_RANGE = new int[] { 11, -1 };
 }
@@ -1962,6 +1962,48 @@ public void testReferenceExpressionInference3b() {
 		"	                                     ^^^^^^^^^\n" + 
 		"The type X does not define i2s(Object) that is applicable here\n" + 
 		"----------\n");
+}
+public void testLambdaInference1() {
+	  this.runConformTest(
+	    new String[] {
+	      "X.java",
+	      "import java.util.*;\n" +
+	      "public class X {\n" +
+	      "  public static void main(String[] argv) {\n" +
+	      "    List<String> list = null;\n" +
+	      "    eachWithIndex(list, s -> print(s));\n" +
+	      "  }\n" +
+	      "  static void print(String s) {}\n" +
+	      "  interface ItemWithIndexVisitor<E> {\n" +
+	      "    public void visit(E item);\n" +
+	      "  }\n" +
+	      "  public static <E> void eachWithIndex(List<E> list, ItemWithIndexVisitor<E> visitor) {}\n" +
+	      "}\n"
+	    },
+	    "");
+}
+
+public void testLambdaInference2() {
+	  this.runConformTest(
+	    new String[] {
+	      "X.java",
+	      "import java.util.*;\n" +
+	      "class A {}\n" +
+	      "class B extends A {\n" +
+	      "	void bar() {}\n" +
+	      "}\n" +
+	      "public class X {\n" +
+	      "  public static void main(String[] argv) {\n" +
+	      "    someWithIndex(getList(), (B b) -> b.bar());\n" +
+	      "  }\n" +
+	      "  interface ItemWithIndexVisitor<E> {\n" +
+	      "    public void visit(E item);\n" +
+	      "  }\n" +
+	      "  public static <G> void someWithIndex(List<G> list, ItemWithIndexVisitor<G> visitor) {}\n" +
+	      "  static <I extends A> List<I> getList() { return null; }\n" +
+	      "}\n"
+	    },
+	    "");
 }
 
 public static Class testClass() {
