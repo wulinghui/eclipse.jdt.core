@@ -519,6 +519,17 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
     	return this.resolvedType; // Phew !
 	}
 
+	public MethodBinding findCompileTimeMethodTargeting(TypeBinding targetType, Scope scope) {
+		if (this.exactMethodBinding != null) {
+			// TODO: shouldn't extactMethodBinding already be parameterized?
+			if (this.exactMethodBinding.typeVariables != Binding.NO_TYPE_VARIABLES && this.resolvedTypeArguments != null) {
+				return scope.environment().createParameterizedGenericMethod(this.exactMethodBinding, this.resolvedTypeArguments);
+			}
+			return this.exactMethodBinding;
+		}
+		return super.findCompileTimeMethodTargeting(targetType, scope);
+	}
+
 	public boolean isConstructorReference() {
 		return CharOperation.equals(this.selector,  ConstantPool.Init);
 	}
@@ -610,6 +621,8 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 	}
 
 	public boolean isCompatibleWith(TypeBinding left, Scope scope) {
+		if (this.hasInferenceFinished)
+			return this.resolvedType.isCompatibleWith(left, scope);
 		// 15.28.2
 		final MethodBinding sam = left.getSingleAbstractMethod(this.enclosingScope);
 		if (sam == null || !sam.isValidBinding())
@@ -624,6 +637,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 			this.enclosingScope.problemReporter().switchErrorHandlingPolicy(oldPolicy);
 			isCompatible = this.binding != null && this.binding.isValidBinding();
 			this.binding = null;
+			this.hasInferenceFinished = false;
 			setExpectedType(null);
 		}
 		return isCompatible;

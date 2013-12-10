@@ -334,10 +334,10 @@ public ExpressionContext getExpressionContext() {
  * after applicability checking (18.5.1) to include more information into the final
  * invocation type inference (18.5.2).
  */
-protected MethodBinding findConstructorBinding(BlockScope scope, InvocationSite site, ReferenceBinding receiverType, Expression[] args, TypeBinding[] argumentTypes, boolean polyExpressionSeen) {
+protected MethodBinding findConstructorBinding(BlockScope scope, Invocation site, ReferenceBinding receiverType, TypeBinding[] argumentTypes, boolean polyExpressionSeen) {
 	MethodBinding ctorBinding = scope.getConstructor(receiverType, argumentTypes, site);
 	if (polyExpressionSeen) {
-		if (resolvePolyExpressionArguments(scope, ctorBinding, args, argumentTypes))
+		if (resolvePolyExpressionArguments(site, scope, ctorBinding, argumentTypes))
 			return scope.getConstructor(receiverType, argumentTypes, site);
 	}
 	return ctorBinding;

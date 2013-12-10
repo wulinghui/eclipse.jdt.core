@@ -330,6 +330,26 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		return this.resolvedType;
 	}
 	
+	void cleanUpAfterTentativeResolve() {
+		// remove traces of attempts to resolve the argument before we have the final target type:
+		if (this.arguments != null)
+			for (int i = 0; i < this.arguments.length; i++)
+				this.arguments[i].binding = null;
+		// also remove traces of references to this argument
+		if (this.body != null)
+			this.body.traverse(new ASTVisitor() {
+				public boolean visit(SingleNameReference singleNameReference, BlockScope blockScope) {
+					if (singleNameReference.binding instanceof LocalVariableBinding) {
+						singleNameReference.bits &= ~ASTNode.RestrictiveFlagMASK;
+						singleNameReference.bits |= Binding.VARIABLE;
+						singleNameReference.actualReceiverType = null;
+						singleNameReference.binding = null;
+					}
+					return true;
+				}
+			}, this.scope);
+	}
+
 	public boolean argumentsTypeElided() {
 		return this.arguments.length > 0 && this.arguments[0].hasElidedType();
 	}

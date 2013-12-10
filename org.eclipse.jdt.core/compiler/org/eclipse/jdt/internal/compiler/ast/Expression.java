@@ -1053,6 +1053,25 @@ public TypeBinding resolveTypeExpecting(BlockScope scope, TypeBinding expectedTy
 	}
 	return expressionType;
 }
+
+/**
+ * If we might still be in the context of an unfinished outer inference, use this method to
+ * tentatively resolve this expression without leaving any undesired traces, in case we will
+ * come back with a better target type later.
+ */
+public TypeBinding resolveTentatively(BlockScope scope, TypeBinding targetType) {
+	return resolveType(scope); // default is to do full resolution in just this one step
+}
+
+/**
+ * Once outer contexts have finalized the target type for this expression,
+ * perform any checks that might have been delayed previously.
+ * @param targetType the final target type (aka expectedType) for this expression.
+ */
+public void checkAgainstFinalTargetType(TypeBinding targetType) {
+	// nop, subclasses may choose to do real stuff here
+}
+
 /**
  * Returns true if the receiver is forced to be of raw type either to satisfy the contract imposed
  * by a super type or because it *is* raw and the current type has no control over it (i.e the rawness

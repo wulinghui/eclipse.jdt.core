@@ -446,7 +446,7 @@ public TypeBinding resolveType(BlockScope scope) {
  	}
 	
 	ReferenceBinding allocationType = (ReferenceBinding) this.resolvedType;
-	this.binding = findConstructorBinding(scope, this, allocationType, this.arguments, argumentTypes, polyExpressionSeen);
+	this.binding = findConstructorBinding(scope, this, allocationType, argumentTypes, polyExpressionSeen);
 	
 	if (!this.binding.isValidBinding()) {
 		if (this.binding.declaringClass == null) {
@@ -622,10 +622,17 @@ public Expression[] arguments() {
 	return this.arguments;
 }
 public int inferenceKind() {
-	return this.inferenceKind;
+	return (this.inferenceKind & InferenceContext18.INFERENCE_KIND_MASK);
 }
 public void setInferenceKind(int checkKind) {
 	this.inferenceKind = checkKind;
+}
+public void markInferenceFinished() {
+	this.inferenceKind |= InferenceContext18.CHECK_FINISHED;
+}
+public boolean hasInferenceFinished() {
+	return this.inferenceKind == 0 // only relevant if inference has been started
+			|| (this.inferenceKind & InferenceContext18.CHECK_FINISHED) != 0;
 }
 public TypeBinding updateBindings(MethodBinding updatedBinding) {
 	this.binding = updatedBinding;

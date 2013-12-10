@@ -22,6 +22,7 @@ package org.eclipse.jdt.internal.compiler.lookup;
 
 import org.eclipse.jdt.internal.compiler.ast.ExpressionContext;
 import org.eclipse.jdt.internal.compiler.ast.Invocation;
+import org.eclipse.jdt.internal.compiler.ast.PolyExpression;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 
@@ -88,10 +89,8 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 						boolean invocationTypeInferred = false;
 						if (expectedType != null || invocationSite.getExpressionContext() == ExpressionContext.VANILLA_CONTEXT) {
 							result = infCtx18.inferInvocationType(result, expectedType, invocationSite, originalMethod, checkKind);
-							if (result != null)
-								invocationTypeInferred = true;
-							else
-								hasReturnProblem = true;
+							invocationTypeInferred = true;
+							hasReturnProblem |= result == null;
 							if (hasReturnProblem)
 								result = provisionalResult; // let's prefer a type error regarding the return type over reporting no match at all
 						} else {
@@ -110,10 +109,15 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 								problemMethod.returnType = invocationSite.invocationTargetType();
 								return problemMethod;
 							}
-							if (invocationSite instanceof Invocation)
-								((Invocation)invocationSite).setInferenceKind(checkKind);
-							if (invocationTypeInferred)
+							if (invocationSite instanceof Invocation) {
+								Invocation invocation = (Invocation)invocationSite;
+								invocation.setInferenceKind(checkKind);
+							}
+							if (invocationTypeInferred) {
+								if (invocationSite instanceof PolyExpression)
+									((PolyExpression) invocationSite).markInferenceFinished();									
 								infCtx18.rebindInnerPolies(result, arguments);
+							}
 							break computeSubstitutes;
 						}
 					}

@@ -152,11 +152,18 @@ public void test004() {
 			"----------\n" + 
 			"1. ERROR in X.java (at line 11)\n" + 
 			"	goo(()-> { \n" + 
-			"	^^^\n" + 
-			"The method goo(J) in the type X is not applicable for the arguments (() -> {\n" + 
-			"  boolean y = true;\n" + 
-			"  while (y)    ;\n" + 
-			"})\n" +  
+			"	    ^^^^\n" + 
+			"This method must return a result of type int\n" + 
+			"----------\n" + 
+			"2. ERROR in X.java (at line 15)\n" + 
+			"	goo(()-> { \n" + 
+			"	    ^^^^\n" + 
+			"This method must return a result of type int\n" + 
+			"----------\n" + 
+			"3. ERROR in X.java (at line 18)\n" + 
+			"	goo(()-> { \n" + 
+			"	    ^^^^\n" + 
+			"This method must return a result of type int\n" + 
 			"----------\n");
 }
 public void test005() {

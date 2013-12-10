@@ -22,7 +22,7 @@ import junit.framework.Test;
 public class LambdaExpressionsTest extends AbstractRegressionTest {
 
 static {
-	TESTS_NAMES = new String[] { "testBug419048_1"};
+//	TESTS_NAMES = new String[] { "testReferenceExpressionInference3a"};
 //	TESTS_NUMBERS = new int[] { 50 };
 //	TESTS_RANGE = new int[] { 11, -1 };
 }
@@ -1934,7 +1934,6 @@ public void testReferenceExpressionInference3a() {
 }
 
 // previous test demonstrates that a solution exists, just inference doesn't find it.
-// FAIL: the second error is intermittently reported twice
 public void testReferenceExpressionInference3b() {
 	runNegativeTest(
 		new String[] {
@@ -1955,7 +1954,7 @@ public void testReferenceExpressionInference3b() {
 		"1. ERROR in X.java (at line 7)\n" + 
 		"	I<X,String> x2s = compose(this::bar, this::i2s);\n" + 
 		"	                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
-		"Type mismatch: cannot convert from I<Object,Object> to I<X,String>\n" + 
+		"Type mismatch: cannot convert from I<Object,Object> to I<X,String>\n" +
 		"----------\n" + 
 		"2. ERROR in X.java (at line 7)\n" + 
 		"	I<X,String> x2s = compose(this::bar, this::i2s);\n" + 
@@ -2023,6 +2022,64 @@ public void testBug419048_1() {
 			"                    Collectors.toMap(\n" + 
 			"                        p -> p.getLast(),\n" + 
 			"                        p -> p\n" + 
+			"                    ));\n" +
+			"	}\n" +
+			"}\n" +
+			"class Person {\n" + 
+			"  public String getLast() { return null; }\n" + 
+			"}\n"
+		});
+}
+
+public void testBug419048_2() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.*;\n" +
+			"import java.util.function.*;\n" +
+			"import java.util.stream.*;\n" +
+			"public class X {\n" +
+			"	public void test() {\n" +
+			"		 List<Person> roster = new ArrayList<>();\n" + 
+			"        \n" + 
+			"        Map<String, Person> map = \n" + 
+			"            roster\n" + 
+			"                .stream()\n" + 
+			"                .collect(\n" + 
+			"                    Collectors.toMap(\n" + 
+			"                        Person::getLast,\n" + 
+			"                        Function.identity()\n" + 
+			"                    ));\n" +
+			"	}\n" +
+			"}\n" +
+			"class Person {\n" + 
+			"  public String getLast() { return null; }\n" + 
+			"}\n"
+		});
+}
+
+public void testBug419048_3() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.*;\n" +
+			"import java.util.function.*;\n" +
+			"import java.util.stream.*;\n" +
+			"public class X {\n" +
+			"	public void test() {\n" +
+			"		 List<Person> roster = new ArrayList<>();\n" + 
+			"        \n" + 
+			"        Map<String, Person> map = \n" + 
+			"            roster\n" + 
+			"                .stream()\n" + 
+			"                .collect(\n" + 
+			"                    Collectors.toMap(\n" + 
+			"                        new Function<Person, String>() {\n" + 
+			"                            public String apply(Person p) { \n" + 
+			"                                return p.getLast(); \n" + 
+			"                            } \n" + 
+			"                        },\n" + 
+			"                        Function.identity()\n" + 
 			"                    ));\n" +
 			"	}\n" +
 			"}\n" +

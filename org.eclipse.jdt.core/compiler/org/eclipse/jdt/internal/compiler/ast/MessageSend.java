@@ -846,7 +846,7 @@ protected void findMethodBinding(BlockScope scope, TypeBinding[] argumentTypes, 
 			: scope.getMethod(this.actualReceiverType, this.selector, argumentTypes, this);
 	
 	if (polyExpressionSeen)
-		if (resolvePolyExpressionArguments(scope, this.binding, this.arguments, argumentTypes)) {
+		if (resolvePolyExpressionArguments(this, scope, this.binding, argumentTypes)) {
 			this.binding = this.receiver.isImplicitThis()
 					? scope.getImplicitMethod(this.selector, argumentTypes, this)
 					: scope.getMethod(this.actualReceiverType, this.selector, argumentTypes, this);
@@ -968,7 +968,14 @@ public void setInferenceKind(int checkKind) {
 	this.inferenceKind = checkKind;
 }
 public int inferenceKind() {
-	return this.inferenceKind;
+	return (this.inferenceKind & InferenceContext18.INFERENCE_KIND_MASK);
+}
+public void markInferenceFinished() {
+	this.inferenceKind |= InferenceContext18.CHECK_FINISHED;
+}
+public boolean hasInferenceFinished() {
+	return this.inferenceKind == 0 // only relevant if inference has been started
+			|| (this.inferenceKind & InferenceContext18.CHECK_FINISHED) != 0;
 }
 public TypeBinding updateBindings(MethodBinding updatedBinding) {
 	this.binding = updatedBinding;

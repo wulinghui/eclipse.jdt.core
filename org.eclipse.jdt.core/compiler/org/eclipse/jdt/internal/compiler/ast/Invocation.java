@@ -26,7 +26,7 @@ import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
  * <li>Invocation Type Inference (18.5.2).</li>
  * </ul>
  */
-public interface Invocation extends InvocationSite {
+public interface Invocation extends InvocationSite, PolyExpression {
 
 	Expression[] arguments();
 

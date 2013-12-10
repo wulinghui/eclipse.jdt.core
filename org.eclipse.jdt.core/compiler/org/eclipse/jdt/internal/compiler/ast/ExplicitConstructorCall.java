@@ -423,7 +423,7 @@ public class ExplicitConstructorCall extends Statement implements Invocation, Ex
 			if (receiverType == null) {
 				return;
 			}
-			this.binding = findConstructorBinding(scope, this, receiverType, this.arguments, argumentTypes, polyExpressionSeen);
+			this.binding = findConstructorBinding(scope, this, receiverType, argumentTypes, polyExpressionSeen);
 
 			if (this.binding.isValidBinding()) {
 				if ((this.binding.tagBits & TagBits.HasMissingType) != 0) {
@@ -498,10 +498,17 @@ public class ExplicitConstructorCall extends Statement implements Invocation, Ex
 		return this.inferenceContext;
 	}
 	public int inferenceKind() {
-		return this.inferenceKind;
+		return (this.inferenceKind & InferenceContext18.INFERENCE_KIND_MASK);
 	}
 	public void setInferenceKind(int checkKind) {
 		this.inferenceKind = checkKind;
+	}
+	public void markInferenceFinished() {
+		this.inferenceKind |= InferenceContext18.CHECK_FINISHED;
+	}
+	public boolean hasInferenceFinished() {
+		return this.inferenceKind == 0 // only relevant if inference has been started
+				|| (this.inferenceKind & InferenceContext18.CHECK_FINISHED) != 0;
 	}
 	public TypeBinding updateBindings(MethodBinding updatedBinding) {
 		this.binding = updatedBinding;

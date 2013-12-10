@@ -49,10 +49,13 @@ public class InferenceContext18 {
 	InvocationSite currentInvocation;
 	Expression[] invocationArguments;
 	
-	// TODO make me an enum:
+	// Bitmask, lower two bits:
 	public static final int CHECK_STRICT = 1;
 	public static final int CHECK_LOOSE = 2;
 	public static final int CHECK_VARARG = 3;
+	public static final int INFERENCE_KIND_MASK = 3;
+	// bit 3:
+	public static final int CHECK_FINISHED = 4;
 	
 	static class InvocationRecord {
 		InvocationSite site;
@@ -609,25 +612,43 @@ public class InferenceContext18 {
 		this.invocationArguments = record.invocationArguments;
 	}
 	
-	public void rebindInnerPolies(BoundSet bounds, TypeBinding[] arguments) {
+	/**
+	 * After inference has finished, iterate all inner poly expressions, that have been
+	 * included in the inference. For each of these update some type information
+	 * from the inference result and perhaps trigger follow-up resolving as needed.
+	 */
+	public void rebindInnerPolies(BoundSet bounds, TypeBinding[] argumentTypes) {
 		int len = this.innerPolies.size();
 		for (int i = 0; i < len; i++) {
 			Expression inner = (Expression) this.innerPolies.get(i);
 			if (inner instanceof Invocation) {
 				Invocation innerMessage = (Invocation) inner;
 				MethodBinding original = innerMessage.binding().original();
+				
+				// apply inference results onto the binding of the inner invocation:
 				TypeBinding[] solutions = getSolutions(original.typeVariables(), innerMessage, bounds);
-				if (solutions == null) continue; // play safe, but shouldn't happen in a resolved context
-				TypeBinding returnType = innerMessage.updateBindings(this.environment.createParameterizedGenericMethod(original, solutions));
-				if (returnType != TypeBinding.VOID) {
-					for (int j = 0; j < this.invocationArguments.length; j++) {
-						if (inner == this.invocationArguments[j]) {
-							arguments[j] = returnType;
-							break;
-						}
+				if (solutions == null) 
+					continue; // play safe, but shouldn't happen in a resolved context
+				ParameterizedGenericMethodBinding innerBinding = this.environment.createParameterizedGenericMethod(original, solutions);
+				innerMessage.updateBindings(innerBinding);
+				innerMessage.markInferenceFinished(); // invocation type inference has already happened on the inner, too.
+				
+				// finalize resolving of arguments of the inner invocation:
+				TypeBinding[] innerParameters = innerBinding.parameters;
+				int inferenceKind = innerMessage.inferenceKind();
+				TypeBinding varArgsType = inferenceKind == CHECK_VARARG ? ((ArrayBinding)innerParameters[innerParameters.length-1]).elementsType() : null; 
+				Expression[] arguments = innerMessage.arguments();
+				if (arguments != null) {
+					for (int j = 0; j < arguments.length; j++) {
+						TypeBinding param = (varArgsType == null || (j < innerParameters.length-1))
+												? innerParameters[j]
+												: varArgsType;
+						arguments[j].checkAgainstFinalTargetType(param);
 					}
 				}
 			}
+			// inner FunctionalExpression don't seem to be included in inference.
+			// TODO recheck any inquires on those actually involve inference of which the results are included here. 
 		}
 	}
 

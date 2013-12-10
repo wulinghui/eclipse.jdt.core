@@ -5744,11 +5744,13 @@ public void test401939a() {
 				"----------\n" + 
 				"2. ERROR in X.java (at line 8)\n" + 
 				"	foo(()->{ if (1 == 2) throw new RuntimeException(); });\n" + 
-				"	^^^\n" + 
-				"The method foo(I) in the type X is not applicable for the arguments (() -> {\n" + 
-				"  if ((1 == 2))\n" + 
-				"      throw new RuntimeException();\n" + 
-				"})\n" + 
+				"	    ^^^^\n" + 
+				"This method must return a result of type int\n" + 
+				"----------\n" + 
+				"3. WARNING in X.java (at line 8)\n" + 
+				"	foo(()->{ if (1 == 2) throw new RuntimeException(); });\n" + 
+				"	                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+				"Dead code\n" + 
 				"----------\n");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=401939, [1.8][compiler] Incorrect shape analysis leads to method resolution failure .

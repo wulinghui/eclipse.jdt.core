@@ -152,9 +152,8 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 		MethodBinding functionType = t.getSingleAbstractMethod(inferenceContext.scope);
 		if (functionType == null)
 			return FALSE;
-		// TODO: check strategy for: potentially-applicable method for the method reference when targeting T (15.28.1),
-		reference.resolveTypeExpecting(reference.enclosingScope, t);
-		MethodBinding potentiallyApplicable = reference.binding;
+		// potentially-applicable method for the method reference when targeting T (15.28.1),
+		MethodBinding potentiallyApplicable = reference.findCompileTimeMethodTargeting(t, inferenceContext.scope);
 		if (potentiallyApplicable == null)
 			return FALSE;
 		if (reference.isExactMethodReference()) {
@@ -165,7 +164,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 			int k = pPrime.length;
 			int offset = 0;
 			if (n == k+1) {
-				newConstraints.add(new ConstraintTypeFormula(p[0], reference.receiverType, COMPATIBLE)); // 2nd arg: "ReferenceType"
+				newConstraints.add(new ConstraintTypeFormula(p[0], reference.lhs.resolvedType, COMPATIBLE));
 				offset = 1;
 			}
 			for (int i = offset; i < n; i++)
