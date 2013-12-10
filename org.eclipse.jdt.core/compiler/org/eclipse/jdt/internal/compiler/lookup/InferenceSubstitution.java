@@ -17,7 +17,7 @@ package org.eclipse.jdt.internal.compiler.lookup;
 /**
  * A type variable substitution strategy based on inference variables (JLS8 18.1.1)
  */
-public class InferenceSubstitution implements Substitution {
+public class InferenceSubstitution extends Scope.Substitutor implements Substitution {
 
 	private LookupEnvironment environment;
 	private InferenceVariable[] variables;
@@ -25,6 +25,20 @@ public class InferenceSubstitution implements Substitution {
 	public InferenceSubstitution(LookupEnvironment environment, InferenceVariable[] variables) {
 		this.environment = environment;
 		this.variables = variables;
+	}
+	
+	/**
+	 * Override method {@link Scope.Substitutor#substitute(Substitution, TypeBinding)}, 
+	 * to add substitution of types other than type variables.
+	 */
+	public TypeBinding substitute(Substitution substitution, TypeBinding originalType) {
+		for (int i = 0; i < this.variables.length; i++) {
+			InferenceVariable variable = this.variables[i];
+			if (TypeBinding.equalsEquals(variable.typeParameter, originalType))
+				return variable;
+		}
+
+		return super.substitute(substitution, originalType);
 	}
 
 	public TypeBinding substitute(TypeVariableBinding typeVariable) {

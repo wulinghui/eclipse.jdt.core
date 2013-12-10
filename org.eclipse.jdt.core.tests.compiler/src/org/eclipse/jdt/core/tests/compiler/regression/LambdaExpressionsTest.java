@@ -22,7 +22,7 @@ import junit.framework.Test;
 public class LambdaExpressionsTest extends AbstractRegressionTest {
 
 static {
-//	TESTS_NAMES = new String[] { "testLambdaInference2"};
+	TESTS_NAMES = new String[] { "testBug419048_1"};
 //	TESTS_NUMBERS = new int[] { 50 };
 //	TESTS_RANGE = new int[] { 11, -1 };
 }
@@ -2006,6 +2006,31 @@ public void testLambdaInference2() {
 	    "");
 }
 
+public void testBug419048_1() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.*;\n" +
+			"import java.util.stream.*;\n" +
+			"public class X {\n" +
+			"	public void test() {\n" +
+			"		 List<Person> roster = new ArrayList<>();\n" + 
+			"        \n" + 
+			"        Map<String, Person> map = \n" + 
+			"            roster\n" + 
+			"                .stream()\n" + 
+			"                .collect(\n" + 
+			"                    Collectors.toMap(\n" + 
+			"                        p -> p.getLast(),\n" + 
+			"                        p -> p\n" + 
+			"                    ));\n" +
+			"	}\n" +
+			"}\n" +
+			"class Person {\n" + 
+			"  public String getLast() { return null; }\n" + 
+			"}\n"
+		});
+}
 public static Class testClass() {
 	return LambdaExpressionsTest.class;
 }

@@ -95,7 +95,8 @@ public class InferenceContext18 {
 	 * Substitute any type variables mentioned in 'type' by the corresponding inference variable, if one exists. 
 	 */
 	public TypeBinding substitute(TypeBinding type) {
-		return 	Scope.substitute(new InferenceSubstitution(this.environment, this.inferenceVariables), type);
+		InferenceSubstitution inferenceSubstitution = new InferenceSubstitution(this.environment, this.inferenceVariables);
+		return 	inferenceSubstitution.substitute(inferenceSubstitution, type);
 	}
 
 	/** JLS 18.5.1: compute bounds from formal and actual parameters. */
