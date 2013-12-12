@@ -25,6 +25,7 @@ import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.ast.Argument;
 import org.eclipse.jdt.internal.compiler.ast.ConditionalExpression;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
+import org.eclipse.jdt.internal.compiler.ast.ExpressionContext;
 import org.eclipse.jdt.internal.compiler.ast.Invocation;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
@@ -57,7 +58,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 				return TRUE;
 			return FALSE;
 		}
-		if (!this.left.isPolyExpression()) {
+		if (!canBePolyExpression(this.left)) {
 			TypeBinding exprType = this.left.resolvedType;
 			if (exprType == null || !exprType.isValidBinding())
 				return FALSE;
@@ -127,11 +128,17 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 				if (functionType.returnType != TypeBinding.VOID) {
 					TypeBinding r = functionType.returnType;
 					if (lambda.body() instanceof Expression) {
-						result.add(new ConstraintExpressionFormula((Expression)lambda.body(), r, COMPATIBLE));
+						Expression body = (Expression)lambda.body();
+						// before introducing the body into inference, we must ensure it's resolved, hm...
+						ensureResolved(lambda.enclosingScope, body, r);
+						result.add(new ConstraintExpressionFormula(body, r, COMPATIBLE));
 					} else {
 						Expression[] exprs = lambda.resultExpressions();
-						for (int i = 0; i < exprs.length; i++)
+						for (int i = 0; i < exprs.length; i++) {
+							// before introducing result expressions into inference, we must ensure they're resolved, hm...
+							ensureResolved(lambda.enclosingScope, exprs[i], r);
 							result.add(new ConstraintExpressionFormula(exprs[i], r, COMPATIBLE));
+						}
 					}
 				}
 				if (result.size() == 0)
@@ -142,6 +149,29 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 			}
 		}
 		return FALSE;
+	}
+
+	private boolean canBePolyExpression(Expression expr) {
+		// when inferring compatibility against a right type, the check isPolyExpression 
+		// must assume that expr occurs in s.t. like an assignment context:
+		ExpressionContext previousExpressionContext = expr.getExpressionContext();
+		if (previousExpressionContext == ExpressionContext.VANILLA_CONTEXT)
+			this.left.setExpressionContext(ExpressionContext.ASSIGNMENT_CONTEXT);
+		try {
+			return expr.isPolyExpression();
+		} finally {
+			expr.setExpressionContext(previousExpressionContext);
+		}
+	}
+
+	private void ensureResolved(BlockScope scope, Expression expr, TypeBinding targetType) {
+		if (expr.resolvedType == null) {
+			if (targetType.isProperType(true))
+				expr.setExpectedType(targetType);
+			else
+				expr.setExpectedType(null);
+			expr.resolveType(scope);
+		}
 	}
 
 	private Object reduceReferenceExpressionCompatibility(ReferenceExpression reference, InferenceContext18 inferenceContext) {

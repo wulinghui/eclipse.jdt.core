@@ -69,7 +69,10 @@ public abstract class FunctionalExpression extends Expression implements PolyExp
 		return null;
 	}
 	public void setExpectedType(TypeBinding expectedType) {
-		this.expectedType = this.ellipsisArgument ? ((ArrayBinding) expectedType).elementsType() : expectedType;
+		if (expectedType == null)
+			this.expectedType = null;
+		else
+			this.expectedType = this.ellipsisArgument ? ((ArrayBinding) expectedType).elementsType() : expectedType;
 	}
 	
 	public void setExpressionContext(ExpressionContext context) {

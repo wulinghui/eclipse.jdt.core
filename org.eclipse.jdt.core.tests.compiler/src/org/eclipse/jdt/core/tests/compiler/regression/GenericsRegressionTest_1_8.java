@@ -19,7 +19,7 @@ import junit.framework.Test;
 public class GenericsRegressionTest_1_8 extends AbstractRegressionTest {
 
 static {
-//	TESTS_NAMES = new String[] { "testBug423839" };
+//	TESTS_NAMES = new String[] { "testBug414631" };
 //	TESTS_NUMBERS = new int[] { 40, 41, 43, 45, 63, 64 };
 //	TESTS_RANGE = new int[] { 11, -1 };
 }
@@ -157,6 +157,26 @@ public void testBug418807() {
 			"		List<Word> words = ws.collect(Collectors.toList());\n" + 
 			"		words.forEach(System.out::println);\n" + 
 			"	}\n" + 
+			"}\n"
+		});
+}
+public void testBug414631() {
+	runConformTest(
+		new String[] {
+			"test/Y.java",
+			"package test;\n" + 
+			"import java.util.function.Supplier;\n" + 
+			"public abstract class Y<E>  {\n" + 
+			"  public static <E> Y<E> empty() { return null;}\n" + 
+			"  public static <E> Y<E> cons(E head, Supplier<Y<E>> tailFun) {return null;}\n" + 
+			"}",
+			"test/X.java",
+			"package test;\n" + 
+			"import static test.Y.*;\n" + 
+			"public class X  {\n" + 
+			"  public void foo() {\n" + 
+			"    Y<String> generated = cons(\"a\", () -> cons(\"b\", Y::<String>empty));\n" + 
+			"  }\n" + 
 			"}\n"
 		});
 }
