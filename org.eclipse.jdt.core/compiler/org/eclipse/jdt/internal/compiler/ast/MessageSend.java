@@ -577,11 +577,14 @@ public TypeBinding resolveType(BlockScope scope) {
 	// Base type promotion
 
 	this.constant = Constant.NotAConstant;
+	long sourceLevel = scope.compilerOptions().sourceLevel;
 	boolean receiverCast = false, argsContainCast = false;
 	if (this.receiver instanceof CastExpression) {
 		this.receiver.bits |= ASTNode.DisableUnnecessaryCastCheck; // will check later on
 		receiverCast = true;
 	}
+	if (this.receiver.resolvedType != null)
+		this.receiver.unresolve(); // some cleanup before second attempt
 	this.actualReceiverType = this.receiver.resolveType(scope);
 	boolean receiverIsType = this.receiver instanceof NameReference && (((NameReference) this.receiver).bits & Binding.TYPE) != 0;
 	if (receiverCast && this.actualReceiverType != null) {
@@ -593,7 +596,7 @@ public TypeBinding resolveType(BlockScope scope) {
 	// resolve type arguments (for generic constructor call)
 	if (this.typeArguments != null) {
 		int length = this.typeArguments.length;
-		boolean argHasError = scope.compilerOptions().sourceLevel < ClassFileConstants.JDK1_5; // typeChecks all arguments
+		boolean argHasError = sourceLevel < ClassFileConstants.JDK1_5; // typeChecks all arguments
 		this.genericTypeArguments = new TypeBinding[length];
 		for (int i = 0; i < length; i++) {
 			TypeReference typeReference = this.typeArguments[i];
@@ -620,20 +623,19 @@ public TypeBinding resolveType(BlockScope scope) {
 		boolean argHasError = false; // typeChecks all arguments
 		int length = this.arguments.length;
 		argumentTypes = new TypeBinding[length];
-		TypeBinding argumentType;
 		for (int i = 0; i < length; i++){
 			Expression argument = this.arguments[i];
+			if (this.arguments[i].resolvedType != null) 
+				this.arguments[i].unresolve(); // some cleanup before second attempt
 			if (argument instanceof CastExpression) {
 				argument.bits |= ASTNode.DisableUnnecessaryCastCheck; // will check later on
 				argsContainCast = true;
 			}
 			argument.setExpressionContext(INVOCATION_CONTEXT);
-			if ((argumentType = argumentTypes[i] = argument.resolveType(scope)) == null){
+			if ((argumentTypes[i] = argument.resolveType(scope)) == null){
 				argHasError = true;
 			}
-			if (argumentType != null && argumentType.kind() == Binding.POLY_TYPE)
-				polyExpressionSeen = true;
-			else if (argument instanceof Invocation && ((Invocation)argument).inferenceKind() > 0)
+			if (sourceLevel >= ClassFileConstants.JDK1_8 && argument.isPolyExpression())
 				polyExpressionSeen = true;
 		}
 		if (argHasError) {
@@ -954,7 +956,10 @@ public Expression[] arguments() {
 	return this.arguments;
 }
 public InferenceContext18 freshInferenceContext(Scope scope) {
-	return this.inferenceContext = new InferenceContext18(scope, this.arguments, this);
+	InferenceContext18 outer = this.inferenceContext != null ? this.inferenceContext.outerContext : null;
+	this.inferenceContext = new InferenceContext18(scope, this.arguments, this);
+	this.inferenceContext.outerContext = outer;
+	return this.inferenceContext;
 }
 /**
  * Here inference signals if it has established applicability.

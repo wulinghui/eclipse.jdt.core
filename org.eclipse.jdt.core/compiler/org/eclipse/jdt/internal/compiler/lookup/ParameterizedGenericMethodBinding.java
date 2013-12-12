@@ -20,6 +20,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import org.eclipse.jdt.internal.compiler.ast.Expression;
 import org.eclipse.jdt.internal.compiler.ast.ExpressionContext;
 import org.eclipse.jdt.internal.compiler.ast.Invocation;
 import org.eclipse.jdt.internal.compiler.ast.PolyExpression;
@@ -71,14 +72,17 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 			if (infCtx18 != null) {
 				int checkKind = InferenceContext18.CHECK_LOOSE; // TODO: validate if 2 phase checking (strict/loose + vararg) is sufficient.
 				// 18.5.1 (Applicability):
-				infCtx18.inferInvocationApplicability(originalMethod, arguments, checkKind);
+				boolean isDiamond = originalMethod.isConstructor()
+						&& invocationSite instanceof Expression
+						&& ((Expression)invocationSite).isPolyExpression(originalMethod);
+				infCtx18.inferInvocationApplicability(originalMethod, arguments, isDiamond, checkKind);
 				try {
 					BoundSet provisionalResult = infCtx18.solve();
 					if (provisionalResult == null && originalMethod.isVarargs()) {
 						// check for variable arity applicability
 						infCtx18 = invocationSite.freshInferenceContext(scope); // start over
 						checkKind = InferenceContext18.CHECK_VARARG;
-						infCtx18.inferInvocationApplicability(originalMethod, arguments, checkKind);
+						infCtx18.inferInvocationApplicability(originalMethod, arguments, isDiamond, checkKind);
 						provisionalResult = infCtx18.solve();
 					}
 					BoundSet result = infCtx18.currentBounds.copy(); // the result after reduction, without effects of resolve()
@@ -107,6 +111,7 @@ public class ParameterizedGenericMethodBinding extends ParameterizedMethodBindin
 							if (hasReturnProblem) {
 								ProblemMethodBinding problemMethod = new ProblemMethodBinding(methodSubstitute, methodSubstitute.selector, parameters, ProblemReasons.ParameterizedMethodExpectedTypeProblem);
 								problemMethod.returnType = invocationSite.invocationTargetType();
+								problemMethod.inferenceContext = infCtx18;
 								return problemMethod;
 							}
 							if (invocationSite instanceof Invocation) {

@@ -287,9 +287,9 @@ class ConstraintTypeFormula extends ConstraintFormula {
 		TypeBinding cb = subCandidate.findSuperTypeOriginatingFrom(ca);	// C<B1,B2,...>
 		if (cb == null)
 			return false; // nothing here means we failed 
-		if (cb.isRawType())
-			return InferenceContext18.SIMULATE_BUG_JDK_8026527 ? true : false; // FALSE would conform to the spec 
 		TypeBinding[] bi = ((ParameterizedTypeBinding) cb).arguments;
+		if (cb.isRawType() || bi.length == 0)
+			return InferenceContext18.SIMULATE_BUG_JDK_8026527 ? true : false; // FALSE would conform to the spec 
 		for (int i = 0; i < ai.length; i++)
 			constraints.add(new ConstraintTypeFormula(bi[i], ai[i], TYPE_ARGUMENT_CONTAINED));
 		return true;

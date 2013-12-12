@@ -19,7 +19,7 @@ import junit.framework.Test;
 public class GenericsRegressionTest_1_8 extends AbstractRegressionTest {
 
 static {
-//	TESTS_NAMES = new String[] { "testConditionalExpression2" };
+//	TESTS_NAMES = new String[] { "testBug423839" };
 //	TESTS_NUMBERS = new int[] { 40, 41, 43, 45, 63, 64 };
 //	TESTS_RANGE = new int[] { 11, -1 };
 }
@@ -111,6 +111,23 @@ public void _testConditionalExpression2() {
 			"       G<? super B> l4 = (f) ? gsb : gsb;\n" +
 			"	}\n" +
 			"}"
+		});
+}
+public void testBug423839() {
+	runConformTest(
+		new String[] {
+			"Test.java",
+			"import java.util.ArrayList;\n" + 
+			"import java.util.Collection;\n" + 
+			"import java.util.List;\n" + 
+			"\n" + 
+			"public class Test<T> {\n" + 
+			"\n" + 
+			"    public <T> T randomElement(Collection<T> list) {\n" + 
+			"        return randomElement(list instanceof List ? list : new ArrayList<>(list));\n" + 
+			"    }\n" + 
+			"\n" + 
+			"}\n"
 		});
 }
 }

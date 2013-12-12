@@ -141,6 +141,7 @@ import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.CaptureBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
+import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.LookupEnvironment;
@@ -4196,6 +4197,12 @@ public void invalidMethod(MessageSend messageSend, MethodBinding method) {
 		case ProblemReasons.ParameterizedMethodExpectedTypeProblem:
 			// FIXME(stephan): construct suitable message (https://bugs.eclipse.org/404675)
 			problemMethod = (ProblemMethodBinding) method;
+			InferenceContext18 inferenceContext = problemMethod.inferenceContext;
+			if (inferenceContext != null && inferenceContext.outerContext != null) {
+				// problem relates to a nested inference context, let the outer handle it:
+				inferenceContext.outerContext.addProblemMethod(problemMethod);
+				return;
+			}
 			shownMethod = problemMethod.closestMatch;
 			this.handle(
 				IProblem.TypeMismatch,

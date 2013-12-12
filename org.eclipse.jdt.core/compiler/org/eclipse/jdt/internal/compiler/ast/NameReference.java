@@ -105,4 +105,10 @@ protected void checkEffectiveFinality(LocalVariableBinding localBinding, Scope s
 		}
 	}
 }
+void unresolve() {
+	this.resolvedType = null;
+	this.actualReceiverType = null;
+	this.bits &= ~RestrictiveFlagMASK;
+	this.bits |= Binding.TYPE | Binding.VARIABLE;
+}
 }

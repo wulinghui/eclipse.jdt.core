@@ -40,6 +40,8 @@ public class InferenceContext18 {
 	int variableCount = 0;
 
 	List/*<InvocationSite>*/ innerPolies = new ArrayList();
+	public InferenceContext18 outerContext;
+	private ArrayList problemMethods;
 
 	Scope scope;
 	LookupEnvironment environment;
@@ -144,8 +146,11 @@ public class InferenceContext18 {
 
 	private InferenceVariable[] addInitialTypeVariableSubstitutions(TypeBinding[] typeVariables) {
 		int len = typeVariables.length;
-		if (len == 0) 
+		if (len == 0) {
+			if (this.inferenceVariables == null)
+				this.inferenceVariables = Binding.NO_INFERENCE_VARIABLES;
 			return Binding.NO_INFERENCE_VARIABLES;
+		}
 		InferenceVariable[] newVariables = new InferenceVariable[len];
 		for (int i = 0; i < len; i++)
 			newVariables[i] = new InferenceVariable(typeVariables[i], this.variableCount++, this.currentInvocation, this.environment);
@@ -193,8 +198,8 @@ public class InferenceContext18 {
 	}
 
 	/** JLS 18.5.1 Invocation Applicability Inference */
-	public void inferInvocationApplicability(MethodBinding method, TypeBinding[] arguments, int checkType) {
-		ConstraintExpressionFormula.inferInvocationApplicability(this, method, arguments, checkType);
+	public void inferInvocationApplicability(MethodBinding method, TypeBinding[] arguments, boolean isDiamond, int checkType) {
+		ConstraintExpressionFormula.inferInvocationApplicability(this, method, arguments, isDiamond, checkType);
 	}
 
 	/** JLS 18.5.2 Invocation Type Inference 
@@ -596,6 +601,11 @@ public class InferenceContext18 {
 		
 		// schedule for re-binding the inner after inference success:
 		this.innerPolies.add(invocation);
+		if (invocation instanceof Invocation) {
+			InferenceContext18 innerContext = ((Invocation) invocation).inferenceContext();
+			if (innerContext != null)
+				innerContext.outerContext = this;
+		}
 		return record;
 	}
 
@@ -624,6 +634,14 @@ public class InferenceContext18 {
 			if (inner instanceof Invocation) {
 				Invocation innerMessage = (Invocation) inner;
 				MethodBinding original = innerMessage.binding().original();
+
+				// apply inference results onto the allocation type of inner diamonds:
+				if (original.isConstructor() && inner.isPolyExpression()) {
+					ReferenceBinding declaringClass = original.declaringClass;
+					TypeBinding[] arguments = getSolutions(declaringClass.typeVariables(), innerMessage, bounds);
+					declaringClass = this.environment.createParameterizedType(declaringClass, arguments, declaringClass.enclosingType());
+					original = ((ParameterizedTypeBinding)declaringClass).createParameterizedMethod(original);
+				}
 				
 				// apply inference results onto the binding of the inner invocation:
 				TypeBinding[] solutions = getSolutions(original.typeVariables(), innerMessage, bounds);
@@ -678,6 +696,12 @@ public class InferenceContext18 {
 		if (this.currentBounds != null)
 			buf.append(this.currentBounds.toString());
 		return buf.toString();
+	}
+
+	public void addProblemMethod(ProblemMethodBinding problemMethod) {
+		if (this.problemMethods == null)
+			this.problemMethods = new ArrayList();
+		this.problemMethods.add(problemMethod);
 	}
 
 	// INTERIM: infrastructure for detecting failures caused by specific known incompleteness:

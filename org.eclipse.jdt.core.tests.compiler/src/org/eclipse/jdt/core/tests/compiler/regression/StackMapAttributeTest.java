@@ -879,7 +879,11 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 					"        [pc: 2, pc: 18] local: bar index: 2 type: T\n" +
 					"      Stack map table: number of frames 2\n" +
 					"        [pc: 13, full, stack: {java.io.PrintStream}, locals: {X, java.lang.Comparable, java.lang.Comparable}]\n" +
-					"        [pc: 14, full, stack: {java.io.PrintStream, java.lang.Comparable}, locals: {X, java.lang.Comparable, java.lang.Comparable}]\n";
+					(this.complianceLevel < ClassFileConstants.JDK1_8 ?
+					"        [pc: 14, full, stack: {java.io.PrintStream, java.lang.Comparable}, locals: {X, java.lang.Comparable, java.lang.Comparable}]\n"
+					: // in 1.8 the ternary is resolved to its target type j.l.Object
+					"        [pc: 14, full, stack: {java.io.PrintStream, java.lang.Object}, locals: {X, java.lang.Comparable, java.lang.Comparable}]\n"
+					);
 
 			int index = actualOutput.indexOf(expectedOutput);
 			if (index == -1 || expectedOutput.length() == 0) {

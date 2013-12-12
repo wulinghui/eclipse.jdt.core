@@ -78,7 +78,8 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 					for (int i = 0; i < argumentTypes.length; i++)
 						argumentTypes[i] = arguments[i].resolvedType;
 					int checkType = (invocation.inferenceKind() != 0) ? invocation.inferenceKind() : InferenceContext18.CHECK_LOOSE;
-					inferInvocationApplicability(inferenceContext, method, argumentTypes, checkType); // FIXME 3 phases?
+					boolean isDiamond = method.isConstructor() && this.left.isPolyExpression(method);
+					inferInvocationApplicability(inferenceContext, method, argumentTypes, isDiamond, checkType); // FIXME 3 phases?
 					
 					if (!inferPolyInvocationType(inferenceContext, invocation, this.right, method))
 						return FALSE;
@@ -189,10 +190,21 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 		return FALSE;
 	}
 
-	static void inferInvocationApplicability(InferenceContext18 inferenceContext, MethodBinding method, TypeBinding[] arguments, int checkType) 
+	static void inferInvocationApplicability(InferenceContext18 inferenceContext, MethodBinding method, TypeBinding[] arguments, boolean isDiamond, int checkType) 
 	{
 		// 18.5.1
 		TypeVariableBinding[] typeVariables = method.typeVariables;
+		if (isDiamond) {
+			TypeVariableBinding[] classTypeVariables = method.declaringClass.typeVariables();
+			int l1 = typeVariables.length;
+			int l2 = classTypeVariables.length;
+			if (l1 == 0) {
+				typeVariables = classTypeVariables;
+			} else if (l2 != 0) {
+				System.arraycopy(typeVariables, 0, typeVariables=new TypeVariableBinding[l1+l2], 0, l1);
+				System.arraycopy(classTypeVariables, 0, typeVariables, l1, l2);
+			}				
+		}
 		TypeBinding[] parameters = method.parameters;
 		InferenceVariable[] inferenceVariables = inferenceContext.createInitialBoundSet(typeVariables); // creates initial bound set B
 
@@ -211,50 +223,45 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 				throws InferenceFailureException 
 	{
 		TypeBinding[] typeArguments = invocationSite.genericTypeArguments();
-		boolean isGenericMethod = method.original().typeVariables != Binding.NO_TYPE_VARIABLES;
-		if (isGenericMethod) {
-			if (typeArguments == null) {
-				// invocation type inference (18.5.2):
-				TypeBinding returnType = method.isConstructor() ? method.declaringClass : method.returnType;
-				if (returnType == TypeBinding.VOID)
-					throw new InferenceFailureException("expression has no value");
+		if (typeArguments == null) {
+			// invocation type inference (18.5.2):
+			TypeBinding returnType = method.isConstructor() ? method.declaringClass : method.returnType;
+			if (returnType == TypeBinding.VOID)
+				throw new InferenceFailureException("expression has no value");
 
-				ParameterizedTypeBinding parameterizedType = parameterizedWithWildcard(returnType);
-				if (parameterizedType != null) {
-					TypeBinding[] arguments = parameterizedType.arguments;
-					InferenceVariable[] betas = inferenceContext.addTypeVariableSubstitutions(arguments);
-					TypeBinding gbeta = inferenceContext.environment.createParameterizedType(
-							parameterizedType.genericType(), betas, parameterizedType.enclosingType(), parameterizedType.getTypeAnnotations());
-					inferenceContext.currentBounds.captures.put(gbeta, parameterizedType);
-					ConstraintTypeFormula newConstraint = new ConstraintTypeFormula(gbeta, targetType, COMPATIBLE);
-					if (!inferenceContext.reduceAndIncorporate(newConstraint))
-						return false;
-				}
-
-				if (targetType.isBaseType()) {
-					TypeBinding thetaR = inferenceContext.substitute(returnType);
-					if (thetaR instanceof InferenceVariable) {
-						TypeBinding wrapper = inferenceContext.currentBounds.findWrapperTypeBound((InferenceVariable)thetaR);
-						if (wrapper != null) {
-							if (!inferenceContext.reduceAndIncorporate(new ConstraintTypeFormula(thetaR, wrapper, ReductionResult.SAME))
-								|| !inferenceContext.reduceAndIncorporate(new ConstraintTypeFormula(wrapper, targetType, ReductionResult.COMPATIBLE)))
-								return false;
-						}
-					}
-				}
-
-				ConstraintTypeFormula newConstraint = new ConstraintTypeFormula(inferenceContext.substitute(returnType), targetType, COMPATIBLE);
+			ParameterizedTypeBinding parameterizedType = parameterizedWithWildcard(returnType);
+			if (parameterizedType != null) {
+				TypeBinding[] arguments = parameterizedType.arguments;
+				InferenceVariable[] betas = inferenceContext.addTypeVariableSubstitutions(arguments);
+				TypeBinding gbeta = inferenceContext.environment.createParameterizedType(
+						parameterizedType.genericType(), betas, parameterizedType.enclosingType(), parameterizedType.getTypeAnnotations());
+				inferenceContext.currentBounds.captures.put(gbeta, parameterizedType);
+				ConstraintTypeFormula newConstraint = new ConstraintTypeFormula(gbeta, targetType, COMPATIBLE);
 				if (!inferenceContext.reduceAndIncorporate(newConstraint))
 					return false;
 			}
-		} else {
-			throw new IllegalStateException("Method as PolyExpression must be generic");
+
+			if (targetType.isBaseType()) {
+				TypeBinding thetaR = inferenceContext.substitute(returnType);
+				if (thetaR instanceof InferenceVariable) {
+					TypeBinding wrapper = inferenceContext.currentBounds.findWrapperTypeBound((InferenceVariable)thetaR);
+					if (wrapper != null) {
+						if (!inferenceContext.reduceAndIncorporate(new ConstraintTypeFormula(thetaR, wrapper, ReductionResult.SAME))
+							|| !inferenceContext.reduceAndIncorporate(new ConstraintTypeFormula(wrapper, targetType, ReductionResult.COMPATIBLE)))
+							return false;
+					}
+				}
+			}
+
+			ConstraintTypeFormula newConstraint = new ConstraintTypeFormula(inferenceContext.substitute(returnType), targetType, COMPATIBLE);
+			if (!inferenceContext.reduceAndIncorporate(newConstraint))
+				return false;
 		}
 		return true;
 	}
 
 	private static ParameterizedTypeBinding parameterizedWithWildcard(TypeBinding returnType) {
-		if (!(returnType instanceof ParameterizedTypeBinding))
+		if (returnType.kind() != Binding.PARAMETERIZED_TYPE)
 			return null;
 		ParameterizedTypeBinding parameterizedType = (ParameterizedTypeBinding) returnType;
 		TypeBinding[] arguments = parameterizedType.arguments;

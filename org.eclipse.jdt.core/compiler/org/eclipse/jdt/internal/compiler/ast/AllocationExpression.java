@@ -303,6 +303,7 @@ public TypeBinding resolveType(BlockScope scope) {
 	// Propagate the type checking to the arguments, and check if the constructor is defined.
 	final boolean isDiamond = this.type != null && (this.type.bits & ASTNode.IsDiamond) != 0;
 	final CompilerOptions compilerOptions = scope.compilerOptions();
+	boolean diamondNeedsDeferring = false;
 	if (this.constant != Constant.NotAConstant) {
 		this.constant = Constant.NotAConstant;
 		if (this.type == null) {
@@ -312,7 +313,7 @@ public TypeBinding resolveType(BlockScope scope) {
 			this.resolvedType = this.type.resolveType(scope, true /* check bounds*/);
 			if (isDiamond && this.typeExpected == null && this.expressionContext == INVOCATION_CONTEXT && compilerOptions.sourceLevel >= ClassFileConstants.JDK1_8) {
 				if (this.resolvedType != null && this.resolvedType.isValidBinding())
-					return this.resolvedType = new PolyTypeBinding(this);
+					diamondNeedsDeferring = true;
 			}
 		}
 	} else {
@@ -436,7 +437,7 @@ public TypeBinding resolveType(BlockScope scope) {
 		scope.problemReporter().cannotInstantiate(this.type, this.resolvedType);
 		return this.resolvedType;
 	}
-	if (isDiamond) {
+	if (isDiamond && !diamondNeedsDeferring) {
 		TypeBinding [] inferredTypes = inferElidedTypes(((ParameterizedTypeBinding) this.resolvedType).genericType(), null, argumentTypes, scope);
 		if (inferredTypes == null) {
 			scope.problemReporter().cannotInferElidedTypes(this);
@@ -444,10 +445,17 @@ public TypeBinding resolveType(BlockScope scope) {
 		}
 		this.resolvedType = this.type.resolvedType = scope.environment().createParameterizedType(((ParameterizedTypeBinding) this.resolvedType).genericType(), inferredTypes, ((ParameterizedTypeBinding) this.resolvedType).enclosingType());
  	}
+	ReferenceBinding receiverType = (ReferenceBinding) this.resolvedType;
+	if (diamondNeedsDeferring) {
+		// in this preliminary mode use the raw receiver type for constructor lookup, to avoid spurious type errors
+		receiverType = (ReferenceBinding) receiverType.original();
+		receiverType = scope.environment().createRawType(receiverType, receiverType.enclosingType());
+		this.inferenceKind = 1; // inference needed!
+	}
 	
+	this.binding = findConstructorBinding(scope, this, receiverType, argumentTypes, polyExpressionSeen);
+
 	ReferenceBinding allocationType = (ReferenceBinding) this.resolvedType;
-	this.binding = findConstructorBinding(scope, this, allocationType, argumentTypes, polyExpressionSeen);
-	
 	if (!this.binding.isValidBinding()) {
 		if (this.binding.declaringClass == null) {
 			this.binding.declaringClass = allocationType;
@@ -463,8 +471,10 @@ public TypeBinding resolveType(BlockScope scope) {
 	}
 	if (isMethodUseDeprecated(this.binding, scope, true))
 		scope.problemReporter().deprecatedMethod(this.binding, this);
-	if (checkInvocationArguments(scope, null, allocationType, this.binding, this.arguments, argumentTypes, argsContainCast, this)) {
-		this.bits |= ASTNode.Unchecked;
+	if (!diamondNeedsDeferring) { // don't check diamonds before we have the target type
+		if (checkInvocationArguments(scope, null, allocationType, this.binding, this.arguments, argumentTypes, argsContainCast, this)) {
+			this.bits |= ASTNode.Unchecked;
+		}
 	}
 	if (this.typeArguments != null && this.binding.original().typeVariables == Binding.NO_TYPE_VARIABLES) {
 		scope.problemReporter().unnecessaryTypeArgumentsForMethodInvocation(this.binding, this.genericTypeArguments, this.typeArguments);
@@ -602,6 +612,11 @@ public boolean isPolyExpression() {
 public boolean isPolyExpression(MethodBinding method) {
 	return (this.expressionContext == ASSIGNMENT_CONTEXT || this.expressionContext == INVOCATION_CONTEXT) &&
 			this.type != null && (this.type.bits & ASTNode.IsDiamond) != 0;
+}
+public boolean isPertinentToApplicability(TypeBinding targetType, MethodBinding method) {
+	if (this.type != null && (this.type.bits & IsDiamond) != 0)
+		return false;
+	return true;
 }
 /**
  * @see org.eclipse.jdt.internal.compiler.lookup.InvocationSite#invocationTargetType()
