@@ -130,4 +130,34 @@ public void testBug423839() {
 			"}\n"
 		});
 }
+public void testBug418807() {
+	runConformTest(
+		new String[] {
+			"Word.java",
+			"import java.util.Arrays;\n" + 
+			"import java.util.List;\n" + 
+			"import java.util.stream.Collectors;\n" + 
+			"import java.util.stream.Stream;\n" + 
+			" \n" + 
+			"public class Word {\n" + 
+			"	private final String str;\n" + 
+			"\n" + 
+			"	public Word(String s) {\n" + 
+			"		str = s;\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	@Override\n" + 
+			"	public String toString() {\n" + 
+			"		return str;\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	public static void main(String[] args) {\n" + 
+			"		List<String> names = Arrays.asList(\"Aaron\", \"Jack\", \"Ben\");\n" + 
+			"		Stream<Word> ws = names.stream().map(Word::new);\n" + 
+			"		List<Word> words = ws.collect(Collectors.toList());\n" + 
+			"		words.forEach(System.out::println);\n" + 
+			"	}\n" + 
+			"}\n"
+		});
+}
 }
