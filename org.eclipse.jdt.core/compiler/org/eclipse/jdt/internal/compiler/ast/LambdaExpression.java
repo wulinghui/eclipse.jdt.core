@@ -73,24 +73,25 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 	private Statement body;
 	public boolean hasParentheses;
 	public MethodScope scope;
-	private boolean voidCompatible = true;
-	private boolean valueCompatible = false;
+	boolean voidCompatible = true;
+	boolean valueCompatible = false;
 	private boolean shapeAnalysisComplete = false;
-	private boolean returnsValue;
-	private boolean returnsVoid;
+	boolean returnsValue;
+	boolean returnsVoid;
 	private LambdaExpression original = this;
 	private SyntheticArgumentBinding[] outerLocalVariables = NO_SYNTHETIC_ARGUMENTS;
 	private int outerLocalVariablesSlotSize = 0;
 	public boolean shouldCaptureInstance = false;
-	private boolean shouldUnelideTypes = false;
+	private boolean assistNode = false;
 	private boolean hasIgnoredMandatoryErrors = false;
 	private static final SyntheticArgumentBinding [] NO_SYNTHETIC_ARGUMENTS = new SyntheticArgumentBinding[0];
-	
-	public LambdaExpression(CompilationResult compilationResult, boolean shouldUnelideTypes) {
+	private static final Block NO_BODY = new Block(0, true);
+
+	public LambdaExpression(CompilationResult compilationResult, boolean assistNode) {
 		super(compilationResult);
-		this.shouldUnelideTypes = shouldUnelideTypes;
+		this.assistNode = assistNode;
 		setArguments(NO_ARGUMENTS);
-		setBody(new Block(0));
+		setBody(NO_BODY);
 	}
 	
 	public void setArguments(Argument [] arguments) {
@@ -103,7 +104,7 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 	}
 
 	public void setBody(Statement body) {
-		this.body = body == null ? new Block(0) : body;
+		this.body = body == null ? NO_BODY : body;
 	}
 	
 	public Statement body() {
@@ -116,6 +117,10 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 
 	public void setArrowPosition(int arrowPosition) {
 		this.arrowPosition = arrowPosition;
+	}
+	
+	public int getArrowPosition() {
+		return this.arrowPosition;
 	}
 	
 	protected FunctionalExpression original() {
@@ -194,7 +199,7 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		
 		if (!haveDescriptor) {
 			if (argumentsTypeElided) {
-				if (!this.shouldUnelideTypes)
+				if (!this.assistNode)
 					return null; // FUBAR, bail out...
 				// for code assist ONLY, keep the sluice gate shut on bogus errors otherwise.
 				argumentsTypeElided = false;
@@ -565,6 +570,40 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		return false;
 	}
 		
+	private void analyzeShape() { // simple minded analysis for code assist.
+		class ShapeComputer extends ASTVisitor {
+			public boolean visit(TypeDeclaration type, BlockScope skope) {
+				return false;
+			}
+			public boolean visit(TypeDeclaration type, ClassScope skope) {
+				return false;
+			}
+			public boolean visit(LambdaExpression type, BlockScope skope) {
+				return false;
+			}
+		    public boolean visit(ReturnStatement returnStatement, BlockScope skope) {
+		    	if (returnStatement.expression != null) {
+		    		LambdaExpression.this.valueCompatible = true;
+		    		LambdaExpression.this.voidCompatible = false;
+		    	} else {
+		    		LambdaExpression.this.voidCompatible = true;
+		    		LambdaExpression.this.valueCompatible = false;
+		    	}
+		    	return false;
+		    }
+		}
+		if (this.body instanceof Expression) {
+			this.voidCompatible = ((Expression) this.body).statementExpression();
+			this.valueCompatible = true;
+		} else {
+			// We need to be a bit tolerant/fuzzy here: the code is being written "just now", if we are too pedantic, selection/completion will break;
+			this.voidCompatible = true;
+			this.valueCompatible = true;
+			this.body.traverse(new ShapeComputer(), null);
+		}
+		this.shapeAnalysisComplete = true;
+	}
+	
 	public boolean isCompatibleWith(final TypeBinding left, final Scope someScope) {
 		
 		final MethodBinding sam = left.getSingleAbstractMethod(this.enclosingScope);
@@ -581,8 +620,19 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 			compilerOptions.isAnnotationBasedNullAnalysisEnabled = false;
 			try {
 				final LambdaExpression copy = copy();
-				if (copy == null)
-					return false;
+				if (copy == null) {
+					if (this.assistNode) {
+						analyzeShape(); // not on terra firma here !
+						if (sam.returnType.id == TypeIds.T_void) {
+							if (!this.voidCompatible)
+								return false;
+						} else {
+							if (!this.valueCompatible)
+								return false;
+						}
+					}
+					return !isPertinentToApplicability(left, null);
+				}
 				copy.setExpressionContext(this.expressionContext);
 				copy.setExpectedType(left);
 				this.hasIgnoredMandatoryErrors = false;
@@ -619,7 +669,7 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 
 		if (!isPertinentToApplicability(left, null))
 			return true;
-	
+
 		if (sam.returnType.id == TypeIds.T_void) {
 			if (!this.voidCompatible)
 				return false;
@@ -627,7 +677,6 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 			if (!this.valueCompatible)
 				return false;
 		}
-		
 		Expression [] returnExpressions = this.resultExpressions;
 		for (int i = 0, length = returnExpressions.length; i < length; i++) {
 			if (returnExpressions[i] instanceof FunctionalExpression) { // don't want to use the resolvedType - polluted from some other overload resolution candidate
