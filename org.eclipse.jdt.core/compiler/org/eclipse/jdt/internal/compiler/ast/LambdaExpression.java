@@ -182,7 +182,7 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		this.enclosingScope = blockScope;
 		
 		if (this.expectedType == null && this.expressionContext == INVOCATION_CONTEXT) {
-			return this.resolvedType = new PolyTypeBinding(this);
+			return new PolyTypeBinding(this);
 		} 
 		
 		MethodScope methodScope = blockScope.methodScope();
@@ -1063,6 +1063,9 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 	// Return the actual method binding devoid of synthetics. 
 	public MethodBinding getMethodBinding() {
 		if (this.actualMethodBinding == null) {
+			if (this.binding == null) {
+				this.resolveType((BlockScope)this.scope.parent);
+			}
 			this.actualMethodBinding = new MethodBinding(this.binding.modifiers, this.binding.selector, this.binding.returnType, 
 					this.binding instanceof SyntheticMethodBinding ? this.descriptor.parameters : this.binding.parameters,  // retain any faults in parameter list.
 							this.binding.thrownExceptions, this.binding.declaringClass);
