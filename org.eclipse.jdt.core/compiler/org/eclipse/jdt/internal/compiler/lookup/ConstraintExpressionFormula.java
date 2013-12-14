@@ -166,6 +166,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 	}
 
 	private void ensureResolved(BlockScope scope, Expression expr, TypeBinding targetType) {
+		// TODO this method might be obsoleted by the use of LE.getResolvedCopyForInferenceTargeting()
 		if (expr.resolvedType == null) {
 			if (targetType.isProperType(true))
 				expr.setExpectedType(targetType);
