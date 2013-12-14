@@ -26,6 +26,7 @@ import org.eclipse.jdt.internal.compiler.ast.Argument;
 import org.eclipse.jdt.internal.compiler.ast.ConditionalExpression;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
 import org.eclipse.jdt.internal.compiler.ast.ExpressionContext;
+import org.eclipse.jdt.internal.compiler.ast.FunctionalExpression;
 import org.eclipse.jdt.internal.compiler.ast.Invocation;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
@@ -52,8 +53,13 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 		// JLS 18.2.1
 		if (this.right.isProperType(true)) {
 			TypeBinding exprType = this.left.resolvedType;
-			if (exprType == null || !exprType.isValidBinding())
+			if (exprType == null) {
+				if (this.left instanceof FunctionalExpression)
+					return this.left.isCompatibleWith(this.right, inferenceContext.scope) ? TRUE : FALSE;
 				return FALSE;
+			} else if (!exprType.isValidBinding()) {
+				return FALSE;
+			}
 			if (isCompatibleWithInLooseInvocationContext(exprType, this.right, inferenceContext))
 				return TRUE;
 			return FALSE;
@@ -293,6 +299,7 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 			}
 
 			ConstraintTypeFormula newConstraint = new ConstraintTypeFormula(inferenceContext.substitute(returnType), targetType, COMPATIBLE);
+System.out.println("INC: "+newConstraint);
 			if (!inferenceContext.reduceAndIncorporate(newConstraint))
 				return false;
 		}
