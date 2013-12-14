@@ -492,10 +492,15 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 			}
 		}
 		
-		Expression [] returnExpressions = this.resultExpressions;
-		for (int i = 0, length = returnExpressions.length; i < length; i++) {
-			if (!returnExpressions[i].isPertinentToApplicability(targetType, method))
+		if (this.body instanceof Expression) {
+			if (!((Expression) this.body).isPertinentToApplicability(targetType, method))
 				return false;
+		} else {
+			Expression [] returnExpressions = this.resultExpressions;
+			for (int i = 0, length = returnExpressions.length; i < length; i++) {
+				if (!returnExpressions[i].isPertinentToApplicability(targetType, method))
+					return false;
+			}
 		}
 		
 		return true;
@@ -646,6 +651,9 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 					}
 				} else {
 					this.voidCompatible = ((Expression) this.body).statementExpression();
+					// TODO: in getResolvedCopyForInferenceTargeting() we need to check if the expression
+					//        *could* also procude a value and set valueCompatible accordingly.
+					//        Is that needed also here?
 					this.shapeAnalysisComplete = true;
 				}
 				// Do not proceed with data/control flow analysis if resolve encountered errors.
@@ -698,7 +706,63 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 
 		return true;
 	}
-	
+
+	/**
+	 * Get a resolved copy of this lambda for use by type inference, as to avoid spilling any premature
+	 * type results into the original lambda.
+	 * 
+	 * @param targetType the target functional type against which inference is attempted, must be a non-null valid functional type 
+	 * @return a resolved copy of 'this' or null if significant errors where encountered
+	 */
+	public LambdaExpression getResolvedCopyForInferenceTargeting(TypeBinding targetType) {
+		// note: this is essentially a simplified extract from isCompatibleWith(TypeBinding,Scope).
+		if (this.shapeAnalysisComplete)
+			return this;
+		// TODO: caching
+		IErrorHandlingPolicy oldPolicy = this.enclosingScope.problemReporter().switchErrorHandlingPolicy(silentErrorHandlingPolicy);
+		final CompilerOptions compilerOptions = this.enclosingScope.compilerOptions();
+		boolean analyzeNPE = compilerOptions.isAnnotationBasedNullAnalysisEnabled;
+		final LambdaExpression copy = copy();
+		if (copy == null) {
+			return null;
+		}
+		try {
+			compilerOptions.isAnnotationBasedNullAnalysisEnabled = false;
+			copy.setExpressionContext(this.expressionContext);
+			copy.setExpectedType(targetType);
+			this.hasIgnoredMandatoryErrors = false;
+			TypeBinding type = copy.resolveType(this.enclosingScope);
+			if (this.body instanceof Block) {
+				if (this.returnsVoid) {
+					copy.shapeAnalysisComplete = true;
+				}
+			} else {
+				copy.voidCompatible = ((Expression) this.body).statementExpression();
+				TypeBinding resultType = ((Expression) this.body).resolvedType;
+				if (resultType == null) // case of a yet-unresolved poly expression?
+					copy.valueCompatible = true;
+				else
+					copy.valueCompatible = (resultType != TypeBinding.VOID);
+				copy.shapeAnalysisComplete = true;
+			}
+			// Do not proceed with data/control flow analysis if resolve encountered errors.
+			if (type == null || !type.isValidBinding() || this.hasIgnoredMandatoryErrors || enclosingScopesHaveErrors()) {
+				return null;
+			}
+			
+			// value compatibility of block lambda's is the only open question.
+			if (!copy.shapeAnalysisComplete)
+				copy.valueCompatible = copy.doesNotCompleteNormally();
+			
+			copy.shapeAnalysisComplete = true;
+		} finally {
+			compilerOptions.isAnnotationBasedNullAnalysisEnabled = analyzeNPE;
+			this.hasIgnoredMandatoryErrors = false;
+			this.enclosingScope.problemReporter().switchErrorHandlingPolicy(oldPolicy);
+		}
+		return copy;
+	}
+
 	public boolean sIsMoreSpecific(TypeBinding s, TypeBinding t) {
 		
 		// 15.12.2.5 

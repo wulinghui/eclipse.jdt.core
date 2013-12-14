@@ -110,8 +110,9 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 					for (int i = 0; i < parameters.length; i++)
 						if (!parameters[i].isProperType(true))
 							return FALSE;
-				// FIXME: force shape analysis:
-				lambda.isCompatibleWith(t, scope);
+				lambda = lambda.getResolvedCopyForInferenceTargeting(t);
+				if (lambda == null)
+					return FALSE; // not strictly unreduceable, but proceeding with TRUE would likely produce secondary errors
 				if (functionType.returnType == TypeBinding.VOID) {
 					if (!lambda.isVoidCompatible())
 						return FALSE;
@@ -170,7 +171,14 @@ class ConstraintExpressionFormula extends ConstraintFormula {
 				expr.setExpectedType(targetType);
 			else
 				expr.setExpectedType(null);
-			expr.resolveType(scope);
+			ExpressionContext previousExpressionContext = expr.getExpressionContext();
+			if (previousExpressionContext == ExpressionContext.VANILLA_CONTEXT)
+				expr.setExpressionContext(ExpressionContext.ASSIGNMENT_CONTEXT);
+			try {
+				expr.resolveType(scope);
+			} finally {
+				expr.setExpressionContext(previousExpressionContext);
+			}
 		}
 	}
 

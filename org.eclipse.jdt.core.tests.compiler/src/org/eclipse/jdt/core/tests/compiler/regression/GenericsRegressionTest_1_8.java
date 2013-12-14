@@ -19,7 +19,7 @@ import junit.framework.Test;
 public class GenericsRegressionTest_1_8 extends AbstractRegressionTest {
 
 static {
-//	TESTS_NAMES = new String[] { "testBug414631" };
+//	TESTS_NAMES = new String[] { "testBug424038" };
 //	TESTS_NUMBERS = new int[] { 40, 41, 43, 45, 63, 64 };
 //	TESTS_RANGE = new int[] { 11, -1 };
 }
@@ -179,5 +179,37 @@ public void testBug414631() {
 			"  }\n" + 
 			"}\n"
 		});
+}
+public void testBug424038() {
+	runNegativeTest(
+		new String[] {
+			"Foo.java",
+			"import java.util.*;\n" +
+			"import java.util.function.*;\n" +
+			"public class Foo<E> {\n" + 
+			"\n" + 
+			"    public void gather() {\n" + 
+			"        StreamLike<E> stream = null;\n" + 
+			"        List<Stuff<E>> list1 = stream.gather(() -> new Stuff<>()).toList();\n" + 
+			"        List<Consumer<E>> list2 = stream.gather(() -> new Stuff<>()).toList(); // ERROR\n" + 
+			"    }\n" + 
+			"\n" + 
+			"    interface StreamLike<E> {\n" + 
+			"        <T extends Consumer<E>> StreamLike<T> gather(Supplier<T> gatherer);\n" + 
+			"\n" + 
+			"        List<E> toList();\n" + 
+			"    }\n" + 
+			"\n" + 
+			"    static class Stuff<T> implements Consumer<T> {\n" + 
+			"        public void accept(T t) {}\n" + 
+			"    }\n" + 
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in Foo.java (at line 8)\n" + 
+		"	List<Consumer<E>> list2 = stream.gather(() -> new Stuff<>()).toList(); // ERROR\n" + 
+		"	                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from List<Foo<E>.Stuff<E>> to List<Consumer<E>>\n" + 
+		"----------\n");
 }
 }

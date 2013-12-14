@@ -438,12 +438,13 @@ public TypeBinding resolveType(BlockScope scope) {
 		return this.resolvedType;
 	}
 	if (isDiamond && !diamondNeedsDeferring) {
-		TypeBinding [] inferredTypes = inferElidedTypes(((ParameterizedTypeBinding) this.resolvedType).genericType(), null, argumentTypes, scope);
+		ReferenceBinding genericType = ((ParameterizedTypeBinding) this.resolvedType).genericType();
+		TypeBinding [] inferredTypes = inferElidedTypes(genericType, genericType.enclosingType(), argumentTypes, scope);
 		if (inferredTypes == null) {
 			scope.problemReporter().cannotInferElidedTypes(this);
 			return this.resolvedType = null;
 		}
-		this.resolvedType = this.type.resolvedType = scope.environment().createParameterizedType(((ParameterizedTypeBinding) this.resolvedType).genericType(), inferredTypes, ((ParameterizedTypeBinding) this.resolvedType).enclosingType());
+		this.resolvedType = this.type.resolvedType = scope.environment().createParameterizedType(genericType, inferredTypes, ((ParameterizedTypeBinding) this.resolvedType).enclosingType());
  	}
 	ReferenceBinding receiverType = (ReferenceBinding) this.resolvedType;
 	if (diamondNeedsDeferring) {
@@ -613,11 +614,7 @@ public boolean isPolyExpression(MethodBinding method) {
 	return (this.expressionContext == ASSIGNMENT_CONTEXT || this.expressionContext == INVOCATION_CONTEXT) &&
 			this.type != null && (this.type.bits & ASTNode.IsDiamond) != 0;
 }
-public boolean isPertinentToApplicability(TypeBinding targetType, MethodBinding method) {
-	if (this.type != null && (this.type.bits & IsDiamond) != 0)
-		return false;
-	return true;
-}
+
 /**
  * @see org.eclipse.jdt.internal.compiler.lookup.InvocationSite#invocationTargetType()
  */
