@@ -675,7 +675,7 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 			}
 		}
 
-		if (!isPertinentToApplicability(left, null))
+		if (!isPertinentToApplicability(left, null))  // This check should happen after return type check below, but for buggy javac compatibility we have left it in.
 			return true;
 
 		if (sam.returnType.id == TypeIds.T_void) {

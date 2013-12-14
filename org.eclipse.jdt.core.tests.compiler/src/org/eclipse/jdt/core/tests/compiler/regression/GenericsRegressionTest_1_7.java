@@ -5,8 +5,14 @@
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  * 
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contribution for
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -2015,7 +2021,7 @@ public void test0052() {
 			"	                                    ^\n" + 
 			"Redundant specification of type arguments <Class<? extends Object>>\n" + 
 			"----------\n"
-		:
+		: // additional error at line 5 due to better inference:
 			"----------\n" + 
 			"1. ERROR in X.java (at line 5)\n" + 
 			"	X<Number> x = new X<Number>(1);\n" + 
@@ -2105,7 +2111,7 @@ public void test0052b() {
 			"	                   ^\n" + 
 			"Redundant specification of type arguments <String>\n" + 
 			"----------\n"
-		:
+		: // additional error at line 7 due to better inference
 			"----------\n" + 
 			"1. ERROR in X.java (at line 7)\n" + 
 			"	X<Number> x = new X<Number>(1);\n" + 
@@ -2351,7 +2357,7 @@ public void test0056b() {
 			"	                       ^^\n" + 
 			"Redundant specification of type arguments <Integer>\n" + 
 			"----------\n"
-		:
+		: // additional error at line 6 due to better inference:
 			"----------\n" + 
 			"1. ERROR in X.java (at line 5)\n" + 
 			"	X1<Integer> x1 = new X.X1<Integer>(1);\n" + 
@@ -2392,7 +2398,7 @@ public void test0056c() {
 			"	                               ^\n" + 
 			"Redundant specification of type arguments <Integer>\n" + 
 			"----------\n"
-		:
+		: // additional error (2.) at inner allocation due to better inference:
 			"----------\n" + 
 			"1. ERROR in X.java (at line 6)\n" + 
 			"	X<Integer>.X1<Number> x1 = new X<Integer>(1).new X1<Number>(1);\n" + 
@@ -2569,7 +2575,7 @@ public void test0061() {
 			"	                            ^^^^^^^^^^^^^\n" + 
 			"The method newFileSystem(URI, Map<String,?>) in the type FileSystems is not applicable for the arguments (URI, Map<Object,Object>)\n" + 
 			"----------\n"
-		:
+		: // with better inference, method is applicable, but then we have another problem:
 			"----------\n" + 
 			"1. ERROR in X.java (at line 5)\n" + 
 			"	FileSystems.<String, Object>newFileSystem(uri, Collections.emptyMap());\n" + 

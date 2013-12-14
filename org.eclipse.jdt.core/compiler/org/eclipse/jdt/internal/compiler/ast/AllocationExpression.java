@@ -304,6 +304,7 @@ public TypeBinding resolveType(BlockScope scope) {
 	final boolean isDiamond = this.type != null && (this.type.bits & ASTNode.IsDiamond) != 0;
 	final CompilerOptions compilerOptions = scope.compilerOptions();
 	boolean diamondNeedsDeferring = false;
+	long sourceLevel = compilerOptions.sourceLevel;
 	if (this.constant != Constant.NotAConstant) {
 		this.constant = Constant.NotAConstant;
 		if (this.type == null) {
@@ -311,7 +312,7 @@ public TypeBinding resolveType(BlockScope scope) {
 			this.resolvedType = scope.enclosingReceiverType();
 		} else {
 			this.resolvedType = this.type.resolveType(scope, true /* check bounds*/);
-			if (isDiamond && this.typeExpected == null && this.expressionContext == INVOCATION_CONTEXT && compilerOptions.sourceLevel >= ClassFileConstants.JDK1_8) {
+			if (isDiamond && this.typeExpected == null && this.expressionContext == INVOCATION_CONTEXT && sourceLevel >= ClassFileConstants.JDK1_8) {
 				if (this.resolvedType != null && this.resolvedType.isValidBinding())
 					diamondNeedsDeferring = true;
 			}
@@ -346,7 +347,7 @@ public TypeBinding resolveType(BlockScope scope) {
 	// resolve type arguments (for generic constructor call)
 	if (this.typeArguments != null) {
 		int length = this.typeArguments.length;
-		boolean argHasError = compilerOptions.sourceLevel < ClassFileConstants.JDK1_5;
+		boolean argHasError = sourceLevel < ClassFileConstants.JDK1_5;
 		this.genericTypeArguments = new TypeBinding[length];
 		for (int i = 0; i < length; i++) {
 			TypeReference typeReference = this.typeArguments[i];
@@ -379,7 +380,6 @@ public TypeBinding resolveType(BlockScope scope) {
 		boolean argHasError = false;
 		int length = this.arguments.length;
 		argumentTypes = new TypeBinding[length];
-		TypeBinding argumentType;
 		for (int i = 0; i < length; i++) {
 			Expression argument = this.arguments[i];
 			if (argument instanceof CastExpression) {
@@ -387,10 +387,10 @@ public TypeBinding resolveType(BlockScope scope) {
 				argsContainCast = true;
 			}
 			argument.setExpressionContext(INVOCATION_CONTEXT);
-			if ((argumentType = argumentTypes[i] = argument.resolveType(scope)) == null) {
+			if ((argumentTypes[i] = argument.resolveType(scope)) == null) {
 				argHasError = true;
 			}
-			if (argumentType != null && argumentType.kind() == Binding.POLY_TYPE)
+			if (sourceLevel >= ClassFileConstants.JDK1_8 && argument.isPolyExpression())
 				polyExpressionSeen = true;
 		}
 		if (argHasError) {

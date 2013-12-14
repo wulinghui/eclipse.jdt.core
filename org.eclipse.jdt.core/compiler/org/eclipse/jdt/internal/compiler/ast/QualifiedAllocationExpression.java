@@ -366,10 +366,11 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 		}
 
 		// resolve type arguments (for generic constructor call)
+		long sourceLevel = scope.compilerOptions().sourceLevel;
 		final boolean isDiamond = this.type != null && (this.type.bits & ASTNode.IsDiamond) != 0;
 		if (this.typeArguments != null) {
 			int length = this.typeArguments.length;
-			boolean argHasError = scope.compilerOptions().sourceLevel < ClassFileConstants.JDK1_5;
+			boolean argHasError = sourceLevel < ClassFileConstants.JDK1_5;
 			this.genericTypeArguments = new TypeBinding[length];
 			for (int i = 0; i < length; i++) {
 				TypeReference typeReference = this.typeArguments[i];
@@ -400,7 +401,6 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 		if (this.arguments != null) {
 			int length = this.arguments.length;
 			argumentTypes = new TypeBinding[length];
-			TypeBinding argumentType;
 			for (int i = 0; i < length; i++) {
 				Expression argument = this.arguments[i];
 				if (argument instanceof CastExpression) {
@@ -408,10 +408,10 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 					argsContainCast = true;
 				}
 				argument.setExpressionContext(INVOCATION_CONTEXT);
-				if ((argumentType = argumentTypes[i] = argument.resolveType(scope)) == null){
+				if ((argumentTypes[i] = argument.resolveType(scope)) == null){
 					hasError = true;
 				}
-				if (argumentType != null && argumentType.kind() == Binding.POLY_TYPE)
+				if (sourceLevel >= ClassFileConstants.JDK1_8 && argument.isPolyExpression())
 					polyExpressionSeen = true;
 			}
 		}
@@ -542,9 +542,7 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 		if ((this.resolvedType.tagBits & TagBits.HierarchyHasProblems) != 0) {
 			return null; // stop secondary errors
 		}
-		MethodBinding inheritedBinding = scope.getConstructor(anonymousSuperclass, argumentTypes, this);
-		if (polyExpressionSeen)
-			resolvePolyExpressionArguments(this, scope, inheritedBinding, argumentTypes);
+		MethodBinding inheritedBinding = findConstructorBinding(scope, this, anonymousSuperclass, argumentTypes, polyExpressionSeen);
 			
 		if (!inheritedBinding.isValidBinding()) {
 			if (inheritedBinding.declaringClass == null) {

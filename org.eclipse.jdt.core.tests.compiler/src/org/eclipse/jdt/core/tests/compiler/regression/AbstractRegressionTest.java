@@ -18,6 +18,7 @@
  *								bug 391376 - [1.8] check interaction of default methods with bridge methods and generics
  *								Bug 412203 - [compiler] Internal compiler error: java.lang.IllegalArgumentException: info cannot be null
  *								Bug 422051 - [1.8][compiler][tests] cleanup excuses (JavacHasABug) in InterfaceMethodTests
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *     Jesper S Moller - Contributions for bug 378674 - "The method can be declared as static" is wrong
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
@@ -801,9 +802,6 @@ protected static class JavacTestOptions {
 										compiler.minor != 1600 ? null : this;
 							}
 					}: null;
-		public static JavacHasABug IntArrayAsTypeBound = RUN_JAVAC ?
-				new JavacHasABug(MismatchType.EclipseErrorsJavacNone, -ClassFileConstants.JDK1_8, 0) : null; // bug since 1.8
-
 	}
 }
 

@@ -342,8 +342,9 @@ public class ExplicitConstructorCall extends Statement implements Invocation, Ex
 				}
 			}
 			// resolve type arguments (for generic constructor call)
+			long sourceLevel = scope.compilerOptions().sourceLevel;
 			if (this.typeArguments != null) {
-				boolean argHasError = scope.compilerOptions().sourceLevel < ClassFileConstants.JDK1_5;
+				boolean argHasError = sourceLevel < ClassFileConstants.JDK1_5;
 				int length = this.typeArguments.length;
 				this.genericTypeArguments = new TypeBinding[length];
 				for (int i = 0; i < length; i++) {
@@ -372,7 +373,6 @@ public class ExplicitConstructorCall extends Statement implements Invocation, Ex
 				boolean argHasError = false; // typeChecks all arguments
 				int length = this.arguments.length;
 				argumentTypes = new TypeBinding[length];
-				TypeBinding argumentType;
 				for (int i = 0; i < length; i++) {
 					Expression argument = this.arguments[i];
 					if (argument instanceof CastExpression) {
@@ -380,12 +380,10 @@ public class ExplicitConstructorCall extends Statement implements Invocation, Ex
 						argsContainCast = true;
 					}
 					argument.setExpressionContext(INVOCATION_CONTEXT);
-					if ((argumentType = argumentTypes[i] = argument.resolveType(scope)) == null) {
+					if ((argumentTypes[i] = argument.resolveType(scope)) == null) {
 						argHasError = true;
 					}
-					if (argumentType != null && argumentType.kind() == Binding.POLY_TYPE)
-						polyExpressionSeen = true;
-					else if (argument instanceof Invocation && ((Invocation)argument).inferenceKind() > 0)
+					if (sourceLevel >= ClassFileConstants.JDK1_8 && argument.isPolyExpression())
 						polyExpressionSeen = true;
 				}
 				if (argHasError) {

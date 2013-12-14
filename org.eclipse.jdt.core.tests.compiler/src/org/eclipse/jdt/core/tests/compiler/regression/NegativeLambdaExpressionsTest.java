@@ -19,6 +19,7 @@
  *     Stephan Herrmann - Contribution for
  *							bug 404649 - [1.8][compiler] detect illegal reference to indirect or redundant super via I.super.m() syntax
  *							bug 404728 - [1.8]NPE on QualifiedSuperReference error
+ *							Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 

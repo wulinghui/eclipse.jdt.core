@@ -85,7 +85,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 		this.sourceStart = expression.sourceStart;
 		this.sourceEnd = sourceEndPosition;
 	}
-
+ 
 	public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
 		this.actualMethodBinding = this.binding; // grab before synthetics come into play.
 		SourceTypeBinding sourceType = currentScope.enclosingSourceType();
@@ -622,7 +622,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 
 	public boolean isCompatibleWith(TypeBinding left, Scope scope) {
 		if (this.hasInferenceFinished)
-			return this.resolvedType.isCompatibleWith(left, scope);
+			return this.resolvedType != null ? this.resolvedType.isCompatibleWith(left, scope) : false;
 		// 15.28.2
 		final MethodBinding sam = left.getSingleAbstractMethod(this.enclosingScope);
 		if (sam == null || !sam.isValidBinding())

@@ -19,6 +19,7 @@
  *								bug 388739 - [1.8][compiler] consider default methods when detecting whether a class needs to be declared abstract
  *								bug 395681 - [compiler] Improve simulation of javac6 behavior from bug 317719 after fixing bug 388795
  *								bug 406928 - computation of inherited methods seems damaged (affecting @Overrides)
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -14161,8 +14162,7 @@ public class GenericTypeTest extends AbstractComparableTest {
 			"	public class X<T extends int[]> {\n" +
 			"	                         ^^^^^\n" +
 			"The array type int[] cannot be used as a type parameter bound\n" +
-			"----------\n",
-			JavacTestOptions.JavacHasABug.IntArrayAsTypeBound);
+			"----------\n");
 	}
 
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=79628

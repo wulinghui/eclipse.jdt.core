@@ -15,6 +15,7 @@
  *								bug 388739 - [1.8][compiler] consider default methods when detecting whether a class needs to be declared abstract
  *								bug 399567 - [1.8] Different error message from the reference compiler
  *								bug 401796 - [1.8][compiler] don't treat default methods as overriding an independent inherited abstract method
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 

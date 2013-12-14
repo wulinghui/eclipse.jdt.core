@@ -14,6 +14,7 @@
  *     Stephan Herrmann - Contribution for
  *								bug 388800 - [1.8] adjust tests to 1.8 JRE
  *								Bug 412203 - [compiler] Internal compiler error: java.lang.IllegalArgumentException: info cannot be null
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 

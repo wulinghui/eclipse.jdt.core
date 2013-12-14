@@ -953,7 +953,7 @@ public Constant optimizedBooleanConstant() {
 public boolean isPertinentToApplicability(TypeBinding targetType, MethodBinding method) {
 	return true;
 }
-// call this before resolving an expression for the second time. TODO: implement in more subclasses!
+// call this before resolving an expression for the second time. TODO: implement in more subclasses, or find a different strategy.
 void unresolve() {
 	this.resolvedType = null;
 }
