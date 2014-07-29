@@ -36,6 +36,7 @@ protected File file;
 protected ZipFile zipFile;
 protected boolean closeZipFileAtEnd;
 protected Hashtable packageCache;
+protected String annotationPath;
 
 public ClasspathJar(File file, boolean closeZipFileAtEnd,
 		AccessRuleSet accessRuleSet, String destinationPath) {
@@ -96,8 +97,11 @@ public NameEnvironmentAnswer findClass(char[] typeName, String qualifiedPackageN
 
 	try {
 		ClassFileReader reader = ClassFileReader.read(this.zipFile, qualifiedBinaryFileName);
-		if (reader != null)
+		if (reader != null) {
+			if (this.annotationPath != null)
+				reader.setExternalAnnotationProvider(this.annotationPath);
 			return new NameEnvironmentAnswer(reader, fetchAccessRestriction(qualifiedBinaryFileName));
+		}
 	} catch(ClassFormatException e) {
 		// treat as if class file is missing
 	} catch (IOException e) {

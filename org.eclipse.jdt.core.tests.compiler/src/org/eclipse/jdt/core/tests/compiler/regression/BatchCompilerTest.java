@@ -87,8 +87,53 @@ public class BatchCompilerTest extends AbstractRegressionTest {
 			"public @interface NonNull{\n" +
 			"}\n";
 
+	private static final String ELEMENT_TYPE_18_CONTENT = "package java.lang.annotation;\n" + 
+			"public enum ElementType {\n" + 
+			"    TYPE,\n" + 
+			"    FIELD,\n" + 
+			"    METHOD,\n" + 
+			"    PARAMETER,\n" + 
+			"    CONSTRUCTOR,\n" + 
+			"    LOCAL_VARIABLE,\n" + 
+			"    ANNOTATION_TYPE,\n" + 
+			"    PACKAGE,\n" + 
+			"    TYPE_PARAMETER,\n" + 
+			"    TYPE_USE\n" + 
+			"}\n" + 
+			"";
+	private static final String NONNULL_ANNOTATION_18_CONTENT = "package org.eclipse.jdt.annotation;\n" +
+			"import java.lang.annotation.ElementType;\n" +
+			"import java.lang.annotation.*;\n" +
+			"@Documented\n" +
+			"@Retention(RetentionPolicy.CLASS)\n" +
+			"@Target({ ElementType.TYPE_USE })\n" +
+			"public @interface NonNull{\n" +
+			"}\n";
+	private static final String NONNULL_BY_DEFAULT_ANNOTATION_18_CONTENT = "package org.eclipse.jdt.annotation;\n" +
+			"import java.lang.annotation.ElementType;\n" + 
+			"import static org.eclipse.jdt.annotation.DefaultLocation.*;\n" + 
+			"\n" + 
+			"import java.lang.annotation.Retention;\n" + 
+			"import java.lang.annotation.RetentionPolicy;\n" + 
+			"import java.lang.annotation.Target;\n" + 
+			"@Retention(RetentionPolicy.CLASS)\n" + 
+			"@Target({ ElementType.PACKAGE, ElementType.TYPE, ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD, ElementType.LOCAL_VARIABLE })\n" + 
+			"public @interface NonNullByDefault {\n" + 
+			"	DefaultLocation[] value() default { PARAMETER, RETURN_TYPE, FIELD, TYPE_BOUND, TYPE_ARGUMENT };\n" + 
+			"}\n";
+	private static final String DEFAULT_LOCATION_CONTENT = "package org.eclipse.jdt.annotation;\n" +
+			"public enum DefaultLocation {\n" + 
+			"	PARAMETER,\n" + 
+			"	RETURN_TYPE,\n" + 
+			"	FIELD,\n" + 
+			"	TYPE_PARAMETER,\n" + 
+			"	TYPE_BOUND,\n" + 
+			"	TYPE_ARGUMENT,\n" + 
+			"	ARRAY_CONTENTS\n" + 
+			"}\n";
+
 	static {
-//		TESTS_NAMES = new String[] { "test320_warn_options" };
+		TESTS_NAMES = new String[] { "test440477a" };
 //		TESTS_NUMBERS = new int[] { 306 };
 //		TESTS_RANGE = new int[] { 298, -1 };
 	}
@@ -14042,5 +14087,66 @@ public void testBug419351() {
 		new File(endorsedPath).delete();
 		new File(lib1Path).delete();
 	}
+}
+// Bug 440477 - [null] Infrastructure for feeding external annotations into compilation
+// - single external annotation directory
+public void test440477() throws IOException {
+	String annots_dir = Util.getOutputDirectory() + File.separator + "annots";
+	String annots_java_util = annots_dir + File.separator + "java/util";
+	new File(annots_java_util).mkdirs();
+	Util.createFile(
+			annots_java_util + File.separator + "Map.eea", 
+			"class <K:V:>java/util/Map\n" + 
+			"\n" + 
+			"get\n" + 
+			" (Ljava/lang/Object;)TV;\n" + 
+			" (Ljava/lang/Object;)T0V;\n" + 
+			"put\n" + 
+			" (TK;TV;)TV;\n" + 
+			" (TK;TV;)T0V;\n" + 
+			"remove\n" + 
+			" (Ljava/lang/Object;)TV;\n" + 
+			" (Ljava/lang/Object;)T0V;\n");
+
+	String o_e_j_annotation_dir = OUTPUT_DIR + File.separator +
+			"org" + File.separator + "eclipse" + File.separator + "jdt" + File.separator + "annotation";
+	String j_l_annotation_dir = OUTPUT_DIR +  File.separator +
+			"java" + File.separator + "lang" + File.separator + "annotation";
+	this.runConformTest(
+		new String[] {
+			"java/lang/annotation/ElementType.java",
+			ELEMENT_TYPE_18_CONTENT,
+			"org/eclipse/jdt/annotation/NonNull.java",
+			NONNULL_ANNOTATION_18_CONTENT,
+			"org/eclipse/jdt/annotation/DefaultLocation.java",				
+			DEFAULT_LOCATION_CONTENT,
+			"org/eclipse/jdt/annotation/NonNullByDefault.java",				
+			NONNULL_BY_DEFAULT_ANNOTATION_18_CONTENT,
+			"test1/Test1.java",
+			"package test1;\n" + 
+			"\n" + 
+			"import java.util.Map;\n" + 
+			"import org.eclipse.jdt.annotation.*;\n" + 
+			"\n" + 
+			"@NonNullByDefault\n" + 
+			"public class Test1 {\n" + 
+			"	void test(Map<String,Test1> map, String key) {\n" + 
+			"		Test1 v = map.get(key);\n" + 
+			"		if (v == null)\n" + 
+			"			throw new RuntimeException(); // should not be reported as dead code, although V is a '@NonNull Test1'\n" + 
+			"	}\n" + 
+			"}\n"
+			},
+			" -1.8 -proc:none -d none -warn:+nullAnnot -annotationpath " + annots_dir +
+			" -sourcepath \"" + OUTPUT_DIR + "\" " +
+			// explicitly mention all files to ensure a good order, cannot pull in source of NNBD on demand
+			"\"" + j_l_annotation_dir   +  File.separator + "ElementType.java\" " +
+			"\"" + o_e_j_annotation_dir +  File.separator + "NonNull.java\" " +
+			"\"" + o_e_j_annotation_dir +  File.separator + "DefaultLocation.java\" " +
+			"\"" + o_e_j_annotation_dir +  File.separator + "NonNullByDefault.java\" " +
+			"\"" + OUTPUT_DIR +  File.separator + "test1" + File.separator + "Test1.java\"",
+			"",
+			"",
+			true);
 }
 }
