@@ -45,7 +45,7 @@ public class ExternalAnnotationProvider {
 		LineNumberReader reader = new LineNumberReader(new InputStreamReader(new FileInputStream(this.annotationSource)));
 		try {
 			String line = reader.readLine();
-			if (!line.startsWith("class ")) // TODO properly evaluate class header //$NON-NLS-1$
+			if (!(line.startsWith("class ") || line.startsWith("interface "))) // TODO properly evaluate class header //$NON-NLS-1$ //$NON-NLS-2$
 				throw new IOException("missing class header in annotation file"); //$NON-NLS-1$
 			if (!line.endsWith(typeName))
 				throw new IOException("mismatching class name in annotation file, expected "+typeName+", but header said "+line); //$NON-NLS-1$ //$NON-NLS-2$

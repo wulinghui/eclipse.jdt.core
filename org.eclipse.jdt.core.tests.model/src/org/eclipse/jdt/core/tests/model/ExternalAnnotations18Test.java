@@ -26,6 +26,7 @@ import org.eclipse.core.resources.IncrementalProjectBuilder;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.FileLocator;
 import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.core.runtime.Path;
 import org.eclipse.jdt.core.IClasspathAttribute;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.ICompilationUnit;
@@ -38,6 +39,7 @@ import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.tests.util.Util;
 import org.osgi.framework.Bundle;
 
 public class ExternalAnnotations18Test extends ModifyingResourceTests {
@@ -54,7 +56,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 // All specified tests which do not belong to the class are skipped...
 	static {
 		// Names of tests to run: can be "testBugXXXX" or "BugXXXX")
-//		TESTS_PREFIX = "testClasspathDuplicateExtraAttribute";
+//		TESTS_PREFIX = "testLibs1";
 //		TESTS_NAMES = new String[] {"test3"};
 //		TESTS_NUMBERS = new int[] { 23, 28, 38 };
 //		TESTS_RANGE = new int[] { 21, 38 };
@@ -102,9 +104,33 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		assertNotNull("Should not be null", this.root); //$NON-NLS-1$
 	}
 	
+	void myCreateJavaProject(String name) throws CoreException {
+		this.project = createJavaProject(name, new String[]{"src"}, new String[]{"JCL18_LIB"}, null, null, "bin", null, null, null, "1.8");
+		addLibraryEntry(this.project, this.ANNOTATION_LIB, false);
+		Map options = this.project.getOptions(true);
+		options.put(JavaCore.COMPILER_ANNOTATION_NULL_ANALYSIS, JavaCore.ENABLED);
+		this.project.setOptions(options);
+
+		IPackageFragmentRoot[] roots = this.project.getAllPackageFragmentRoots();
+		int count = 0;
+		for (int i = 0, max = roots.length; i < max; i++) {
+			final IPackageFragmentRoot packageFragmentRoot = roots[i];
+			switch(packageFragmentRoot.getKind()) {
+				case IPackageFragmentRoot.K_SOURCE :
+					count++;
+					if (this.root == null) {
+						this.root = packageFragmentRoot;
+					}
+			}
+		}
+		assertEquals("Wrong value", 1, count); //$NON-NLS-1$
+		assertNotNull("Should not be null", this.root); //$NON-NLS-1$
+	}
+	
 	protected void tearDown() throws Exception {
 		this.project.getProject().delete(true, true, null);
 		this.project = null;
+		this.root = null;
 		super.tearDown();
 	}
 	
@@ -135,6 +161,27 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		this.project.setRawClasspath(entries, null);
 	}
 
+	protected void addLibraryWithExternalAnnotations(
+			IJavaProject javaProject,
+			String jarName,
+			String externalAnnotationPath,
+			String[] pathAndContents,
+			String compliance,
+			Map options) throws CoreException, IOException
+	{
+		createLibrary(javaProject, jarName, null, pathAndContents, null, compliance, options);
+		String jarPath = '/' + javaProject.getProject().getName() + '/' + jarName;
+		IClasspathEntry entry = JavaCore.newLibraryEntry(
+				new Path(jarPath),
+				null/*src attach*/,
+				null/*src attach root*/,
+				new Path(externalAnnotationPath),
+				null/*access rules*/,
+				null/*extraAttributes*/,
+				false/*exported*/);
+		addClasspathEntry(this.project, entry);
+	}
+
 	private void assertNoMarkers(IMarker[] markers) throws CoreException {
 		for (int i = 0; i < markers.length; i++)
 			System.err.println("Unexpected marker: "+markers[i].getAttributes().entrySet());
@@ -160,6 +207,69 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		setupJavaProject("Test1");
 		IPackageFragment fragment = this.root.getPackageFragment("test1");
 		ICompilationUnit unit = fragment.getCompilationUnit("Test1.java").getWorkingCopy(new NullProgressMonitor());
+		CompilationUnit reconciled = unit.reconcile(AST.JLS8, true, null, new NullProgressMonitor());
+		IProblem[] problems = reconciled.getProblems();
+		assertNoProblems(problems);
+	}
+	
+	public void testLibs1() throws Exception {
+		myCreateJavaProject("TestLibs");
+		addLibraryWithExternalAnnotations(this.project, "lib1.jar", "annots", new String[] {
+				"/UnannotatedLib/libs/Lib1.java",
+				"package libs;\n" + 
+				"\n" + 
+				"import java.util.Collection;\n" + 
+				"import java.util.Iterator;\n" + 
+				"\n" + 
+				"public interface Lib1 {\n" + 
+				"	<T> Iterator<T> unconstrainedTypeArguments1(Collection<T> in);\n" + 
+				"	Iterator<String> unconstrainedTypeArguments2(Collection<String> in);\n" + 
+				"	<T> Iterator<? extends T> constrainedWildcards(Collection<? extends T> in);\n" + 
+				"	<T extends Collection<?>> T constrainedTypeParameter(T in);\n" + 
+				"}\n"
+			}, "1.8", null);
+		new File(this.project.getProject().getLocation().toString()+"/annots/libs/").mkdirs();
+		Util.createFile(this.project.getProject().getLocation().toString()+"/annots/libs/Lib1.eea", 
+				"interface libs/Lib1\n" + 
+				"\n" + 
+				"unconstrainedTypeArguments1\n" + 
+				" <T:Ljava/lang/Object;>(Ljava/util/Collection<TT;>;)Ljava/util/Iterator<TT;>;\n" + 
+				" <T:Ljava/lang/Object;>(Ljava/util/Collection<T0T;>;)Ljava/util/Iterator<TT;>;\n" + 
+				"\n" + 
+				"unconstrainedTypeArguments2\n" + 
+				" (Ljava/util/Collection<Ljava/lang/String;>;)Ljava/util/Iterator<Ljava/lang/String;>;\n" + 
+				" (Ljava/util/Collection<Ljava/lang/String;>;)Ljava/util/Iterator<L1java/lang/String;>;\n" + 
+				"constrainedWildcards\n" +
+				" <T:Ljava/lang/Object;>(Ljava/util/Collection<+TT;>;)Ljava/util/Iterator<+TT;>;\n" +
+				" <T:Ljava/lang/Object;>(Ljava/util/Collection<+T0T;>;)Ljava/util/Iterator<+T1T;>;\n" +
+				"constrainedTypeParameter\n" +
+				" <T::Ljava/util/Collection<*>;>(TT;)TT;\n" +
+				" <T::Ljava/util/Collection<*>;>(T0T;)T1T;\n");
+		IPackageFragment fragment = this.project.getPackageFragmentRoots()[0].createPackageFragment("tests", true, null);
+		ICompilationUnit unit = fragment.createCompilationUnit("Test1.java", 
+				"package tests;\n" + 
+				"import org.eclipse.jdt.annotation.*;\n" + 
+				"\n" + 
+				"import java.util.Collection;\n" + 
+				"import java.util.Iterator;\n" + 
+				"\n" + 
+				"import libs.Lib1;\n" + 
+				"\n" + 
+				"public class Test1 {\n" + 
+				"	Iterator<@NonNull String> test1(Lib1 lib, Collection<@Nullable String> coll) {\n" + 
+				"		return lib.unconstrainedTypeArguments1(coll);\n" + 
+				"	}\n" + 
+				"	Iterator<@NonNull String> test2(Lib1 lib, Collection<@Nullable String> coll) {\n" + 
+				"		return lib.unconstrainedTypeArguments2(coll);\n" + 
+				"	}\n" +
+				"	Iterator<? extends @NonNull String> test3(Lib1 lib, Collection<String> coll) {\n" +
+				"		return lib.constrainedWildcards(coll);\n" +
+				"	}\n" +
+//				"	@NonNull Collection<String> test4(Lib1 lib, @Nullable Collection<String> in) {\n" +
+//				"		return lib.constrainedTypeParameter(in);\n" + // BOGUS COMPILER ERROR!
+//				"	}\n" + 
+				"}\n",
+				true, new NullProgressMonitor()).getWorkingCopy(new NullProgressMonitor());
 		CompilationUnit reconciled = unit.reconcile(AST.JLS8, true, null, new NullProgressMonitor());
 		IProblem[] problems = reconciled.getProblems();
 		assertNoProblems(problems);
@@ -194,4 +304,5 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 			JavaCore.setOptions(options);
 		}
 	}
+
 }
