@@ -3235,4 +3235,159 @@ public void testBug435689() {
 			"}\n"
 		});
 }
+public void testBug433845() {
+	runNegativeTest(
+		new String[] {
+			"test/Test.java",
+			"package test;\n" + 
+			"\n" + 
+			"\n" + 
+			"public abstract class Test {\n" + 
+			"	public interface MUIElement {\n" + 
+			"		\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	private interface Listener<W extends WWidget<?>> {\n" + 
+			"		public void call(Event<W> event);\n" + 
+			"	}\n" + 
+			"	\n" + 
+			"	public static class Event<W extends WWidget<?>> {\n" + 
+			"		\n" + 
+			"	}\n" + 
+			"	\n" + 
+			"	public interface WWidget<M extends MUIElement> {\n" + 
+			"		public void set(Listener<? extends WWidget<M>> handler);\n" + 
+			"	}\n" + 
+			"	\n" + 
+			"	public static abstract class A<M extends MUIElement, W extends WWidget<M>> {\n" + 
+			"		\n" + 
+			"		public final W createWidget(final M element) {\n" + 
+			"			W w = get(); \n" + 
+			"			// works\n" + 
+			"			w.set((Event<W>e) -> call(e));\n" + 
+			"			// fails\n" + 
+			"			w.set(this::call);\n" + 
+			"			// fails\n" + 
+			"			w.set((e) -> call(e));\n" + 
+			"			return w;\n" + 
+			"		}\n" + 
+			"		\n" + 
+			"		private W get() {\n" + 
+			"			return null;\n" + 
+			"		}\n" + 
+			"		\n" + 
+			"		private void call(Event<W> event) {\n" + 
+			"			\n" + 
+			"		}\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in test\\Test.java (at line 28)\n" + 
+		"	w.set(this::call);\n" + 
+		"	  ^^^\n" + 
+		"The method set(Test.Listener<? extends Test.WWidget<M>>) in the type Test.WWidget<M> is not applicable for the arguments (this::call)\n" + 
+		"----------\n" + 
+		"2. ERROR in test\\Test.java (at line 28)\n" + 
+		"	w.set(this::call);\n" + 
+		"	      ^^^^^^^^^^\n" + 
+		"The type Test.A<M,W> does not define call(Test.Event<Test.WWidget<M>>) that is applicable here\n" + 
+		"----------\n" + 
+		"3. ERROR in test\\Test.java (at line 30)\n" + 
+		"	w.set((e) -> call(e));\n" + 
+		"	             ^^^^\n" + 
+		"The method call(Test.Event<W>) in the type Test.A<M,W> is not applicable for the arguments (Test.Event<Test.WWidget<M>>)\n" + 
+		"----------\n");
+}
+public void testBug435187() {
+	runNegativeTest(
+		new String[] {
+			"ExtractLocalLambda.java",
+			"\n" + 
+			"import java.util.List;\n" + 
+			"import java.util.Map;\n" + 
+			"import java.util.Map.Entry;\n" + 
+			"import java.util.function.Function;\n" + 
+			"import java.util.stream.Collector;\n" + 
+			"import java.util.stream.Stream;\n" + 
+			"\n" + 
+			"public class ExtractLocalLambda {\n" + 
+			"	static Stream<Entry<List<String>, String>> map;\n" + 
+			"	static Collector<Entry<String, String>, ?, Map<String, List<String>>> groupingBy;\n" + 
+			"	private static Stream<String> stream(Entry<List<String>, String> p) {		return null;	}\n" + 
+			"	private static Entry<String, String> keep(Entry<List<String>, String> p, String leftHS2) {		return null;	}\n" + 
+			"\n" + 
+			"	static Map<String, List<String>> beforeRefactoring() {\n" + 
+			"		// Extract local variable from the parameter to flatMap:\n" + 
+			"		return map.flatMap(\n" + 
+			"				p -> stream(p).map(leftHS -> {\n" + 
+			"					String leftHS2 = leftHS;\n" + 
+			"					return keep(p, leftHS2);\n" + 
+			"				})\n" + 
+			"		).collect(groupingBy);\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in ExtractLocalLambda.java (at line 22)\n" + 
+		"	).collect(groupingBy);\n" + 
+		"	  ^^^^^^^\n" + 
+		"The method collect(Collector<? super Object,A,R>) in the type Stream<Object> is not applicable for the arguments (Collector<Map.Entry<String,String>,capture#1-of ?,Map<String,List<String>>>)\n" + 
+		"----------\n");
+}
+public void testBug435767() {
+	runNegativeTest(
+		new String[] {
+			"DummyClass.java",
+			"import java.util.*;\n" +
+			"import java.util.function.*;\n" +
+			"import java.util.stream.*;\n" +
+			"public class DummyClass {\n" + 
+			"\n" + 
+			"	public void method() {\n" + 
+			"\n" + 
+			"		// Cases where there is no error\n" + 
+			"		final Supplier<Set<String>> suppliers = this.memoize(() -> new HashSet<>());\n" + 
+			"\n" + 
+			"		final Supplier<Map<Object, Object>> noMemoize = () -> suppliers.get().stream()\n" + 
+			"				.filter(path -> path.startsWith(\"\"))\n" + 
+			"				.collect(Collectors.toMap(path -> this.getKey(path), path -> this.getValue(path)));\n" + 
+			"\n" + 
+			"		// Case where there is errors.\n" + 
+			"		final Supplier<Map<Object, Object>> memoize = this.memoize(() -> suppliers.get().stream()\n" + 
+			"				.filter(path -> path.startsWith(\"\"))\n" + 
+			"				.collect(Collectors.toMap(path -> this.getKey(path), path -> this.getValue(path))));\n" + 
+			"\n" + 
+			"		// Error message are : Description\n" + 
+			"		// Resource	Path	Location	Type\n" + 
+			"		// The method getKey(String) in the type DummyClass is not applicable for the arguments (Object)	DummyClass.java line 23	Java Problem\n" + 
+			"		// The method getValue(String) in the type DummyClass is not applicable for the arguments (Object)	DummyClass.java line 23	Java Problem\n" + 
+			"\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	private <T> Supplier<T> memoize(final Supplier<T> delegate) {\n" + 
+			"		return delegate;\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	private Object getKey(final String path) {\n" + 
+			"		return path;\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	private Object getValue(final String path) {\n" + 
+			"		return path;\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in DummyClass.java (at line 18)\n" + 
+		"	.collect(Collectors.toMap(path -> this.getKey(path), path -> this.getValue(path))));\n" + 
+		"	                                       ^^^^^^\n" + 
+		"The method getKey(String) in the type DummyClass is not applicable for the arguments (Object)\n" + 
+		"----------\n" + 
+		"2. ERROR in DummyClass.java (at line 18)\n" + 
+		"	.collect(Collectors.toMap(path -> this.getKey(path), path -> this.getValue(path))));\n" + 
+		"	                                                                  ^^^^^^^^\n" + 
+		"The method getValue(String) in the type DummyClass is not applicable for the arguments (Object)\n" + 
+		"----------\n");
+}
 }
