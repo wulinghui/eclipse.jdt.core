@@ -475,7 +475,7 @@ void cachePartsFrom(IBinaryType binaryType, boolean needFieldsAndMethods) {
 
 		if (needFieldsAndMethods) {
 			IBinaryField[] iFields = binaryType.getFields();
-			createFields(iFields, sourceLevel, missingTypeNames);
+			createFields(iFields, binaryType, sourceLevel, missingTypeNames);
 			IBinaryMethod[] iMethods = createMethods(binaryType.getMethods(), binaryType, sourceLevel, missingTypeNames);
 			boolean isViewedAsDeprecated = isViewedAsDeprecated();
 			if (isViewedAsDeprecated) {
@@ -534,7 +534,7 @@ private ITypeAnnotationWalker getTypeAnnotationWalker(IBinaryTypeAnnotation[] an
 	return new TypeAnnotationWalker(annotations);
 }
 
-private void createFields(IBinaryField[] iFields, long sourceLevel, char[][][] missingTypeNames) {
+private void createFields(IBinaryField[] iFields, IBinaryType binaryType, long sourceLevel, char[][][] missingTypeNames) {
 	if (!isPrototype()) throw new IllegalStateException();
 	this.fields = Binding.NO_FIELDS;
 	if (iFields != null) {
@@ -547,7 +547,12 @@ private void createFields(IBinaryField[] iFields, long sourceLevel, char[][][] m
 			for (int i = 0; i < size; i++) {
 				IBinaryField binaryField = iFields[i];
 				char[] fieldSignature = use15specifics ? binaryField.getGenericSignature() : null;
-				ITypeAnnotationWalker walker = getTypeAnnotationWalker(binaryField.getTypeAnnotations()).toField();
+				ITypeAnnotationWalker walker = getTypeAnnotationWalker(binaryField.getTypeAnnotations());
+				if (walker == ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER && binaryType instanceof ClassFileReader) {// TODO: avoid cast? add method to IBinaryType?
+					char[] desc = fieldSignature != null ? fieldSignature : binaryField.getTypeName();
+					walker = ((ClassFileReader)binaryType).getAnnotationsForField(binaryField, desc, this.environment);
+				}
+				walker = walker.toField();
 				TypeBinding type = fieldSignature == null
 					? this.environment.getTypeFromSignature(binaryField.getTypeName(), 0, -1, false, this, missingTypeNames, walker)
 					: this.environment.getTypeFromTypeSignature(new SignatureWrapper(fieldSignature), Binding.NO_TYPE_VARIABLES, this, missingTypeNames, walker);

@@ -444,6 +444,14 @@ public ITypeAnnotationWalker getAnnotationsForMethod(IBinaryMethod method, char[
 	return ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER;
 }
 
+/** If a provider for external annotations has been registered try to retrieve an annotation walker for the given field. */
+public ITypeAnnotationWalker getAnnotationsForField(IBinaryField field, char[] fieldSignature, LookupEnvironment environment) {
+	if (this.annotationProvider != null) {
+		return this.annotationProvider.forField(field.getName(), fieldSignature, environment);
+	}
+	return ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER;
+}
+
 /**
  * Answer the receiver's access flags.  The value of the access_flags
  *	item is a mask of modifiers used with class and interface declarations.

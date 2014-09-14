@@ -33,11 +33,13 @@ public class ExternalAnnotationProvider {
 
 	private File annotationSource;
 	private Map<String,String> methodAnnotationSources;
+	private Map<String,String> fieldAnnotationSources;
 	
 	public ExternalAnnotationProvider(String baseDir, String typeName) throws IOException {
 		this.annotationSource = new File(baseDir+File.separatorChar+typeName+ANNOTATION_FILE_SUFFIX);
 		if (!this.annotationSource.exists()) throw new FileNotFoundException(this.annotationSource.getAbsolutePath());
 		this.methodAnnotationSources = new HashMap<String, String>();
+		this.fieldAnnotationSources = new HashMap<String, String>();
 		initialize(typeName);
 	}
 	
@@ -73,7 +75,10 @@ public class ExternalAnnotationProvider {
 					if (errLine == -1) errLine = reader.getLineNumber();
 					throw new IOException("Illegal format for annotation file at line "+errLine); //$NON-NLS-1$
 				}
-				this.methodAnnotationSources.put(selector+rawSig, annotSig);
+				if (rawSig.contains("(")) //$NON-NLS-1$
+					this.methodAnnotationSources.put(selector+rawSig, annotSig);
+				else
+					this.fieldAnnotationSources.put(selector+rawSig, annotSig); // FIXME(SH): mark the start of the signature
 			}
 		} finally {
 			reader.close();
@@ -86,7 +91,14 @@ public class ExternalAnnotationProvider {
 			return new MethodAnnotationWalker(source.toCharArray(), 0, environment);
 		return ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER;
 	}
-	
+
+	public ITypeAnnotationWalker forField(char[] selector, char[] signature, LookupEnvironment environment) {
+		String source = this.fieldAnnotationSources.get(String.valueOf(CharOperation.concat(selector, signature)));
+		if (source != null)
+			return new FieldAnnotationWalker(source.toCharArray(), 0, environment);
+		return ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER;
+	}
+
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		sb.append("External Annotations from "+this.annotationSource.getAbsolutePath()).append('\n'); //$NON-NLS-1$
@@ -106,24 +118,22 @@ public class ExternalAnnotationProvider {
 		}
 	}
 
-	class MethodAnnotationWalker implements ITypeAnnotationWalker {
+	abstract class MemberAnnotationWalker implements ITypeAnnotationWalker {
 
 		private SingleMarkerAnnotation NULLABLE = new SingleMarkerAnnotation() {
-			@Override public char[] getTypeName() { return getBinaryTypeName(MethodAnnotationWalker.this.environment.getNullableAnnotationName()); }
+			@Override public char[] getTypeName() { return getBinaryTypeName(MemberAnnotationWalker.this.environment.getNullableAnnotationName()); }
 		};
 		private SingleMarkerAnnotation NONNULL = new SingleMarkerAnnotation() {
-			@Override public char[] getTypeName() { return getBinaryTypeName(MethodAnnotationWalker.this.environment.getNonNullAnnotationName()); }
+			@Override public char[] getTypeName() { return getBinaryTypeName(MemberAnnotationWalker.this.environment.getNonNullAnnotationName()); }
 		};
-
+		
 		char[] source;
 		SignatureWrapper wrapper;
 		int pos;
-		int prevParamStart;
 		int prevTypeArgStart;
 		LookupEnvironment environment;
 
-		MethodAnnotationWalker(char[] source, int pos, LookupEnvironment environment) {
-			super();
+		MemberAnnotationWalker(char[] source, int pos, LookupEnvironment environment) {
 			this.source = source;
 			this.pos = pos;
 			this.environment = environment;
@@ -134,25 +144,6 @@ public class ExternalAnnotationProvider {
 				this.wrapper = new SignatureWrapper(this.source);
 			this.wrapper.start = start;
 			return this.wrapper;
-		}
-
-		int typeEnd(int start) {
-			while (this.source[start] == '[') {
-				start++;
-				char an = this.source[start];
-				if (an == '0' || an == '1')
-					start++;
-			}
-			int end = wrapperWithStart(start).computeEnd();
-			return end;
-		}
-
-		@Override
-		public ITypeAnnotationWalker toMethodReturn() {
-			int close = CharOperation.indexOf(')', this.source);
-			if (close != -1)
-				return new MethodAnnotationWalker(this.source, close+1, this.environment);
-			return ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER;
 		}
 
 		@Override
@@ -177,24 +168,6 @@ public class ExternalAnnotationProvider {
 
 		@Override
 		public ITypeAnnotationWalker toSupertype(short index) {
-			return this;
-		}
-
-		@Override
-		public ITypeAnnotationWalker toMethodParameter(short index) {
-			if (index == 0) {
-				int start = CharOperation.indexOf('(', this.source) + 1;
-				this.prevParamStart = start;
-				return new MethodAnnotationWalker(this.source, start, this.environment);
-			}
-			int end = typeEnd(this.prevParamStart);
-			end++;
-		    this.prevParamStart = end;
-		    return new MethodAnnotationWalker(this.source, end, this.environment);
-		}
-
-		@Override
-		public ITypeAnnotationWalker toThrows(int index) {
 			return this;
 		}
 
@@ -266,10 +239,81 @@ public class ExternalAnnotationProvider {
 			}
 			return null;
 		}
+	}
+	class MethodAnnotationWalker extends MemberAnnotationWalker {
+
+		int prevParamStart;
+
+		MethodAnnotationWalker(char[] source, int pos, LookupEnvironment environment) {
+			super(source, pos, environment);
+		}
+	
+		int typeEnd(int start) {
+			while (this.source[start] == '[') {
+				start++;
+				char an = this.source[start];
+				if (an == '0' || an == '1')
+					start++;
+			}
+			int end = wrapperWithStart(start).computeEnd();
+			return end;
+		}
+
+		@Override
+		public ITypeAnnotationWalker toMethodReturn() {
+			int close = CharOperation.indexOf(')', this.source);
+			if (close != -1)
+				return new MethodAnnotationWalker(this.source, close+1, this.environment);
+			return ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER;
+		}
+
+		@Override
+		public ITypeAnnotationWalker toMethodParameter(short index) {
+			if (index == 0) {
+				int start = CharOperation.indexOf('(', this.source) + 1;
+				this.prevParamStart = start;
+				return new MethodAnnotationWalker(this.source, start, this.environment);
+			}
+			int end = typeEnd(this.prevParamStart);
+			end++;
+		    this.prevParamStart = end;
+		    return new MethodAnnotationWalker(this.source, end, this.environment);
+		}
+
+		@Override
+		public ITypeAnnotationWalker toThrows(int index) {
+			return this;
+		}
 
 		@Override
 		public ITypeAnnotationWalker toField() {
 			throw new UnsupportedOperationException("Methods have no fields"); //$NON-NLS-1$
 		}		
+	}
+	
+	class FieldAnnotationWalker extends MemberAnnotationWalker {
+		public FieldAnnotationWalker(char[] source, int pos, LookupEnvironment environment) {
+			super(source, pos, environment);
+		}
+
+		@Override
+		public ITypeAnnotationWalker toField() {
+			return this;
+		}
+
+		@Override
+		public ITypeAnnotationWalker toMethodReturn() {
+			throw new UnsupportedOperationException("Field has no method return"); //$NON-NLS-1$
+		}
+
+		@Override
+		public ITypeAnnotationWalker toMethodParameter(short index) {
+			throw new UnsupportedOperationException("Field has no method parameter"); //$NON-NLS-1$
+		}
+
+		@Override
+		public ITypeAnnotationWalker toThrows(int index) {
+			throw new UnsupportedOperationException("Field has no throws"); //$NON-NLS-1$
+		}
 	}
 }

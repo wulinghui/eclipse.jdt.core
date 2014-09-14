@@ -360,6 +360,52 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		}, new int[] { 12, 16 });
 	}
 
+	public void testLibsWithFields() throws Exception {
+		myCreateJavaProject("TestLibs");
+		addLibraryWithExternalAnnotations(this.project, "lib1.jar", "annots", new String[] {
+				"/UnannotatedLib/libs/Lib1.java",
+				"package libs;\n" + 
+				"\n" +
+				"public interface Lib1 {\n" + 
+				"	String one = \"1\";\n" + 
+				"	String none = null;\n" + 
+				"}\n"
+			}, "1.8", null);
+		new File(this.project.getProject().getLocation().toString()+"/annots/libs/").mkdirs();
+		Util.createFile(this.project.getProject().getLocation().toString()+"/annots/libs/Lib1.eea", 
+				"interface libs/Lib1\n" + 
+				"\n" + 
+				"one\n" + 
+				" Ljava/lang/String;\n" + 
+				" L1java/lang/String;\n" + 
+				"\n" + 
+				"none\n" + 
+				" Ljava/lang/String;\n" +
+				" L0java/lang/String;\n" +
+				"\n");
+		IPackageFragment fragment = this.project.getPackageFragmentRoots()[0].createPackageFragment("tests", true, null);
+		ICompilationUnit unit = fragment.createCompilationUnit("Test1.java", 
+				"package tests;\n" + 
+				"import org.eclipse.jdt.annotation.*;\n" + 
+				"\n" + 
+				"import libs.Lib1;\n" + 
+				"\n" + 
+				"public class Test1 {\n" + 
+				"	@NonNull String test0() {\n" + 
+				"		return Lib1.none;\n" + 
+				"	}\n" +
+				"	@NonNull String test1() {\n" + 
+				"		return Lib1.one;\n" + 
+				"	}\n" +
+				"}\n",
+				true, new NullProgressMonitor()).getWorkingCopy(new NullProgressMonitor());
+		CompilationUnit reconciled = unit.reconcile(AST.JLS8, true, null, new NullProgressMonitor());
+		IProblem[] problems = reconciled.getProblems();
+		assertProblems(problems, new String[] {
+			"Pb(953) Null type mismatch (type annotations): required '@NonNull String' but this expression has type '@Nullable String'",
+		}, new int[] { 8 });
+	}
+
 	/** Project with real JRE8. */
 	public void test2() throws Exception {
 		Hashtable options = JavaCore.getOptions();
