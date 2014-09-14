@@ -1651,4 +1651,252 @@ public void test402081() { // initializer block
 				expectedReplacedSource,
 				"diet ast");
 }
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=430656, [1.8][content assist] Content assist does not work for method reference argument
+public void test430656() {
+	String string = 
+			"import java.util.ArrayList;\n" +
+			"import java.util.Collections;\n" +
+			"import java.util.Comparator;\n" +
+			"import java.util.List;\n" +
+			"public class X {\n" +
+			"	public void bar() {\n" +
+		"		List<Person> people = new ArrayList<>();\n" +
+			"		Collections.sort(people, Comparator.comparing(Person::get)); \n" +
+			"	}\n" +
+			"}\n" +
+			"class Person {\n" +
+			"	String getLastName() {\n" +
+			"		return null;\n" +
+			"	}\n" +
+			"}\n";
+
+			String completeBehind = "get";
+			int cursorLocation = string.indexOf(completeBehind) + completeBehind.length() - 1;
+
+			String expectedCompletionNodeToString = "<CompletionOnReferenceExpressionName:Person::get>";
+			String expectedParentNodeToString = "Comparator.comparing(<CompletionOnReferenceExpressionName:Person::get>)";
+			String completionIdentifier = "get";
+			String expectedReplacedSource = "Person::get";
+			String expectedUnitDisplayString =
+					"import java.util.ArrayList;\n" + 
+					"import java.util.Collections;\n" + 
+					"import java.util.Comparator;\n" + 
+					"import java.util.List;\n" + 
+					"public class X {\n" + 
+					"  public X() {\n" + 
+					"  }\n" + 
+					"  public void bar() {\n" + 
+					"    List<Person> people;\n" + 
+					"    Comparator.comparing(<CompletionOnReferenceExpressionName:Person::get>);\n" + 
+					"  }\n" + 
+					"}\n" + 
+					"class Person {\n" + 
+					"  Person() {\n" + 
+					"  }\n" + 
+					"  String getLastName() {\n" + 
+					"  }\n" + 
+					"}\n";
+
+			checkMethodParse(
+				string.toCharArray(),
+				cursorLocation,
+				expectedCompletionNodeToString,
+				expectedParentNodeToString,
+				expectedUnitDisplayString,
+				completionIdentifier,
+				expectedReplacedSource,
+				"diet ast");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=438952, [1.8][content assist] StackOverflowError at org.eclipse.jdt.internal.compiler.ast.SingleTypeReference.traverse(SingleTypeReference.java:108) 
+// FIXME: Recovered parse tree isn't quite correct, but is harmless.
+public void test438952() {
+	String string = 
+			"import java.util.function.Supplier;\n" +
+			"class SO {\n" +
+			"	{\n" +
+			"		int\n" +
+			"		Supplier<SO> m6 = SO::new;\n" +
+			"		m6 = () -> new SO() {\n" +
+			"			void test() {\n" +
+			"				/* here */                            \n" +
+			"			}\n" +
+			"		};\n" +
+			"	}\n" +
+			"}\n";
+
+			String completeBehind = "/* here */";
+			int cursorLocation = string.indexOf(completeBehind) + completeBehind.length() - 1;
+
+			String expectedCompletionNodeToString = "<CompleteOnName:>";
+			String expectedParentNodeToString = "<NONE>";
+			String completionIdentifier = "";
+			String expectedReplacedSource = "";
+			String expectedUnitDisplayString =
+					"import java.util.function.Supplier;\n" + 
+					"class SO {\n" + 
+					"  {\n" + 
+					"    int Supplier;\n" + 
+					"    new SO() {\n" + 
+					"      {\n" + 
+					"      }\n" + 
+					"      void test() {\n" + 
+					"        <CompleteOnName:>;\n" + 
+					"      }\n" + 
+					"      void test() {\n" + 
+					"        <CompleteOnName:>;\n" + 
+					"      }\n" + 
+					"    };\n" + 
+					"    m6 = () -> new SO() {\n" + 
+					"  {\n" + 
+					"  }\n" + 
+					"  void test() {\n" + 
+					"    <CompleteOnName:>;\n" + 
+					"  }\n" + 
+					"  void test() {\n" + 
+					"    <CompleteOnName:>;\n" + 
+					"  }\n" + 
+					"};\n" + 
+					"  }\n" + 
+					"  SO() {\n" + 
+					"  }\n" + 
+					"}\n";
+
+			checkMethodParse(
+				string.toCharArray(),
+				cursorLocation,
+				expectedCompletionNodeToString,
+				expectedParentNodeToString,
+				expectedUnitDisplayString,
+				completionIdentifier,
+				expectedReplacedSource,
+				"diet ast");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=435219, [1.8][content assist] No proposals for some closure cases 
+public void test435219() {
+			String string = 
+				"import java.util.Arrays;\n" +
+				"import java.util.List;\n" +
+				"public class X {\n" +
+				"	public static void main(String[] args) {\n" +
+				"		List<Integer> costBeforeTax = Arrays.asList(100, 200, 300);\n" +
+				"		   double bill = costBeforeTax.stream().map((cost) -> cost + 0.19 * cost)\n" +
+				"		        //                        .y                   .n             .y\n" +
+				"		      .reduce((sum, cost) -> sum.doubleValue() + cost.dou\n" +
+				"	}\n" +
+				"}\n";
+
+			String completeBehind = "dou";
+			int cursorLocation = string.lastIndexOf(completeBehind) + completeBehind.length() - 1;
+
+			String expectedCompletionNodeToString = "<CompleteOnName:cost.dou>";
+			String expectedParentNodeToString = "(sum.doubleValue() + <CompleteOnName:cost.dou>)";
+			String completionIdentifier = "dou";
+			String expectedReplacedSource = "cost.dou";
+			String expectedUnitDisplayString =
+					"import java.util.Arrays;\n" + 
+					"import java.util.List;\n" + 
+					"public class X {\n" + 
+					"  public X() {\n" + 
+					"  }\n" + 
+					"  public static void main(String[] args) {\n" + 
+					"    List<Integer> costBeforeTax;\n" + 
+					"    double bill = costBeforeTax.stream().map((<no type> cost) -> (cost + (0.19 * cost))).reduce((<no type> sum, <no type> cost) -> (sum.doubleValue() + <CompleteOnName:cost.dou>));\n" + 
+					"  }\n" + 
+					"}\n";
+
+			checkMethodParse(
+				string.toCharArray(),
+				cursorLocation,
+				expectedCompletionNodeToString,
+				expectedParentNodeToString,
+				expectedUnitDisplayString,
+				completionIdentifier,
+				expectedReplacedSource,
+				"diet ast");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=435682, [1.8] content assist not working inside lambda expression
+public void test435682() {
+			String string = 
+					"import java.util.Arrays;\n" +
+					"import java.util.List;\n" +
+					"public class X {\n" +
+					"	public static void main(String[] args) {\n" +
+					"		List<String> words = Arrays.asList(\"hi\", \"hello\", \"hola\", \"bye\", \"goodbye\");\n" +
+					"		List<String> list1 = words.stream().map(so -> so.).collect(Collectors.toList());\n" +
+					"	}\n" +
+					"}\n";
+
+			String completeBehind = "so.";
+			int cursorLocation = string.lastIndexOf(completeBehind) + completeBehind.length() - 1;
+
+			String expectedCompletionNodeToString = "<CompleteOnName:so.>";
+			String expectedParentNodeToString = "<NONE>";
+			String completionIdentifier = "";
+			String expectedReplacedSource = "so.";
+			String expectedUnitDisplayString =
+					"import java.util.Arrays;\n" + 
+					"import java.util.List;\n" + 
+					"public class X {\n" + 
+					"  public X() {\n" + 
+					"  }\n" + 
+					"  public static void main(String[] args) {\n" + 
+					"    List<String> words;\n" + 
+					"    List<String> list1 = words.stream().map((<no type> so) -> <CompleteOnName:so.>);\n" + 
+					"  }\n" + 
+					"}\n";
+
+			checkMethodParse(
+				string.toCharArray(),
+				cursorLocation,
+				expectedCompletionNodeToString,
+				expectedParentNodeToString,
+				expectedUnitDisplayString,
+				completionIdentifier,
+				expectedReplacedSource,
+				"diet ast");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=430667, [1.8][content assist] no proposals around lambda as a field
+public void test430667() {
+			String string = 
+					"interface D_FI {\n" +
+					"	void print(String value, int n);\n" +
+					"}\n" +
+					"class D_DemoRefactorings {\n" +
+					"	\n" +
+					"	D_FI fi1= (String value, int n) -> {\n" +
+					"		for (int j = 0; j < n; j++) {\n" +
+					"			System.out.println(value); 			\n" +
+					"		}\n" +
+					"	};\n" +
+					"	D_F\n" +
+					"}\n";
+
+			String completeBehind = "D_F";
+			int cursorLocation = string.lastIndexOf(completeBehind) + completeBehind.length() - 1;
+
+			String expectedCompletionNodeToString = "<CompleteOnType:D_F>";
+			String expectedParentNodeToString = "<NONE>";
+			String completionIdentifier = "D_F";
+			String expectedReplacedSource = "D_F";
+			String expectedUnitDisplayString =
+					"interface D_FI {\n" + 
+					"  void print(String value, int n);\n" + 
+					"}\n" + 
+					"class D_DemoRefactorings {\n" + 
+					"  D_FI fi1;\n" + 
+					"  <CompleteOnType:D_F>;\n" + 
+					"  D_DemoRefactorings() {\n" + 
+					"  }\n" + 
+					"}\n";
+
+			checkMethodParse(
+				string.toCharArray(),
+				cursorLocation,
+				expectedCompletionNodeToString,
+				expectedParentNodeToString,
+				expectedUnitDisplayString,
+				completionIdentifier,
+				expectedReplacedSource,
+				"diet ast");
+}
 }

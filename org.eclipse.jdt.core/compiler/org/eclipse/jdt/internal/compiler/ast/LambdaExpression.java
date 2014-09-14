@@ -32,6 +32,7 @@
  *							Bug 429430 - [1.8] Lambdas and method reference infer wrong exception type with generics (RuntimeException instead of IOException)
  *							Bug 432110 - [1.8][compiler] nested lambda type incorrectly inferred vs javac
  *							Bug 438458 - [1.8][null] clean up handling of null type annotations wrt type variables
+ *							Bug 441693 - [1.8][null] Bogus warning for type argument annotated with @NonNull
  *     Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
  *                          Bug 405104 - [1.8][compiler][codegen] Implement support for serializeable lambdas
  *******************************************************************************/
@@ -448,8 +449,14 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 									 new ExceptionHandlingFlowContext(null, this, Binding.NO_EXCEPTIONS, null, this.scope, FlowInfo.DEAD_END), 
 									 UnconditionalFlowInfo.fakeInitializedFlowInfo(this.scope.outerMostMethodScope().analysisIndex, this.scope.referenceType().maxFieldCount)) == FlowInfo.DEAD_END;
 		} catch (RuntimeException e) {
-			this.scope.problemReporter().lambdaShapeComputationError(this);
-			return this.valueCompatible;
+			/* See https://bugs.eclipse.org/bugs/show_bug.cgi?id=432110 for an example of where the flow analysis can result in run time error.
+			   We can recover and do the right thing by falling back on the results of the structural analysis done already and be right 99.99%
+			   of the time. Strictly speaking void/value compatibility is not a structural property. { throw NPE(); } is value compatible despite
+			   structurally there not being a return statement. Likewise { if (x) return value; } is not value compatible despite there being a
+			   return statement. We will miss the former case, but that is mostly pedantic. We would misclassify the latter case *here*, but it
+			   would be caught elsewhere, so it should all wash out in the end. 
+			*/ 
+			return this.original.valueCompatible;
 		}
 	}
 	public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, final FlowInfo flowInfo) {
@@ -510,7 +517,7 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 			int length = this.binding.parameters.length;
 			for (int i=0; i<length; i++) {
 				if (!this.scope.validateNullAnnotation(this.binding.returnType.tagBits, this.arguments[i].type, this.arguments[i].annotations))
-					this.binding.returnType = this.binding.returnType.unannotated(true);
+					this.binding.returnType = this.binding.returnType.withoutToplevelNullAnnotation();
 			}
 		}
 	}
@@ -686,7 +693,8 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		    }
 		}
 		if (this.body instanceof Expression) {
-			this.voidCompatible = ((Expression) this.body).statementExpression();
+			// When completion is still in progress, it is not possible to ask if the expression constitutes a statement expression. See https://bugs.eclipse.org/bugs/show_bug.cgi?id=435219
+			this.voidCompatible = /* ((Expression) this.body).statementExpression(); */ true;
 			this.valueCompatible = true;
 		} else {
 			// We need to be a bit tolerant/fuzzy here: the code is being written "just now", if we are too pedantic, selection/completion will break;
@@ -712,14 +720,7 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 				if (copy == null) {
 					if (this.assistNode) {
 						analyzeShape(); // not on terra firma here !
-// FIXME: we don't yet have the same, should we compute it here & now?
-//						if (sam.returnType.id == TypeIds.T_void) {
-//							if (!this.voidCompatible)
-//								return false;
-//						} else {
-//							if (!this.valueCompatible)
-//								return false;
-//						}
+						break shapeAnalysis;
 					}
 					return !isPertinentToApplicability(left, null);
 				}
@@ -734,10 +735,9 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 						this.shapeAnalysisComplete = true;
 					}
 				} else {
-					this.voidCompatible = ((Expression) this.body).statementExpression();
-					// TODO: in getResolvedCopyForInferenceTargeting() we need to check if the expression
-					//        *could* also produce a value and set valueCompatible accordingly.
-					//        Is that needed also here?
+					final Expression expressionBody = (Expression) this.body;
+					this.voidCompatible = this.assistNode ? true : expressionBody.statementExpression();
+					this.valueCompatible = expressionBody.resolvedType != TypeBinding.VOID;
 					this.shapeAnalysisComplete = true;
 				}
 				// Do not proceed with data/control flow analysis if resolve encountered errors.
@@ -776,9 +776,6 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		if (sam.parameters.length != this.arguments.length)
 			return false;
 
-		if (!isPertinentToApplicability(left, null))  // This check should happen after return type check below, but for buggy javac compatibility we have left it in.
-			return true;
-
 		if (sam.returnType.id == TypeIds.T_void) {
 			if (!this.voidCompatible)
 				return false;
@@ -786,6 +783,10 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 			if (!this.valueCompatible)
 				return false;
 		}
+
+		if (!isPertinentToApplicability(left, null))
+			return true;
+
 		Expression [] returnExpressions = this.resultExpressions;
 		for (int i = 0, length = returnExpressions.length; i < length; i++) {
 			if (returnExpressions[i] instanceof FunctionalExpression) { // don't want to use the resolvedType - polluted from some other overload resolution candidate
@@ -841,8 +842,6 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 			if (this.body instanceof Block) {
 				if (copy.returnsVoid) {
 					copy.shapeAnalysisComplete = true;
-				} else {
-					copy.valueCompatible = this.returnsValue;
 				}
 			} else {
 				copy.voidCompatible = ((Expression) this.body).statementExpression();
@@ -1197,9 +1196,16 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 	public MethodBinding getMethodBinding() {
 		if (this.actualMethodBinding == null) {
 			if (this.binding != null) {
-				this.actualMethodBinding = new MethodBinding(this.binding.modifiers, this.binding.selector, this.binding.returnType, 
-						this.binding instanceof SyntheticMethodBinding ? this.descriptor.parameters : this.binding.parameters,  // retain any faults in parameter list.
-								this.binding.thrownExceptions, this.binding.declaringClass);
+				// Get rid of the synthetic arguments added via addSyntheticArgument()
+				TypeBinding[] newParams = null;
+				if (this.binding instanceof SyntheticMethodBinding && this.outerLocalVariables.length > 0) {
+					newParams = new TypeBinding[this.binding.parameters.length - this.outerLocalVariables.length];
+					System.arraycopy(this.binding.parameters, this.outerLocalVariables.length, newParams, 0, newParams.length);
+				} else {
+					newParams = this.binding.parameters;
+				}
+				this.actualMethodBinding = new MethodBinding(this.binding.modifiers, this.binding.selector,
+						this.binding.returnType, newParams, this.binding.thrownExceptions, this.binding.declaringClass);
 				this.actualMethodBinding.tagBits = this.binding.tagBits;
 			} else {
 				this.actualMethodBinding = new ProblemMethodBinding(CharOperation.NO_CHAR, null, ProblemReasons.NoSuchSingleAbstractMethod);

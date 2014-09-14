@@ -30,6 +30,8 @@
  *								Bug 427163 - [1.8][null] bogus error "Contradictory null specification" on varags
  *								Bug 432348 - [1.8] Internal compiler error (NPE) after upgrade to 1.8
  *								Bug 440143 - [1.8][null] one more case of contradictory null annotations regarding type variables
+ *								Bug 441693 - [1.8][null] Bogus warning for type argument annotated with @NonNull
+ *								Bug 434483 - [1.8][compiler][inference] Type inference not picked up with method reference
  *     Jesper S Moller - Contributions for
  *								bug 382721 - [1.8][compiler] Effectively final variables needs special treatment
  *								bug 412153 - [1.8][compiler] Check validity of annotations which may be repeatable
@@ -691,7 +693,7 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 			final TypeBinding[] parameters = candidateMethod.parameters;
 			Expression[] innerArguments = invocation.arguments();
 			Expression [] arguments = innerArguments;
-			if (infCtx == null && variableArity && parameters.length == arguments.length) { // re-check
+			if (infCtx == null && variableArity && arguments != null && parameters.length == arguments.length) { // re-check
 				TypeBinding lastParam = parameters[parameters.length-1];
 				Expression lastArg = arguments[arguments.length-1];
 				if (lastArg.isCompatibleWith(lastParam, null)) {
@@ -1114,7 +1116,7 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 		if (se8nullBits != 0 && prevNullBits != se8nullBits && ((prevNullBits | se8nullBits) == TagBits.AnnotationNullMASK)) {
 			if (existingType instanceof TypeVariableBinding) {
 				// let type-use annotations override annotations on the type parameter declaration
-				existingType = existingType.unannotated(true);
+				existingType = existingType.withoutToplevelNullAnnotation();
 			} else {
 				scope.problemReporter().contradictoryNullAnnotations(se8NullAnnotation);
 			}

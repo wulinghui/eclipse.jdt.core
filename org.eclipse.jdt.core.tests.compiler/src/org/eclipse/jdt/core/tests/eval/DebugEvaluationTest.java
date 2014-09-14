@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2010 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -561,11 +561,11 @@ public void test011() throws Exception {
 /**
  * Set local variable 'date'.
  */
-public void test012() throws Exception {
+public void _test012() throws Exception {
 	String userCode =
 		"java.util.GregorianCalendar cal = new java.util.GregorianCalendar();\n" +
 		"java.util.Date date = cal.getGregorianChange();\n" +
-		"date.toString();";
+		"System.out.println(\"Old date =\t\" + date.toString());";
 	JDIStackFrame stackFrame = new JDIStackFrame(
 		this.jdiVM,
 		this,
@@ -575,7 +575,10 @@ public void test012() throws Exception {
 	char[] snippet = "date = new java.util.Date();".toCharArray();
 	evaluate(stackFrame, requestor, snippet);
 	requestor = new DebugRequestor();
-	snippet = "return date.after(cal.getGregorianChange());".toCharArray();
+	userCode = "System.out.println(\"new date =\t\" + date.toString());\n" +
+				"System.out.println(\"cal.getGregorianChange() =\t\" + cal.getGregorianChange());\n" +
+				"return date.after(cal.getGregorianChange());";
+	snippet = userCode.toCharArray();
 	evaluate(stackFrame, requestor, snippet);
 	assertTrue("Should get one result but got " + requestor.resultIndex+1, requestor.resultIndex == 0);
 	EvaluationResult result = requestor.results[0];

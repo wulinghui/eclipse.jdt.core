@@ -13,6 +13,8 @@
  *								Bug 416176 - [1.8][compiler][null] null type annotations cause grief on type variables
  *								Bug 423504 - [1.8] Implement "18.5.3 Functional Interface Parameterization Inference"
  *								Bug 425783 - An internal error occurred during: "Requesting Java AST from selection". java.lang.StackOverflowError
+ *								Bug 438458 - [1.8][null] clean up handling of null type annotations wrt type variables
+ *								Bug 441693 - [1.8][null] Bogus warning for type argument annotated with @NonNull
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -77,6 +79,15 @@ public class RawTypeBinding extends ParameterizedTypeBinding {
 	
 	public TypeBinding clone(TypeBinding outerType) {
 		return new RawTypeBinding(this.actualType(), (ReferenceBinding) outerType, this.environment);
+	}
+
+	@Override
+	public TypeBinding withoutToplevelNullAnnotation() {
+		if (!hasNullTypeAnnotations())
+			return this;
+		ReferenceBinding unannotatedGenericType = (ReferenceBinding) this.environment.getUnannotatedType(this.genericType());
+		AnnotationBinding[] newAnnotations = this.environment.filterNullTypeAnnotations(this.typeAnnotations);
+		return this.environment.createRawType(unannotatedGenericType, this.enclosingType(), newAnnotations);
 	}
 
 	/**
@@ -180,8 +191,8 @@ public class RawTypeBinding extends ParameterizedTypeBinding {
 	}
 
     public boolean isProperType(boolean admitCapture18) {
-    	TypeBinding type = actualType();
-    	return type != null && type.isProperType(admitCapture18);
+    	TypeBinding actualType = actualType();
+    	return actualType != null && actualType.isProperType(admitCapture18);
     }
 
 	protected void initializeArguments() {

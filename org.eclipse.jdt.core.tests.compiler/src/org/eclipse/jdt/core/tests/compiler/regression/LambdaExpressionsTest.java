@@ -4506,7 +4506,8 @@ public void test436542() throws Exception {
 	assertNull("Found generic signature for lambda method", signature);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=439515 [1.8] ECJ reports error at method reference to overloaded instance method
-public void _test439515() {
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=440643, Eclipse compiler doesn't like method references with overloaded varargs method
+public void test439515() {
 	this.runConformTest(
 		new String[] {
 			"X.java", 
@@ -4530,6 +4531,33 @@ public void _test439515() {
 			"}\n"
 	    },
 	    "-1");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=439515 [1.8] ECJ reports error at method reference to overloaded instance method
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=440643, Eclipse compiler doesn't like method references with overloaded varargs method
+public void test439515a() {
+	this.runConformTest(
+		new String[] {
+			"X.java", 
+			"interface Fun<T, R> {\n" +
+			"	R apply(T arg);\n" +
+			"}\n" +
+			"public class X {\n" +
+			"	static int size() {\n" +
+			"		return -1;\n" +
+			"	}\n" +
+			"	static int size(Object arg) {\n" +
+			"		return 0;\n" +
+			"	}\n" +
+			"	static int size(X arg) {\n" +
+			"		return 1;\n" +
+			"	}\n" +
+			"	public static void main(String args[]) {\n" +
+			"		Fun<X, Integer> f1 = X::size;\n" +
+			"		System.out.println(f1.apply(new X()));\n" +
+			"	}\n" +
+			"}\n"
+	    },
+	    "1");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=438534 Java8 java.lang.Method.getGeneric* methods fail with java.lang.reflect.GenericSignatureFormatError: Signature Parse error: Expected Field Type Signature
 public void test438534() {
@@ -4603,6 +4631,144 @@ public void test440152a() {
 			"	  void delta(Foo pListener) {}\n" + 
 			"}\n"
 	});
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=432110,  [1.8][compiler] nested lambda type incorrectly inferred vs javac
+public void test432110() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.function.Function;\n" +
+			"public interface X {\n" +
+			"    default void test() {\n" +
+			"        testee().flatMap(_warning_ -> {\n" +
+			"            return result().map(s -> 0);\n" +
+			"        });\n" +
+			"    }\n" +
+			"    Either<Integer, Integer> testee();\n" +
+			"    Either<Integer, String> result();\n" +
+			"    static interface Either<L, R> {\n" +
+			"        <U> Either<L, U> flatMap(Function<? super R, Either<L, U>> mapper);\n" +
+			"        <U> Either<L, U> map(Function<? super R, U> mapper);\n" +
+			"    }\n" +
+			"    public static void main(String [] args) {\n" +
+			"        System.out.println(\"OK\");\n" +
+			"    }\n" +
+			"}\n",
+		}, 
+		"OK");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=441929, [1.8][compiler] @SuppressWarnings("unchecked") not accepted on local variable
+public void test441929() {
+	this.runNegativeTest(
+		new String[] {
+			"Y.java",
+			"public class Y {\n" +
+			"    @FunctionalInterface\n" +
+			"    interface X {\n" +
+			"        public void x();\n" +
+			"    }\n" +
+			"    public void z(X x) {\n" +
+			"    }\n" +
+			"    public <T> void test() {\n" +
+			"        z(() -> {\n" +
+			"            try {\n" +
+			"                @SuppressWarnings(\"unchecked\")   // (1)\n" +
+			"                Class<? extends T> klass = (Class<? extends T>) Class.forName(\"java.lang.Object\");   // (2)\n" +
+			"                System.out.println(klass.getName());\n" +
+			"            } catch (Exception e) {\n" +
+			"                e.printStackTrace();\n" +
+			"            }\n" +
+			"        });\n" +
+			"    }\n" +
+			"}\n",
+		}, 
+		"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=437781, [1.8][compiler] Eclipse accepts code rejected by javac because of ambiguous method reference
+public void test437781() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.function.Consumer;\n" +
+			"import java.util.function.Function;\n" +
+			"public class X {\n" +
+			"	public static void main(String[] args) {\n" +
+			"		new X().visit( System.out::println );\n" +
+			"	}\n" +
+			"	public boolean visit(Function<Integer, Boolean> func) {\n" +
+			"		System.out.println(\"Function\");\n" +
+			"		return true;\n" +
+			"	}\n" +
+			"	public void visit(Consumer<Integer> func) {\n" +
+			"		System.out.println(\"Consumer\");\n" +
+			"	}	\n" +
+			"}\n"
+		},
+		"Consumer");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=441907, [1.8][compiler] Eclipse 4.4.x compiler generics bugs with streams and lambdas
+public void _test441907() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.*;\n" +
+			"public class X {\n" +
+			"  public static class FooBar<V> {\n" +
+			"  }\n" +
+			"  public interface FooBarred {\n" +
+			"    public <V> boolean hasFooBar(final FooBar<V> fooBar);\n" +
+			"  }\n" +
+			"  public interface Widget extends FooBarred {\n" +
+			"  }\n" +
+			"  public static void test() {\n" +
+			"    Set<FooBar<?>> foobars = new HashSet<>();\n" +
+			"    Set<Widget> widgets = new HashSet<>();\n" +
+			"    boolean anyWidgetHasFooBar = widgets.stream().anyMatch(\n" +
+			"        widget -> foobars.stream().anyMatch(widget::hasFooBar)\n" +
+			"        );\n" +
+			"  }\n" +
+			"}\n"
+		},
+		"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=443889, [1.8][compiler] Lambdas get compiled to duplicate methods
+public void test443889() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.function.BiConsumer;\n" +
+			"import java.util.function.Consumer;\n" +
+			"public class X {\n" +
+			"    public interface CurryBiConsumer<T, U> extends BiConsumer<T, U> {\n" +
+			"        default public CurryConsumer<U> curryFirst(T t) {\n" +
+			"            return (u) -> accept(t, u);\n" +
+			"        }\n" +
+			"        default public CurryConsumer<T> currySecond(U u) {\n" +
+			"            return (t) -> accept(t, u);\n" +
+			"        }\n" +
+			"    }\n" +
+			"    public interface CurryConsumer<T> extends Consumer<T> {\n" +
+			"        default public Runnable curry(T t) {\n" +
+			"            return () -> accept(t);\n" +
+			"        }\n" +
+			"    }\n" +
+			"    static void execute(Runnable r) {\n" +
+			"        System.out.println(\"BEFORE\");\n" +
+			"        r.run();\n" +
+			"        System.out.println(\"AFTER\");\n" +
+			"    }\n" +
+			"    static void display(String str, int count) {\n" +
+			"        System.out.println(\"DISP: \" + str + \" \" + count);\n" +
+			"    }\n" +
+			"    public static void main(String[] args) {\n" +
+			"        CurryBiConsumer<String, Integer> bc = X::display;\n" +
+			"        execute(bc.curryFirst(\"Salomon\").curry(42));\n" +
+			"    }\n" +
+			"}\n"
+		},
+		"BEFORE\n" + 
+		"DISP: Salomon 42\n" + 
+		"AFTER");
 }
 public static Class testClass() {
 	return LambdaExpressionsTest.class;

@@ -21,7 +21,7 @@ import junit.framework.Test;
 public class GenericsRegressionTest_1_8 extends AbstractRegressionTest {
 
 static {
-//	TESTS_NAMES = new String[] { "testBug428198b" };
+//	TESTS_NAMES = new String[] { "testBug434483" };
 //	TESTS_NUMBERS = new int[] { 40, 41, 43, 45, 63, 64 };
 //	TESTS_RANGE = new int[] { 11, -1 };
 }
@@ -3389,5 +3389,56 @@ public void testBug435767() {
 		"	                                                                  ^^^^^^^^\n" + 
 		"The method getValue(String) in the type DummyClass is not applicable for the arguments (Object)\n" + 
 		"----------\n");
+}
+public void testBug434483() {
+	runConformTest(
+		new String[] {
+			"Foo.java",
+			"import java.util.*;\n" +
+			"public class Foo {\n" + 
+			"	\n" + 
+			"  // Similar to Guava's newLinkedList()\n" + 
+			"  public static <E> LinkedList<E> newLinkedList() {\n" + 
+			"    return new LinkedList<E>();\n" + 
+			"  }\n" + 
+			"	\n" + 
+			"  private final ThreadLocal<Queue<String>> brokenQueue = ThreadLocal.withInitial(Foo::newLinkedList);\n" + 
+			"	\n" + 
+			"  private final ThreadLocal<Queue<String>> workingQueue1 = ThreadLocal.withInitial(Foo::<String>newLinkedList);\n" + 
+			"	\n" + 
+			"  private final ThreadLocal<Queue<String>> workingQueue2 = ThreadLocal.withInitial(() -> Foo.<String>newLinkedList());\n" + 
+			"\n" + 
+			"}\n"
+		});
+}
+public void testBug441734() {
+	runConformTest(
+		new String[] {
+			"Example.java",
+			"import java.util.*;\n" +
+			"import java.util.function.*;\n" +
+			"class Example {\n" + 
+			"    void foo(Iterable<Number> x) { }\n" + 
+			"\n" + 
+			"    <T> void bar(Consumer<Iterable<T>> f) { }\n" + 
+			"\n" + 
+			"    void test() {\n" + 
+			"        //call 1: lambda w/argument type - OK\n" + 
+			"        bar((Iterable<Number> x) -> foo(x));\n" + 
+			"\n" + 
+			"        //call 2: lambda w/explicit type - OK\n" + 
+			"        this.<Number> bar(x -> foo(x));\n" + 
+			"\n" + 
+			"        //call 3: method ref w/explicit type - OK\n" + 
+			"        this.<Number> bar(this::foo);\n" + 
+			"\n" + 
+			"        //call 4: lambda w/implicit type - correctly(?) fails*\n" + 
+			"        //bar(x -> foo(x));\n" + 
+			"\n" + 
+			"        //call 5: method ref w/implicit type - BUG!\n" + 
+			"        bar(this::foo); // errors!\n" + 
+			"    }\n" + 
+			"}\n"
+		});
 }
 }

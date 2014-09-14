@@ -405,7 +405,7 @@ void setSourceStart(int sourceStart);
 	/** @since 3.3 */
 	int TypeHidingType = TypeRelated + 33;
 	/** @since 3.11 */
-	int NotAnnoationType = TypeRelated + 34;
+	int NotAnnotationType = TypeRelated + 34;
 
 	// variables
 	int UndefinedName = Internal + FieldRelated + 50;
@@ -1834,6 +1834,7 @@ void setSourceStart(int sourceStart);
 	/** @since 3.10 */
 	int GenericInferenceError = 1100; 	// FIXME: This is just a stop-gap measure, be more specific via https://bugs.eclipse.org/404675
 	
-	/** @since 3.10 */
+	/** @deprecated - problem is no longer generated (implementation issue has been resolved)
+	 * @since 3.10 */
 	int LambdaShapeComputationError = 1101;
 }

@@ -16,6 +16,7 @@ import java.util.Map;
 import junit.framework.Test;
 
 import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.tests.util.Util;
 
 public class NullTypeAnnotationTest extends AbstractNullAnnotationTest {
 
@@ -26,7 +27,7 @@ public class NullTypeAnnotationTest extends AbstractNullAnnotationTest {
 	// Static initializer to specify tests subset using TESTS_* static variables
 	// All specified tests which do not belong to the class are skipped...
 	static {
-//			TESTS_NAMES = new String[] { "testNullTypeInference3b" };
+//			TESTS_NAMES = new String[] { "testBug441693other" };
 //			TESTS_NUMBERS = new int[] { 561 };
 //			TESTS_RANGE = new int[] { 1, 2049 };
 	}
@@ -3969,7 +3970,7 @@ public class NullTypeAnnotationTest extends AbstractNullAnnotationTest {
 			"1. ERROR in X.java (at line 17)\n" + 
 			"	getAdd(lx);\n" + 
 			"	       ^^\n" + 
-			"Contradictory null annotations: method was inferred as \'void getAdd(List<@NonNull @Nullable capture#of @Nullable ? extends X>)\', but only one of \'@NonNull\' and \'@Nullable\' can be effective at any location\n" + 
+			"Null type mismatch (type annotations): required \'List<@NonNull capture#of ? extends X>\' but this expression has type \'List<@Nullable capture#of ? extends X>\'\n" + 
 			"----------\n");		
 	}
 	public void testLocalArrays() {
@@ -5834,6 +5835,195 @@ public void testTypeVariable17a() {
 		getCompilerOptions(),
 		"");
 }
+// NPE reported in https://bugs.eclipse.org/bugs/show_bug.cgi?id=438458#c5
+public void testTypeVariable18() {
+	runNegativeTestWithLibs(
+		new String[] {
+			"Test.java",
+			"import java.util.*;\n" + 
+			"import org.eclipse.jdt.annotation.*;\n" + 
+			"\n" + 
+			"interface Lib1 {\n" + 
+			"    <T extends Collection<?>> T constrainedTypeParameter(@NonNull T in);\n" + 
+			"}\n" + 
+			"\n" + 
+			"public class Test {\n" + 
+			"  @NonNull Collection<?> test4(Lib1 lib, @Nullable Collection<String> in) {\n" + 
+			"    return lib.constrainedTypeParameter(in);\n" + 
+			"  }\n" + 
+			"}\n"
+		},
+		getCompilerOptions(),
+		"----------\n" + 
+		"1. WARNING in Test.java (at line 10)\n" + 
+		"	return lib.constrainedTypeParameter(in);\n" + 
+		"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Null type safety (type annotations): The expression of type \'Collection<String>\' needs unchecked conversion to conform to \'@NonNull Collection<?>\'\n" + 
+		"----------\n" + 
+		"2. ERROR in Test.java (at line 10)\n" + 
+		"	return lib.constrainedTypeParameter(in);\n" + 
+		"	                                    ^^\n" + 
+		"Null type mismatch (type annotations): required \'@NonNull Collection<String>\' but this expression has type \'@Nullable Collection<String>\'\n" + 
+		"----------\n");
+}
+public void testTypeVariable18raw() {
+	runNegativeTestWithLibs(
+		new String[] {
+			"Test.java",
+			"import java.util.*;\n" + 
+			"import org.eclipse.jdt.annotation.*;\n" + 
+			"\n" + 
+			"interface Lib1 {\n" + 
+			"    <T extends Collection<?>> T constrainedTypeParameter(@NonNull T in);\n" + 
+			"}\n" + 
+			"\n" + 
+			"public class Test {\n" +
+			"  @SuppressWarnings(\"rawtypes\")\n" + 
+			"  @NonNull Collection test4(Lib1 lib, @Nullable Collection in) {\n" + 
+			"    return lib.constrainedTypeParameter(in);\n" + 
+			"  }\n" + 
+			"}\n"
+		},
+		getCompilerOptions(),
+		"----------\n" + 
+		"1. WARNING in Test.java (at line 11)\n" + 
+		"	return lib.constrainedTypeParameter(in);\n" + 
+		"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Null type safety (type annotations): The expression of type \'Collection\' needs unchecked conversion to conform to \'@NonNull Collection\'\n" + 
+		"----------\n" + 
+		"2. ERROR in Test.java (at line 11)\n" + 
+		"	return lib.constrainedTypeParameter(in);\n" + 
+		"	                                    ^^\n" + 
+		"Null type mismatch (type annotations): required \'@NonNull Collection\' but this expression has type \'@Nullable Collection\'\n" + 
+		"----------\n");
+}
+// top-level annotation is overridden at use-site, details remain - parameterized type
+public void testTypeVariable19() {
+	runNegativeTestWithLibs(
+		new String[] {
+			"X.java",
+			"import java.util.ArrayList;\n" + 
+			"import java.util.List;\n" + 
+			"\n" + 
+			"import org.eclipse.jdt.annotation.NonNull;\n" + 
+			"import org.eclipse.jdt.annotation.Nullable;\n" +
+			"interface I<T,U extends List<T>> {\n" +
+			"	U get0();\n" +
+			"	@Nullable U get1();\n" + 
+			"	@NonNull U get2();\n" + 
+			"}\n" + 
+			"class X {\n" + 
+			"	static String test (I<@Nullable String, @NonNull ArrayList<@Nullable String>> i1,\n" +
+			"						I<@NonNull String, @Nullable ArrayList<@NonNull String>> i2, int s) {\n" +
+			"		switch(s) {\n" +
+			"			case 0 : return i1.get0().get(0).toUpperCase(); // problem at detail\n" + 
+			"			case 1 : return i1.get1().get(0).toUpperCase(); // 2 problems\n" + 
+			"			case 2 : return i1.get2().get(0).toUpperCase(); // problem at detail\n" + 
+			"			case 3 : return i2.get0().get(0).toUpperCase(); // problem at top\n" + 
+			"			case 4 : return i2.get1().get(0).toUpperCase(); // problem at top\n" + 
+			"			case 5 : return i2.get2().get(0).toUpperCase(); // OK\n" +
+			"			default : return \"\";" +
+			"		}\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		getCompilerOptions(),
+		"----------\n" + 
+		"1. ERROR in X.java (at line 15)\n" + 
+		"	case 0 : return i1.get0().get(0).toUpperCase(); // problem at detail\n" + 
+		"	                ^^^^^^^^^^^^^^^^\n" + 
+		"Potential null pointer access: The method get(int) may return null\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 16)\n" + 
+		"	case 1 : return i1.get1().get(0).toUpperCase(); // 2 problems\n" + 
+		"	                ^^^^^^^^^\n" + 
+		"Potential null pointer access: The method get1() may return null\n" + 
+		"----------\n" + 
+		"3. ERROR in X.java (at line 16)\n" + 
+		"	case 1 : return i1.get1().get(0).toUpperCase(); // 2 problems\n" + 
+		"	                ^^^^^^^^^^^^^^^^\n" + 
+		"Potential null pointer access: The method get(int) may return null\n" + 
+		"----------\n" + 
+		"4. ERROR in X.java (at line 17)\n" + 
+		"	case 2 : return i1.get2().get(0).toUpperCase(); // problem at detail\n" + 
+		"	                ^^^^^^^^^^^^^^^^\n" + 
+		"Potential null pointer access: The method get(int) may return null\n" + 
+		"----------\n" + 
+		"5. ERROR in X.java (at line 18)\n" + 
+		"	case 3 : return i2.get0().get(0).toUpperCase(); // problem at top\n" + 
+		"	                ^^^^^^^^^\n" + 
+		"Potential null pointer access: The method get0() may return null\n" + 
+		"----------\n" + 
+		"6. ERROR in X.java (at line 19)\n" + 
+		"	case 4 : return i2.get1().get(0).toUpperCase(); // problem at top\n" + 
+		"	                ^^^^^^^^^\n" + 
+		"Potential null pointer access: The method get1() may return null\n" + 
+		"----------\n");
+}
+// top-level annotation is overridden at use-site, array with anotations on dimensions
+public void testTypeVariable19a() {
+	runNegativeTestWithLibs(
+		new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.NonNull;\n" + 
+			"import org.eclipse.jdt.annotation.Nullable;\n" +
+			"interface I1<T> {\n" + 
+			"	T @Nullable[] get0();\n" + 
+			"	@Nullable T @NonNull[] get1();\n" + 
+			"	@Nullable T @Nullable[] get2();\n" + 
+			"}\n" + 
+			"interface I2<T> {\n" + 
+			"	T @NonNull[] get0();\n" + 
+			"	@NonNull T @NonNull[] get1();\n" + 
+			"	@NonNull T @Nullable[] get2();\n" + 
+			"}\n" + 
+			"class X {\n" + 
+			"	static String test (I1<@NonNull String> i1, I2<@Nullable String> i2, int s) {\n" +
+			"		switch (s) {\n" + 
+			"			case 0: return i1.get0()[0].toUpperCase(); // problem on array\n" + 
+			"			case 1: return i1.get1()[0].toUpperCase(); // problem on element\n" + 
+			"			case 2: return i1.get2()[0].toUpperCase(); // 2 problems\n" +
+			"			case 3: return i2.get0()[0].toUpperCase(); // problem on element\n" + 
+			"			case 4: return i2.get1()[0].toUpperCase(); // OK\n" + 
+			"			case 5: return i2.get2()[0].toUpperCase(); // problem on array\n" +
+			"			default: return \"\";\n" +
+			"		}\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		getCompilerOptions(),
+		"----------\n" + 
+		"1. ERROR in X.java (at line 16)\n" + 
+		"	case 0: return i1.get0()[0].toUpperCase(); // problem on array\n" + 
+		"	               ^^^^^^^^^\n" + 
+		"Potential null pointer access: The method get0() may return null\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 17)\n" + 
+		"	case 1: return i1.get1()[0].toUpperCase(); // problem on element\n" + 
+		"	               ^^^^^^^^^^^^\n" + 
+		"Potential null pointer access: array element may be null\n" + 
+		"----------\n" + 
+		"3. ERROR in X.java (at line 18)\n" + 
+		"	case 2: return i1.get2()[0].toUpperCase(); // 2 problems\n" + 
+		"	               ^^^^^^^^^\n" + 
+		"Potential null pointer access: The method get2() may return null\n" + 
+		"----------\n" + 
+		"4. ERROR in X.java (at line 18)\n" + 
+		"	case 2: return i1.get2()[0].toUpperCase(); // 2 problems\n" + 
+		"	               ^^^^^^^^^^^^\n" + 
+		"Potential null pointer access: array element may be null\n" + 
+		"----------\n" + 
+		"5. ERROR in X.java (at line 19)\n" + 
+		"	case 3: return i2.get0()[0].toUpperCase(); // problem on element\n" + 
+		"	               ^^^^^^^^^^^^\n" + 
+		"Potential null pointer access: array element may be null\n" + 
+		"----------\n" + 
+		"6. ERROR in X.java (at line 21)\n" + 
+		"	case 5: return i2.get2()[0].toUpperCase(); // problem on array\n" + 
+		"	               ^^^^^^^^^\n" + 
+		"Potential null pointer access: The method get2() may return null\n" + 
+		"----------\n");
+}
 public void testBug434600() {
 	runConformTestWithLibs(
 		new String[] {
@@ -6331,5 +6521,241 @@ public void testBug435841() {
 		},
 		getCompilerOptions(),
 		"");
+}
+public void testBug441693() {
+	runConformTestWithLibs(
+		new String[] {
+			"Foo.java",
+			"import org.eclipse.jdt.annotation.NonNull;\n" + 
+			"import org.eclipse.jdt.annotation.NonNullByDefault;\n" + 
+			"import org.eclipse.jdt.annotation.Nullable;\n" + 
+			"\n" + 
+			"@NonNullByDefault({})\n" + 
+			"public abstract class Foo {\n" + 
+			"    \n" + 
+			"    abstract <T> @NonNull T requireNonNull(@Nullable T obj);\n" + 
+			"    \n" + 
+			"    @NonNull Iterable<@NonNull String> iterable;\n" + 
+			"    \n" + 
+			"    Foo(@Nullable Iterable<@NonNull String> iterable) {\n" + 
+			"        this.iterable = requireNonNull(iterable); // (*)\n" + 
+			"    }\n" + 
+			"}\n"
+		},
+		getCompilerOptions(),
+		"");
+}
+public void testBug441693other() {
+	runNegativeTestWithLibs(
+		new String[] {
+			"Foo.java",
+			"import org.eclipse.jdt.annotation.NonNull;\n" + 
+			"import org.eclipse.jdt.annotation.NonNullByDefault;\n" + 
+			"import org.eclipse.jdt.annotation.Nullable;\n" +
+			"import java.util.*;\n" + 
+			"\n" + 
+			"@NonNullByDefault({})\n" + 
+			"public abstract class Foo {\n" + 
+			"    \n" + 
+			"    abstract <T> @NonNull T requireNonNull(@Nullable T obj);\n" + 
+			"    \n" + 
+			"    @NonNull String @NonNull[] array;\n" + 
+			"    \n" + 
+			"    Foo(@NonNull String @Nullable[] arr) {\n" + 
+			"        this.array = requireNonNull(arr); // (*)\n" + 
+			"    }\n" +
+			"    @NonNull Foo testWild1(@Nullable List<? extends @NonNull Foo> foos) {\n" +
+			"        return requireNonNull(foos).get(0);\n" +
+			"    }\n" + 
+			"    @NonNull Foo testWild2(@Nullable List<@Nullable ? extends List<@NonNull Foo>> foos) {\n" +
+			"        return requireNonNull(foos.get(0)).get(0);\n" +
+			"    }\n" + 
+			"}\n"
+		},
+		getCompilerOptions(),
+		"----------\n" + 
+		"1. ERROR in Foo.java (at line 20)\n" + 
+		"	return requireNonNull(foos.get(0)).get(0);\n" + 
+		"	                      ^^^^\n" + 
+		"Potential null pointer access: this expression has a \'@Nullable\' type\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=439158, [1.8][compiler][null] Adding null annotation to return type causes IllegalStateException and sometimes InvocationTargetException
+public void testBug439158() {
+	runConformTestWithLibs(
+		new String[] {
+			"Test.java",
+			"import java.util.Collection;\n" + 
+			"import java.util.List;\n" + 
+			"import java.util.Set;\n" +
+			"import org.eclipse.jdt.annotation.*;\n" + 
+			"\n" + 
+			"public class Test {\n" + 
+			"	class X {\n" + 
+			"		\n" + 
+			"	}\n" + 
+			"	\n" + 
+			"	public static <C extends Collection<?>, A extends C, B extends C>\n" + 
+			"			@Nullable A transform(B arg) {\n" + 
+			"		return null;\n" + 
+			"	}\n" + 
+			"	\n" + 
+			"	public static void main(String[] args) {\n" + 
+			"		List<X> list = null;\n" + 
+			"		Set<X> result = transform(list);\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		getCompilerOptions(),
+		"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=434579, [1.8][compiler][null] Annotation-based null analysis causes incorrect type errors
+public void testBug434579() {
+	Map options = getCompilerOptions();
+	runConformTestWithLibs(
+		new String[] {
+			"AbstractNode.java",
+			"import org.eclipse.jdt.annotation.NonNullByDefault;\n" +
+		    "@NonNullByDefault\n" +
+			"interface ExtendedNode {\n" +
+			"	ExtendedNode getParent();\n" +
+			"	void setParent(ExtendedNode newParent);\n" +
+			"}\n" +
+			"@NonNullByDefault\n" +
+			"public class AbstractNode implements ExtendedNode {\n" +
+			"	private ExtendedNode parent;\n" +
+			"	protected AbstractNode() {\n" +
+			"		parent = this;\n" +
+			"	}\n" +
+			"	@Override\n" +
+			"	public ExtendedNode getParent() {\n" +
+			"		return parent;\n" +
+			"	}\n" +
+			"	@Override\n" +
+			"	public void setParent(final ExtendedNode newParent) {\n" +
+			"		parent = newParent;\n" +
+			"	}\n" +
+			"}\n"
+		},
+		options,
+		"");
+	runConformTestWithLibs(
+		new String[] {
+			"UnequalBinaryNode.java",
+			"public class UnequalBinaryNode<L extends ExtendedNode, R extends ExtendedNode>\n" +
+			"		extends AbstractNode {\n" +
+			"	private L left;\n" +
+			"	private R right;\n" +
+			"	public UnequalBinaryNode(final L initialLeft, final R initialRight) {\n" +
+			"		left = initialLeft;\n" +
+			"		right = initialRight;\n" +
+			"		left.setParent(this);\n" +
+			"		right.setParent(this); // error on this line without fix\n" +
+			"	}\n" +
+			"}\n"
+		},
+		options,
+		"");
+}
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=434582,
+//[1.8][compiler][null] @Nullable annotation in type parameter causes NullPointerException in JDT core
+public void testBug434582() {
+	runNegativeTestWithLibs(
+			new String[] {
+				"X.java",
+				"import org.eclipse.jdt.annotation.Nullable;\n" +
+				"import org.eclipse.jdt.annotation.NonNullByDefault;\n" +
+				"@NonNullByDefault\n" +
+				"class ProgramNode {}\n" +
+				"@NonNullByDefault\n" +
+				"interface ConcreteNodeVisitor<R, P> {\n" +
+				"	R visit(ProgramNode node, P extraParameter);\n" +
+				"}\n" +
+				"public class X implements\n" +
+				"		ConcreteNodeVisitor<Boolean, @Nullable Object> {\n" +
+				"	public Boolean visit(ProgramNode node, Object extraParameter) {\n" +
+				"		return Boolean.FALSE;\n" +
+				"	}\n" +
+				"}\n"
+			},
+			"----------\n" +
+			"1. WARNING in X.java (at line 11)\n" +
+			"	public Boolean visit(ProgramNode node, Object extraParameter) {\n" +
+			"	                     ^^^^^^^^^^^\n" +
+			"Missing non-null annotation: inherited method from ConcreteNodeVisitor<Boolean,Object> specifies this parameter as @NonNull\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 11)\n" +
+			"	public Boolean visit(ProgramNode node, Object extraParameter) {\n" +
+			"	                                       ^^^^^^\n" +
+			"Missing nullable annotation: inherited method from ConcreteNodeVisitor<Boolean,Object> specifies this parameter as @Nullable\n" +
+			"----------\n");
+}
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=434582,
+//[1.8][compiler][null] @Nullable annotation in type parameter causes NullPointerException in JDT core
+public void testBug434582a() {
+	runNegativeTestWithLibs(
+		new String[] {
+				"X.java",
+				"import org.eclipse.jdt.annotation.Nullable;\n" +
+				"import org.eclipse.jdt.annotation.NonNullByDefault;\n" +
+				"@NonNullByDefault\n" +
+				"class ProgramNode {}\n" +
+				"@NonNullByDefault\n" +
+				"interface ConcreteNodeVisitor<R, P> {\n" +
+				"	void visit(ProgramNode node, P extraParameter);\n" +
+				"}\n" +
+				"public class X implements\n" +
+				"		ConcreteNodeVisitor<Boolean, @Nullable Object> {\n" +
+				"	public void visit(ProgramNode node, Object extraParameter) {}\n" +
+				"}\n"
+			},
+			"----------\n" +
+			"1. WARNING in X.java (at line 11)\n" +
+			"	public void visit(ProgramNode node, Object extraParameter) {}\n" +
+			"	                  ^^^^^^^^^^^\n" +
+			"Missing non-null annotation: inherited method from ConcreteNodeVisitor<Boolean,Object> specifies this parameter as @NonNull\n" +
+			"----------\n" +
+			"2. ERROR in X.java (at line 11)\n" +
+			"	public void visit(ProgramNode node, Object extraParameter) {}\n" +
+			"	                                    ^^^^^^\n" +
+			"Missing nullable annotation: inherited method from ConcreteNodeVisitor<Boolean,Object> specifies this parameter as @Nullable\n" +
+			"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=443467, [1.8][null]InternalError: Unexpected binding type
+public void test443467() throws Exception {
+	String jreDirectory = Util.getJREDirectory();
+	String jfxJar = Util.toNativePath(jreDirectory + "/lib/ext/jfxrt.jar");
+	this.runNegativeTestWithExtraLibs(
+		new String[] {
+			"BuildIdeMain.java",
+			"import java.nio.file.Path;\n" +
+			"import java.time.Instant;\n" +
+			"import java.util.HashMap;\n" +
+			"import java.util.stream.Stream;\n" +
+			"import javafx.util.Pair;\n" +
+			"\n" +
+			"public class BuildIdeMain {\n" +
+			"static void writeUpdates(Stream<Path> filter2, HashMap<Path, Pair<byte[], Instant>> ideFiles, HashMap<Path, Path> updateToFile) {\n" +
+			"   filter2.map(p -> new Pair<>(updateToFile.get(p), p->ideFiles.get(p)));\n" +
+			"}\n" +
+			"}\n",
+		},
+		"----------\n" + 
+		"1. ERROR in BuildIdeMain.java (at line 9)\n" + 
+		"	filter2.map(p -> new Pair<>(updateToFile.get(p), p->ideFiles.get(p)));\n" + 
+		"	                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"The constructor Pair<Path,Object>(Path, (<no type> p) -> {}) is undefined\n" + 
+		"----------\n" + 
+		"2. ERROR in BuildIdeMain.java (at line 9)\n" + 
+		"	filter2.map(p -> new Pair<>(updateToFile.get(p), p->ideFiles.get(p)));\n" + 
+		"	                                                 ^^^^^^^^^^^^^^^^^^\n" + 
+		"The target type of this expression must be a functional interface\n" + 
+		"----------\n" + 
+		"3. ERROR in BuildIdeMain.java (at line 9)\n" + 
+		"	filter2.map(p -> new Pair<>(updateToFile.get(p), p->ideFiles.get(p)));\n" + 
+		"	                                                 ^^^^^^^^^^^^^^^^^^\n" + 
+		"The target type of this expression must be a functional interface\n" + 
+		"----------\n",
+		new String[]{jfxJar});
 }
 }

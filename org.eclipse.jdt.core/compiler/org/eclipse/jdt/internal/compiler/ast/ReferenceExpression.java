@@ -29,6 +29,8 @@
  *							Bug 435570 - [1.8][null] @NonNullByDefault illegally tries to affect "throws E"
  *							Bug 435689 - [1.8][inference] Type inference not occurring with lambda expression and method reference
  *							Bug 438383 - [1.8][null] Bogus warning: Null type safety at method return type
+ *							Bug 434483 - [1.8][compiler][inference] Type inference not picked up with method reference
+ *							Bug 441734 - [1.8][inference] Generic method with nested parameterized type argument fails on method reference
  *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contribution for
  *                          Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
  *******************************************************************************/
@@ -87,7 +89,9 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 	private int depth;
 	private MethodBinding exactMethodBinding; // != null ==> exact method reference.
 	private boolean receiverPrecedesParameters = false;
-	protected boolean trialResolution = false;
+	private TypeBinding[] freeParameters; // descriptor parameters as used for method lookup - may or may not include the receiver
+	public boolean trialResolution = false;
+	public int inferenceKind; // TODO: define life-cycle: when to re-initialize? How long to keep value?
 	
 	public ReferenceExpression() {
 		super();
@@ -417,11 +421,11 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 			scope.problemReporter().nullAnnotationUnsupportedLocation((TypeReference) this.lhs);
 		}
 
-		/* 15.28: "It is a compile-time error if a method reference of the form super :: NonWildTypeArgumentsopt Identifier or of the form 
-		   TypeName . super :: NonWildTypeArgumentsopt Identifier occurs in a static context.": This is nop since the primary when it resolves
+		/* 15.13: "If a method reference expression has the form super :: [TypeArguments] Identifier or TypeName . super :: [TypeArguments] Identifier,
+		   it is a compile-time error if the expression occurs in a static context. ": This is nop since the primary when it resolves
 		   itself will complain automatically.
 		
-		   15.28: "The immediately enclosing instance of an inner class instance (15.9.2) must be provided for a constructor reference by a lexically 
+		   15.13: "The immediately enclosing instance of an inner class instance (15.9.2) must be provided for a constructor reference by a lexically 
 		   enclosing instance of this (8.1.3)", we will actually implement this check in code generation. Emulation path computation will fail if there
 		   is no suitable enclosing instance. While this could be pulled up to here, leaving it to code generation is more consistent with Java 5,6,7 
 		   modus operandi.
@@ -465,24 +469,18 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
         if (this.descriptor == null || !this.descriptor.isValidBinding())
         	return this.resolvedType =  null;
         
-        // 15.28.1
+        // 15.13.1
         final boolean isMethodReference = isMethodReference();
         this.depth = 0;
+        this.freeParameters = descriptorParameters;
         MethodBinding someMethod = isMethodReference ? scope.getMethod(this.receiverType, this.selector, descriptorParameters, this) :
         											       scope.getConstructor((ReferenceBinding) this.receiverType, descriptorParameters, this);
         int someMethodDepth = this.depth, anotherMethodDepth = 0;
     	if (someMethod != null && someMethod.isValidBinding()) {
-        	final boolean isStatic = someMethod.isStatic();
-        	if (isStatic && (this.haveReceiver || this.receiverType.isParameterizedTypeWithActualArguments())) {
+    		if (someMethod.isStatic() && (this.haveReceiver || this.receiverType.isParameterizedTypeWithActualArguments())) {
     			scope.problemReporter().methodMustBeAccessedStatically(this, someMethod);
     			return this.resolvedType = null;
     		}
-        	if (!this.haveReceiver) {
-        		if (!isStatic && !someMethod.isConstructor()) {
-        			scope.problemReporter().methodMustBeAccessedWithInstance(this, someMethod);
-        			return this.resolvedType = null;
-        		}
-        	} 
         }
     	
     	if (this.lhs.isSuper() && this.lhs.resolvedType.isInterface()) {
@@ -506,33 +504,40 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
         			System.arraycopy(descriptorParameters, 1, parameters, 0, parametersLength - 1);
         		}
         		this.depth = 0;
+        		this.freeParameters = parameters;
         		anotherMethod = scope.getMethod(typeToSearch, this.selector, parameters, this);
         		anotherMethodDepth = this.depth;
         		this.depth = 0;
         	}
-        	if (anotherMethod != null && anotherMethod.isValidBinding() && anotherMethod.isStatic()) {
-        		scope.problemReporter().methodMustBeAccessedStatically(this, anotherMethod);
-        		return this.resolvedType = null;
-        	}
         }
         
-        if (someMethod != null && someMethod.isValidBinding() && anotherMethod != null && anotherMethod.isValidBinding()) {
+        if (someMethod != null && someMethod.isValidBinding() && someMethod.isStatic() && anotherMethod != null && anotherMethod.isValidBinding() && !anotherMethod.isStatic()) {
         	scope.problemReporter().methodReferenceSwingsBothWays(this, anotherMethod, someMethod);
         	return this.resolvedType = null;
         }
         
-        if (someMethod != null && someMethod.isValidBinding()) {
+        if (someMethod != null && someMethod.isValidBinding() && (anotherMethod == null || !anotherMethod.isValidBinding() || anotherMethod.isStatic())) {
         	this.binding = someMethod;
         	this.bits &= ~ASTNode.DepthMASK;
         	if (someMethodDepth > 0) {
         		this.bits |= (someMethodDepth & 0xFF) << ASTNode.DepthSHIFT;
         	}
-        } else if (anotherMethod != null && anotherMethod.isValidBinding()) {
+        	if (!this.haveReceiver) {
+        		if (!someMethod.isStatic() && !someMethod.isConstructor()) {
+        			scope.problemReporter().methodMustBeAccessedWithInstance(this, someMethod);
+        			return this.resolvedType = null;
+        		}
+        	} 
+        } else if (anotherMethod != null && anotherMethod.isValidBinding() && (someMethod == null || !someMethod.isValidBinding() || !someMethod.isStatic())) {
         	this.binding = anotherMethod;
         	this.receiverPrecedesParameters = true; // 0 is receiver, real parameters start at 1
         	this.bits &= ~ASTNode.DepthMASK;
         	if (anotherMethodDepth > 0) {
         		this.bits |= (anotherMethodDepth & 0xFF) << ASTNode.DepthSHIFT;
+        	}
+        	if (anotherMethod.isStatic()) {
+        		scope.problemReporter().methodMustBeAccessedStatically(this, anotherMethod);
+        		return this.resolvedType = null;
         	}
         } else {
         	this.binding = null;
@@ -583,6 +588,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
         	scope.problemReporter().unhandledException(methodExceptions[i], this);
         }
         if (scope.compilerOptions().isAnnotationBasedNullAnalysisEnabled) {
+        	// TODO: simplify by using this.freeParameters?
         	int len;
         	int expectedlen = this.binding.parameters.length;
         	int providedLen = this.descriptor.parameters.length;
@@ -617,6 +623,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
         		}
         	}
         }
+        this.freeParameters = null; // not used after method lookup
         
     	if (checkInvocationArguments(scope, null, this.receiverType, this.binding, null, descriptorParameters, false, this))
     		this.bits |= ASTNode.Unchecked;
@@ -686,6 +693,18 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 		}
 	}
 
+	public MethodBinding prepareForInferenceResult(Scope scope) {
+		try {
+			setExpressionContext(INVOCATION_CONTEXT);
+			this.binding = null;
+			this.trialResolution = true;
+			resolveType(this.enclosingScope);
+			return this.binding;
+		} finally {
+			this.trialResolution = false;
+		}
+	}
+
 	public boolean isConstructorReference() {
 		return CharOperation.equals(this.selector,  ConstantPool.Init);
 	}
@@ -710,7 +729,11 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 	}
 
 	public InferenceContext18 freshInferenceContext(Scope scope) {
-		return null; // subject to inference only as an argument to an outer invocation
+		if (this.expressionContext != ExpressionContext.VANILLA_CONTEXT) {
+			Expression[] arguments = createPseudoExpressions(this.freeParameters);
+			return new InferenceContext18(scope, arguments, this);
+		}
+		return null; // shouldn't happen, actually
 	}
 
 	public boolean isSuperAccess() {
@@ -770,9 +793,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 	}
 
 	public Expression[] createPseudoExpressions(TypeBinding[] p) {
-		if (this.descriptor == null)
-			return null;
-		// from 15.28.1: 
+		// from 15.13.1: 
 		// ... the reference is treated as if it were an invocation with argument expressions of types P1..Pn
 		// ... the reference is treated as if it were an invocation with argument expressions of types P2..Pn
 		// (the different sets of types are passed from our resolveType to scope.getMethod(..), see someMethod, anotherMethod)
@@ -790,7 +811,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 				&& this.resolvedType != null && this.resolvedType.isValidBinding()) {
 			return this.resolvedType.isCompatibleWith(left, scope);
 		}
-		// 15.28.2
+		// 15.13.2
 		left = left.uncapture(this.enclosingScope);
 		final MethodBinding sam = left.getSingleAbstractMethod(this.enclosingScope, true);
 		if (sam == null || !sam.isValidBinding())

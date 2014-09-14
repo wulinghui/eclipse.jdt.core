@@ -3001,6 +3001,47 @@ public void test_default_nullness_017() {
 		"----------\n");
 }
 
+// package case
+public void test_nullness_default_018() {
+	Map customOptions = getCompilerOptions();
+	customOptions.put(JavaCore.COMPILER_PB_MISSING_NONNULL_BY_DEFAULT_ANNOTATION, JavaCore.WARNING);
+	customOptions.put(JavaCore.COMPILER_PB_UNUSED_WARNING_TOKEN, JavaCore.ERROR);
+	runConformTestWithLibs(
+		new String[] {
+			"pack/NullWarn.java",
+			"package pack;\n" +
+			"@SuppressWarnings(\"null\")\n" + 
+			"public class NullWarn {\n" + 
+			"\n" + 
+			"    // Some code\n" + 
+			"\n" + 
+			"}\n"
+		},
+		customOptions,
+		"");
+	
+}
+
+// type case (inside default package)
+public void test_nullness_default_018b() {
+	Map customOptions = getCompilerOptions();
+	customOptions.put(JavaCore.COMPILER_PB_MISSING_NONNULL_BY_DEFAULT_ANNOTATION, JavaCore.WARNING);
+	customOptions.put(JavaCore.COMPILER_PB_UNUSED_WARNING_TOKEN, JavaCore.ERROR);
+	runConformTestWithLibs(
+		new String[] {
+			"NullWarn.java",
+			"@SuppressWarnings(\"null\")\n" + 
+			"public class NullWarn {\n" + 
+			"\n" + 
+			"    // Some code\n" + 
+			"\n" + 
+			"}\n"
+		},
+		customOptions,
+		"");
+	
+}
+
 // redundant default annotations - class vs. inner class
 public void test_redundant_annotation_01() {
 	Map customOptions = getCompilerOptions();
@@ -7435,5 +7476,98 @@ public void testBug434374c() {
 		},
 		getCompilerOptions(),
 		"");
+}
+
+// @NNBD should not affect implicit constructor
+public void testBug443347() {
+	runConformTestWithLibs(
+		new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" + 
+			"abstract class Super {\n" + 
+			"  Super(String s) { }\n" + 
+			"  abstract void bar();\n" + 
+			"  void foo() { bar(); }\n" + 
+			"}\n" + 
+			"\n" + 
+			"@NonNullByDefault\n" + 
+			"public class X {\n" + 
+			"  void test1(@Nullable String s) {\n" + 
+			"    new Super(s) {\n" +
+			"      @Override\n" + 
+			"      void bar() {}\n" + 
+			"    }.foo();\n" + 
+			"  }\n" + 
+			"}\n"
+		},
+		getCompilerOptions(),
+		"");
+}
+
+// explicit annotation on super ctor should be inherited
+public void testBug443347b() {
+	runNegativeTestWithLibs(
+		new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" + 
+			"abstract class Super {\n" + 
+			"  Super(@NonNull String s) { }\n" + 
+			"  abstract void bar();\n" + 
+			"  void foo() { bar(); }\n" + 
+			"}\n" + 
+			"\n" + 
+			"@NonNullByDefault\n" + 
+			"public class X {\n" + 
+			"  void test1(@Nullable String s) {\n" + 
+			"    new Super(s) {\n" +
+			"      @Override\n" + 
+			"      void bar() {}\n" + 
+			"    }.foo();\n" + 
+			"  }\n" + 
+			"}\n"
+		},
+		getCompilerOptions(),
+		"----------\n" + 
+		"1. ERROR in X.java (at line 11)\n" + 
+		"	new Super(s) {\n" + 
+		"	          ^\n" + 
+		(this.complianceLevel < ClassFileConstants.JDK1_8
+		? "Null type mismatch: required \'@NonNull String\' but the provided value is specified as @Nullable\n"
+		: "Null type mismatch (type annotations): required \'@NonNull String\' but this expression has type \'@Nullable String\'\n") +
+		"----------\n");
+}
+
+// @NNBD on super ctor should be inherited
+public void testBug443347c() {
+	runNegativeTestWithLibs(
+		new String[] {
+			"X.java",
+			"import org.eclipse.jdt.annotation.*;\n" + 
+			"@NonNullByDefault\n" + 
+			"abstract class Super {\n" + 
+			"  Super(String s) { }\n" + 
+			"  abstract void bar();\n" + 
+			"  void foo() { bar(); }\n" + 
+			"}\n" + 
+			"\n" + 
+			"@NonNullByDefault\n" + 
+			"public class X {\n" + 
+			"  void test1(@Nullable String s) {\n" + 
+			"    new Super(s) {\n" +
+			"      @Override\n" + 
+			"      void bar() {}\n" + 
+			"    }.foo();\n" + 
+			"  }\n" + 
+			"}\n"
+		},
+		getCompilerOptions(),
+		"----------\n" + 
+		"1. ERROR in X.java (at line 12)\n" + 
+		"	new Super(s) {\n" + 
+		"	          ^\n" + 
+		(this.complianceLevel < ClassFileConstants.JDK1_8
+		? "Null type mismatch: required \'@NonNull String\' but the provided value is specified as @Nullable\n"
+		: "Null type mismatch (type annotations): required \'@NonNull String\' but this expression has type \'@Nullable String\'\n") +
+		"----------\n");
 }
 }
