@@ -46,11 +46,19 @@ public class ExternalAnnotationProvider {
 	private void initialize(String typeName) throws IOException {
 		LineNumberReader reader = new LineNumberReader(new InputStreamReader(new FileInputStream(this.annotationSource)));
 		try {
-			String line = reader.readLine();
+			String line = reader.readLine().trim();
 			if (!(line.startsWith("class ") || line.startsWith("interface "))) // TODO properly evaluate class header //$NON-NLS-1$ //$NON-NLS-2$
 				throw new IOException("missing class header in annotation file"); //$NON-NLS-1$
-			if (!line.endsWith(typeName))
+			checkTypeName:
+			if (!line.endsWith(typeName)) {
+				if (!line.contains("/")) { //$NON-NLS-1$
+					// TODO(SH): for now accept simple class name, too (needed for files transformed from KAnnotator)
+					int blank = line.lastIndexOf(' '); // TODO: arbitrary white space?
+					if (blank != -1 && typeName.endsWith("/"+line.substring(blank+1))) //$NON-NLS-1$
+						break checkTypeName;
+				}
 				throw new IOException("mismatching class name in annotation file, expected "+typeName+", but header said "+line); //$NON-NLS-1$ //$NON-NLS-2$
+			}
 			while ((line = reader.readLine()) != null) {
 				if (line.isEmpty()) continue;
 				String rawSig = null, annotSig = null;
