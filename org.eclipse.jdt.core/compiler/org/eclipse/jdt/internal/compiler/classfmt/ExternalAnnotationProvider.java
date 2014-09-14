@@ -234,7 +234,14 @@ public class ExternalAnnotationProvider {
 
 		@Override
 		public ITypeAnnotationWalker toNextArrayDimension() {
-			return this;
+			if (this.source[this.pos] == '[') {
+				int newPos = this.pos+1;
+				switch (this.source[newPos]) {
+					case '0': case '1': newPos++; break;
+				}
+				return new MethodAnnotationWalker(this.source, newPos, this.environment);
+			}
+			return ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER;
 		}
 
 		@Override
@@ -248,6 +255,7 @@ public class ExternalAnnotationProvider {
 				switch (this.source[this.pos]) {
 					case 'T':
 					case 'L':
+					case '[':
 						switch (this.source[this.pos+1]) {
 							case '0':
 								return new IBinaryAnnotation[]{ this.NULLABLE };

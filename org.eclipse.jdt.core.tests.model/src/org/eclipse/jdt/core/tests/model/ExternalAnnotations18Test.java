@@ -194,6 +194,31 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		assertEquals("Number of markers", 0, problems.length);
 	}
 
+	private void assertProblems(IProblem[] problems, String[] messages, int[] lines) throws CoreException {
+		int nMatch = 0;
+		for (int i = 0; i < problems.length; i++) {
+			for (int j = 0; j < messages.length; j++) {
+				if (messages[j] == null) continue;
+				if (problems[i].toString().equals(messages[j])
+						&& problems[i].getSourceLineNumber() == lines[j]) {
+					messages[j] = null;
+					problems[i] = null;
+					nMatch++;
+					break;
+				}
+			}
+		}
+		for (int i = 0; i < problems.length; i++) {
+			if (problems[i] != null)
+				fail("Unexpected problem "+problems[i]+" at "+problems[i].getSourceLineNumber());
+		}
+		for (int i = 0; i < messages.length; i++) {
+			if (messages[i] != null)
+				System.err.println("Unmatched problem "+messages[i]);
+		}
+		assertEquals("Number of problems", messages.length, nMatch);
+	}
+
 	/** Perform full build. */
 	public void test1FullBuild() throws Exception {
 		setupJavaProject("Test1");
@@ -265,14 +290,74 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"	Iterator<? extends @NonNull String> test3(Lib1 lib, Collection<String> coll) {\n" +
 				"		return lib.constrainedWildcards(coll);\n" +
 				"	}\n" +
-//				"	@NonNull Collection<String> test4(Lib1 lib, @Nullable Collection<String> in) {\n" +
-//				"		return lib.constrainedTypeParameter(in);\n" + // BOGUS COMPILER ERROR!
-//				"	}\n" + 
+				"	@NonNull Collection<String> test4(Lib1 lib, @Nullable Collection<String> in) {\n" +
+				"		return lib.constrainedTypeParameter(in);\n" +
+				"	}\n" + 
 				"}\n",
 				true, new NullProgressMonitor()).getWorkingCopy(new NullProgressMonitor());
 		CompilationUnit reconciled = unit.reconcile(AST.JLS8, true, null, new NullProgressMonitor());
 		IProblem[] problems = reconciled.getProblems();
 		assertNoProblems(problems);
+	}
+	
+	public void testLibsWithArrays() throws Exception {
+		myCreateJavaProject("TestLibs");
+		addLibraryWithExternalAnnotations(this.project, "lib1.jar", "annots", new String[] {
+				"/UnannotatedLib/libs/Lib1.java",
+				"package libs;\n" + 
+				"\n" + 
+				"import java.util.Collection;\n" + 
+				"import java.util.Iterator;\n" + 
+				"\n" + 
+				"public interface Lib1 {\n" + 
+				"	String[] constraintArrayTop(String[] in);\n" + 
+				"	String[] constraintArrayFull(String[] in);\n" + 
+				"	String[][] constraintDeep(String[][] in);\n" + 
+				"}\n"
+			}, "1.8", null);
+		new File(this.project.getProject().getLocation().toString()+"/annots/libs/").mkdirs();
+		Util.createFile(this.project.getProject().getLocation().toString()+"/annots/libs/Lib1.eea", 
+				"interface libs/Lib1\n" + 
+				"\n" + 
+				"constraintArrayTop\n" + 
+				" ([Ljava/lang/String;)[Ljava/lang/String;\n" + 
+				" ([0Ljava/lang/String;)[1Ljava/lang/String;\n" + 
+				"\n" + 
+				"constraintArrayFull\n" + 
+				" ([Ljava/lang/String;)[Ljava/lang/String;\n" +
+				" ([0L0java/lang/String;)[1L1java/lang/String;\n" +
+				"\n" +
+				"constraintDeep\n" +
+				" ([[Ljava/lang/String;)[[Ljava/lang/String;\n" +
+				" ([0[1L0java/lang/String;)[1[0L1java/lang/String;\n");
+		IPackageFragment fragment = this.project.getPackageFragmentRoots()[0].createPackageFragment("tests", true, null);
+		ICompilationUnit unit = fragment.createCompilationUnit("Test1.java", 
+				"package tests;\n" + 
+				"import org.eclipse.jdt.annotation.*;\n" + 
+				"\n" + 
+				"import libs.Lib1;\n" + 
+				"\n" + 
+				"public class Test1 {\n" + 
+				"	String @NonNull[] test1(Lib1 lib, String @Nullable[] ok, String[] nok) {\n" + 
+				"		lib.constraintArrayTop(nok);\n" + 
+				"		return lib.constraintArrayTop(ok);\n" + 
+				"	}\n" +
+				"	@NonNull String @NonNull[] test2(Lib1 lib, @Nullable String @Nullable[] ok, String[] nok) {\n" + 
+				"		lib.constraintArrayFull(nok);\n" + 
+				"		return lib.constraintArrayFull(ok);\n" + 
+				"	}\n" + 
+				"	@NonNull String @NonNull[] @Nullable[] test3(Lib1 lib, @Nullable String @Nullable[] @NonNull[] ok, String[][] nok) {\n" + 
+				"		lib.constraintDeep(nok);\n" + 
+				"		return lib.constraintDeep(ok);\n" + 
+				"	}\n" + 
+				"}\n",
+				true, new NullProgressMonitor()).getWorkingCopy(new NullProgressMonitor());
+		CompilationUnit reconciled = unit.reconcile(AST.JLS8, true, null, new NullProgressMonitor());
+		IProblem[] problems = reconciled.getProblems();
+		assertProblems(problems, new String[] {
+			"Pb(955) Null type safety (type annotations): The expression of type 'String[]' needs unchecked conversion to conform to '@Nullable String @Nullable[]'",
+			"Pb(955) Null type safety (type annotations): The expression of type 'String[][]' needs unchecked conversion to conform to '@Nullable String @Nullable[] @NonNull[]'",
+		}, new int[] { 12, 16 });
 	}
 
 	/** Project with real JRE8. */
