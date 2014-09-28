@@ -48,6 +48,15 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 	private IPackageFragmentRoot root;
 	private String ANNOTATION_LIB;
 
+	private static final String MY_MAP_CONTENT = 
+			"package libs;\n" + 
+			"\n" + 
+			"public interface MyMap<K,V> {\n" + 
+			"	V get(Object key);\n" + 
+			"	V put(K key, V val);\n" + 
+			"	V remove(Object key);\n" + 
+			"}\n";
+
 	public ExternalAnnotations18Test(String name) {
 		super(name);
 	}
@@ -222,6 +231,10 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 	/** Perform full build. */
 	public void test1FullBuild() throws Exception {
 		setupJavaProject("Test1");
+		addLibraryWithExternalAnnotations(this.project, "lib1.jar", "annots", new String[] {
+				"/UnannotatedLib/libs/MyMap.java",
+				MY_MAP_CONTENT
+			}, "1.8", null);
 		this.project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
 		IMarker[] markers = this.project.getProject().findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, false, IResource.DEPTH_INFINITE);
 		assertNoMarkers(markers);
@@ -230,6 +243,10 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 	/** Reconcile an individual CU. */
 	public void test1Reconcile() throws Exception {
 		setupJavaProject("Test1");
+		addLibraryWithExternalAnnotations(this.project, "lib1.jar", "annots", new String[] {
+				"/UnannotatedLib/libs/MyMap.java",
+				MY_MAP_CONTENT
+			}, "1.8", null);
 		IPackageFragment fragment = this.root.getPackageFragment("test1");
 		ICompilationUnit unit = fragment.getCompilationUnit("Test1.java").getWorkingCopy(new NullProgressMonitor());
 		CompilationUnit reconciled = unit.reconcile(AST.JLS8, true, null, new NullProgressMonitor());
@@ -373,7 +390,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 			}, "1.8", null);
 		new File(this.project.getProject().getLocation().toString()+"/annots/libs/").mkdirs();
 		Util.createFile(this.project.getProject().getLocation().toString()+"/annots/libs/Lib1.eea", 
-				"interface libs/Lib1\n" + 
+				"interface Lib1\n" + // test accepting simple name 
 				"\n" + 
 				"one\n" + 
 				" Ljava/lang/String;\n" + 
