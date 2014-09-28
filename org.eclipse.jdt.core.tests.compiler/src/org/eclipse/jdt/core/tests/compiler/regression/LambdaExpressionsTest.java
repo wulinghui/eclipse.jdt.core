@@ -4163,7 +4163,7 @@ public void test432619a() throws Exception {
 		"OK");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=432682, [1.8][compiler] Type mismatch error with lambda expression
-public void _test432682() throws Exception {
+public void test432682() throws Exception {
 	this.runConformTest(
 		new String[] {
 			"X.java",
@@ -4181,7 +4181,7 @@ public void _test432682() throws Exception {
 			"	}\n" +
 			"}\n"
 		},
-		"OK");
+		"true");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=432520, compiler "duplicate method" bug with lamdas and generic interfaces 
 public void test432520() throws Exception {
@@ -4380,32 +4380,6 @@ public void test432531() {
 			"	Y() {\n" + 
 			"		super(() -> new Object() {\n" + 
 			"		});\n" + 
-			"	}\n" + 
-			"	public static void main(String[] args) {\n" + 
-			"		new Y();\n" + 
-			"	}\n" + 
-			"}"
-	});
-}
-// https://bugs.eclipse.org/bugs/show_bug.cgi?id=432531 [1.8] VerifyError with anonymous subclass inside of lambda expression in the superclass constructor call
-public void test432531a() {
-	this.runConformTest(
-		new String[] {
-			"Y.java", 
-			"import java.util.function.Supplier;\n" + 
-			"class E {\n" + 
-			"	E(Supplier<Object> factory) { }\n" + 
-			"}\n" + 
-			"public class Y extends E {\n" + 
-			"	Y() {\n" + 
-			"		super( () -> {\n" + 
-			"			class Z extends E {\n" + 
-			"				Z() {\n" + 
-			"					super(() -> new Object());\n" + 
-			"				}\n" + 
-			"			}\n" + 
-			"			return new Z();\n" + 
-			"			});\n" + 
 			"	}\n" + 
 			"	public static void main(String[] args) {\n" + 
 			"		new Y();\n" + 
@@ -4706,31 +4680,6 @@ public void test437781() {
 		},
 		"Consumer");
 }
-// https://bugs.eclipse.org/bugs/show_bug.cgi?id=441907, [1.8][compiler] Eclipse 4.4.x compiler generics bugs with streams and lambdas
-public void _test441907() {
-	this.runConformTest(
-		new String[] {
-			"X.java",
-			"import java.util.*;\n" +
-			"public class X {\n" +
-			"  public static class FooBar<V> {\n" +
-			"  }\n" +
-			"  public interface FooBarred {\n" +
-			"    public <V> boolean hasFooBar(final FooBar<V> fooBar);\n" +
-			"  }\n" +
-			"  public interface Widget extends FooBarred {\n" +
-			"  }\n" +
-			"  public static void test() {\n" +
-			"    Set<FooBar<?>> foobars = new HashSet<>();\n" +
-			"    Set<Widget> widgets = new HashSet<>();\n" +
-			"    boolean anyWidgetHasFooBar = widgets.stream().anyMatch(\n" +
-			"        widget -> foobars.stream().anyMatch(widget::hasFooBar)\n" +
-			"        );\n" +
-			"  }\n" +
-			"}\n"
-		},
-		"");
-}
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=443889, [1.8][compiler] Lambdas get compiled to duplicate methods
 public void test443889() {
 	this.runConformTest(
@@ -4769,6 +4718,273 @@ public void test443889() {
 		"BEFORE\n" + 
 		"DISP: Salomon 42\n" + 
 		"AFTER");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=441907, [1.8][compiler] Eclipse 4.4.x compiler generics bugs with streams and lambdas 
+public void test441907() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.*;\n" +
+			"import java.util.function.Predicate;\n" +
+			"import java.util.stream.Stream;\n" +
+			"public class X {\n" +
+			"  public static class FooBar<V> {\n" +
+			"  }\n" +
+			"  public interface FooBarred {\n" +
+			"    public <V> boolean hasFooBar(final FooBar<V> fooBar);\n" +
+			"  }\n" +
+			"  public interface Widget extends FooBarred {\n" +
+			"  }\n" +
+			"  public static void test() {\n" +
+			"    Set<FooBar<?>> foobars = new HashSet<>();\n" +
+			"    Set<Widget> widgets = new HashSet<>();\n" +
+			"    Stream<X.FooBar<?>> s = null;\n" +
+			"    FooBarred fb = null;\n" +
+			"    fb.hasFooBar((FooBar<?>) null);\n" +
+			"    boolean anyWidgetHasFooBar = widgets.stream().anyMatch(\n" +
+			"        widget -> foobars.stream().anyMatch(widget::hasFooBar)\n" +
+			"        );\n" +
+			"  }\n" +
+			"}\n"
+		},
+		"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=444773, [1.8][compiler] NullPointerException in LambdaExpression.analyseCode 
+public void test444773() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.ArrayList;\n" +
+			"import java.util.List;\n" +
+			"import java.util.Optional;\n" +
+			" \n" +
+			"public class X {\n" +
+			"  static class Container {\n" +
+			"    final private String s;\n" +
+			"    public Container(String s) { this.s = s; }\n" +
+			"  }\n" +
+			" \n" +
+			"  public static void main(String[] args) {\n" +
+			"    final List<Container> list = new ArrayList<>();\n" +
+			"    final Optional<String> optStr = Optional.of(\"foo\");\n" +
+			"    list.add(new Container(optStr.orElseThrow(() -> new IllegalStateException()))); // Error here\n" +
+			" \n" +
+			"    // This will work:\n" +
+			"    final String s = optStr.orElseThrow(IllegalStateException::new);\n" +
+			"    list.add(new Container(s));	\n" +
+			"  }\n" +
+			"}\n"
+		},
+		"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=444772, [1.8][compiler] NullPointerException in ReferenceExpression.shouldGenerateImplicitLambda 
+public void test444772() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.ArrayList;\n" +
+			"import java.util.List;\n" +
+			"import java.util.Optional;\n" +
+			" \n" +
+			"public class X {\n" +
+			"  static class Container {\n" +
+			"    final private String s;\n" +
+			"    public Container(String s) { this.s = s; }\n" +
+			"  }\n" +
+			" \n" +
+			"  public static void main(String[] args) {\n" +
+			"    final List<Container> list = new ArrayList<>();\n" +
+			"    final Optional<String> optStr = Optional.of(\"foo\");\n" +
+			"    list.add(new Container(optStr.orElseThrow(IllegalStateException::new))); // Error here\n" +
+			" \n" +
+			"    // This will work:\n" +
+			"    final String s = optStr.orElseThrow(IllegalStateException::new);\n" +
+			"    list.add(new Container(s));	\n" +
+			"  }\n" +
+			"}\n"
+		},
+		"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=444803, [1.8][compiler] Exception in thread "main" java.lang.VerifyError: Bad local variable type
+public void test444803() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.ArrayList;\n" +
+			"import java.util.Collection;\n" +
+			"import java.util.List;\n" +
+			"public class X {\n" +
+			"    X abc = null;\n" +
+			"    public static void main(String[] args) {\n" +
+			"        new X();\n" +
+			"    }\n" +
+			"    private void doSth() {\n" +
+			"        final List<String> l = new ArrayList<>();\n" +
+			"        try {\n" +
+			"            System.out.println(\"ok\");\n" +
+			//"            Runnable r = () -> abc.terminateInstances(abc.withInstanceIds(l));\n" +
+			"        } finally {\n" +
+			"            Runnable r = () -> abc.terminateInstances(abc.withInstanceIds(l));\n" +
+			"        }\n" +
+			"    }\n" +
+			"    public void terminateInstances(X abc) {\n" +
+			"    }\n" +
+			"    public X withInstanceIds(Collection<String> arg0) {\n" +
+			"    	return null;\n" +
+			"    }\n" +
+			"}\n" +
+			"interface FI {\n" +
+			"	public void foo(Collection<String> arg0);\n" +
+			"}\n"
+		},
+		"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=444785, [1.8] Error in JDT Core during reconcile
+public void test444785() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.io.Serializable;\n" +
+			"import java.util.function.Function;\n" +
+			"public interface X {\n" +
+			"	@FunctionalInterface\n" +
+			"	static interface Function1<T1, R> extends Function<T1, R>, Serializable {\n" +
+			"		@Override\n" +
+			"		R apply(T1 t1);\n" +
+			"	}\n" +
+			"	@FunctionalInterface\n" +
+			"	static interface Function6<T1, T2, T3, T4, T5, T6, R> extends Serializable {\n" +
+			"		R apply(T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6);\n" +
+			"		default Function1<T1, Function1<T2, Function1<T3, Function1<T4, Function1<T5, Function1<T6, R>>>>>> curried() {\n" +
+			"			return t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> apply(t1, t2, t3, t4, t5, t6);\n" +
+			"		}\n" +
+			"		default Function1<Tuple6<T1, T2, T3, T4, T5, T6>, R> tupled() {\n" +
+			"			return t -> apply(t._1, t._2, t._3, t._4, t._5, t._6);\n" +
+			"		}\n" +
+			"	}\n" +
+			"	static final class Tuple6<T1, T2, T3, T4, T5, T6> {\n" +
+			"		public final T1 _1;\n" +
+			"		public final T2 _2;\n" +
+			"		public final T3 _3;\n" +
+			"		public final T4 _4;\n" +
+			"		public final T5 _5;\n" +
+			"		public final T6 _6;\n" +
+			"		public Tuple6(T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6) {\n" +
+			"			this._1 = t1;\n" +
+			"			this._2 = t2;\n" +
+			"			this._3 = t3;\n" +
+			"			this._4 = t4;\n" +
+			"			this._5 = t5;\n" +
+			"			this._6 = t6;\n" +
+			"		}\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=442916,  [1.8][inference] Type Inference is broken for CompletableFuture then-methods  
+public void test442916() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import static java.util.concurrent.CompletableFuture.completedFuture;\n" +
+			"import java.util.Arrays;\n" +
+			"import java.util.concurrent.CompletableFuture;\n" +
+			"public class X {\n" +
+			"    public static CompletableFuture<Integer> cf(int value) {\n" +
+			"		return completedFuture(value);\n" +
+			"    }\n" +
+			"    public static void main(String[] args) {\n" +
+			"		cf(1).thenCompose((xInt) -> cf(2).thenApply((zInt) -> Arrays.asList(xInt, zInt)))\n" +
+			"		.thenAccept((ints) -> {\n" +
+			"			/* !!!! ints is incorrectly inferred to be an Object, but it is List<Integer> */\n" +
+			"			System.out.println(ints.get(0) + ints.get(1)); // should print 3;\n" +
+			"		});\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"3");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=442446, [1.8][compiler] compiler unable to infer lambda's generic argument types  
+public void _test442446() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"import java.util.Collection;\n" +
+			"import java.util.Map;\n" +
+			"import java.util.function.Function;\n" +
+			"import java.util.stream.Collectors;\n" +
+			"public class Test {\n" +
+			"  Test(Collection<Object> pCollection) {\n" +
+			"    this(\n" +
+			"      pCollection.stream().collect(\n" +
+			"        Collectors.toMap(\n" +
+			"          Function.identity(), pElement -> 1, (pInt1, pInt2) -> pInt1 + pInt2\n" +
+			"        )\n" +
+			"      )\n" +
+			"    );\n" +
+			"  }\n" +
+			"  Test(Map<Object,Integer> pMap) {}\n" +
+			"}\n"
+		},
+		"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=432605, [1.8] Incorrect error "The type ArrayList<T> does not define add(ArrayList<T>, Object) that is applicable here"
+public void test432605() {
+	this.runConformTest(
+		new String[] {
+			"X.java", 
+			"import java.util.ArrayList;\n" +
+			"import java.util.HashMap;\n" +
+			"import java.util.function.Function;\n" +
+			"import java.util.function.Supplier;\n" +
+			"import java.util.stream.Collector;\n" +
+			"import java.util.stream.Collectors;\n" +
+			"import java.util.stream.Stream;\n" +
+			"public class X {\n" +
+			"static <T, E extends Exception, K, L, M> M terminalAsMapToList(\n" +
+			"    Function<? super T, ? extends K> classifier,\n" +
+			"    Function<HashMap<K, L>, M> intoMap,\n" +
+			"    Function<ArrayList<T>, L> intoList,\n" +
+			"    Supplier<Stream<T>> supplier,\n" +
+			"    Class<E> classOfE) throws E {\n" +
+			"  	return terminalAsCollected(\n" +
+			"  	  classOfE,\n" +
+			"  	  Collectors.collectingAndThen(\n" +
+			"  	    Collectors.groupingBy(\n" +
+			"  	      classifier,\n" +
+			"  	      HashMap<K, L>::new,\n" +
+			"  	      Collectors.collectingAndThen(\n" +
+			"  	      	// The type ArrayList<T> does not define add(ArrayList<T>, Object) that is applicable here\n" +
+			"  	      	// from ArrayList<T>::add:\n" +
+			"  	        Collector.of(ArrayList<T>::new, ArrayList<T>::add, (ArrayList<T> left, ArrayList<T> right) -> { \n" +
+			"  		        left.addAll(right);\n" +
+			"  		        return left;\n" +
+			"  	        }),\n" +
+			"  	        intoList)),\n" +
+			"  	    intoMap),\n" +
+			"  	  supplier);\n" +
+			"  }\n" +
+			"	static <E extends Exception, T, M> M terminalAsCollected(\n" +
+			"    Class<E> class1,\n" +
+			"    Collector<T, ?, M> collector,\n" +
+			"    Supplier<Stream<T>> supplier) throws E {\n" +
+			"  	try(Stream<T> s = supplier.get()) {\n" +
+			"  		return s.collect(collector);\n" +
+			"  	} catch(RuntimeException e) {\n" +
+			"  		throw unwrapCause(class1, e);\n" +
+			"  	}\n" +
+			"  }\n" +
+			"	static <E extends Exception> E unwrapCause(Class<E> classOfE, RuntimeException e) throws E {\n" +
+			"		Throwable cause = e.getCause();\n" +
+			"		if(classOfE.isInstance(cause) == false) {\n" +
+			"			throw e;\n" +
+			"		}\n" +
+			"		throw classOfE.cast(cause);\n" +
+			"}\n" +
+			"}\n"
+	},
+	"");
 }
 public static Class testClass() {
 	return LambdaExpressionsTest.class;

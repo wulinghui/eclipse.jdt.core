@@ -6971,7 +6971,6 @@ public void test412284c() {
 				"  }\n" +
 				"}\n"
 		},
-
 		"----------\n" + 
 		"1. ERROR in X.java (at line 4)\n" + 
 		"	X(){\n" + 
@@ -6981,9 +6980,19 @@ public void test412284c() {
 		"2. ERROR in X.java (at line 7)\n" + 
 		"	t += 3;\n" + 
 		"	^\n" + 
+		"The blank final field t may not have been initialized\n" + 
+		"----------\n" + 
+		"3. ERROR in X.java (at line 7)\n" + 
+		"	t += 3;\n" + 
+		"	^\n" + 
 		"The final field X.t cannot be assigned\n" + 
 		"----------\n" + 
-		"3. ERROR in X.java (at line 9)\n" + 
+		"4. ERROR in X.java (at line 9)\n" + 
+		"	t += 4;\n" + 
+		"	^\n" + 
+		"The blank final field t may not have been initialized\n" + 
+		"----------\n" + 
+		"5. ERROR in X.java (at line 9)\n" + 
 		"	t += 4;\n" + 
 		"	^\n" + 
 		"The final field X.t cannot be assigned\n" + 
@@ -8473,7 +8482,7 @@ public void test428300a() {
 		"");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=428177, - [1.8][compiler] Insistent capture issues
-public void _test428177() {
+public void test428177() {
 	runNegativeTest(
 		new String[] {
 			"X.java",
@@ -8524,7 +8533,22 @@ public void _test428177() {
 			"  }\n" +
 			"}\n"
 		},
-		"valid error messages go here - some are expected since javac also complains");
+		"----------\n" + 
+		"1. ERROR in X.java (at line 21)\n" + 
+		"	withoutWildcard(stream); // ERROR\n" + 
+		"	^^^^^^^^^^^^^^^\n" + 
+		"The method withoutWildcard(Stream<String>) in the type InsistentCapture is not applicable for the arguments (Stream<capture#10-of ? extends String>)\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 36)\n" + 
+		"	if(\"1\" == \"\") { return stream.collect(Collectors.toList()).stream(); // ERROR\n" + 
+		"	                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from Stream<capture#14-of ? extends String> to Stream<String>\n" + 
+		"----------\n" + 
+		"3. ERROR in X.java (at line 38)\n" + 
+		"	return stream.collect(Collectors.toList()); // NO ERROR\n" + 
+		"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from List<capture#16-of ? extends String> to Stream<String>\n" + 
+		"----------\n");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=428795, - [1.8]Internal compiler error: java.lang.NullPointerException at org.eclipse.jdt.internal.compiler.ast.MessageSend.analyseCode
 public void test428795() {
@@ -9122,7 +9146,7 @@ public void test442983() {
 		"----------\n");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=438945, [1.8] NullPointerException InferenceContext18.checkExpression in java 8 with generics, primitives, and overloading
-public void _test438945() {
+public void test438945() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java",
@@ -9286,6 +9310,479 @@ public void test435397() {
 		"	         ^^^^^^\n" + 
 		"The method module(M) is ambiguous for the type M1\n" + 
 		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=433458, [1.8][compiler] Eclipse accepts lambda expression with potentially uninitialized arguments
+public void test433458() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"import java.util.Comparator;\n" +
+			"public class X {\n" +
+			"    final Comparator mComparator1;\n" +
+			//"    Comparator mComparator2 = mComparator1;\n" +
+			"    Comparator mComparator2 = (pObj1, pObj2) -> mComparator1.compare(pObj1, pObj2);\n" +
+			"    X() {mComparator1 = Comparator.naturalOrder();}\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. WARNING in X.java (at line 3)\n" + 
+		"	final Comparator mComparator1;\n" + 
+		"	      ^^^^^^^^^^\n" + 
+		"Comparator is a raw type. References to generic type Comparator<T> should be parameterized\n" + 
+		"----------\n" + 
+		"2. WARNING in X.java (at line 4)\n" + 
+		"	Comparator mComparator2 = (pObj1, pObj2) -> mComparator1.compare(pObj1, pObj2);\n" + 
+		"	^^^^^^^^^^\n" + 
+		"Comparator is a raw type. References to generic type Comparator<T> should be parameterized\n" + 
+		"----------\n" + 
+		"3. WARNING in X.java (at line 4)\n" + 
+		"	Comparator mComparator2 = (pObj1, pObj2) -> mComparator1.compare(pObj1, pObj2);\n" + 
+		"	                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type safety: The method compare(Object, Object) belongs to the raw type Comparator. References to generic type Comparator<T> should be parameterized\n" + 
+		"----------\n" + 
+		"4. ERROR in X.java (at line 4)\n" + 
+		"	Comparator mComparator2 = (pObj1, pObj2) -> mComparator1.compare(pObj1, pObj2);\n" + 
+		"	                                            ^^^^^^^^^^^^\n" + 
+		"The blank final field mComparator1 may not have been initialized\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=433458, [1.8][compiler] Eclipse accepts lambda expression with potentially uninitialized arguments
+public void test433458a() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"interface I {\n" +
+			"	void foo();\n" +
+			"}\n" +
+			"class X {\n" +
+			"	final int x;\n" +
+			"	X() {\n" +
+			"		I i = () -> {\n" +
+			"			x = 20;\n" +
+			"		};\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 6)\n" + 
+		"	X() {\n" + 
+		"	^^^\n" + 
+		"The blank final field x may not have been initialized\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 8)\n" + 
+		"	x = 20;\n" + 
+		"	^\n" + 
+		"The final field X.x cannot be assigned\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=433588, [1.8][compiler] ECJ compiles an ambiguous call in the presence of an unrelated unused method.
+public void test433588() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"import java.io.IOException;\n" +
+			"import java.nio.file.Files;\n" +
+			"import java.nio.file.Paths;\n" +
+			"import java.util.function.Consumer;\n" +
+			"import java.util.stream.Stream;\n" +
+			"public class X {\n" +
+			"	private interface StreamyBase<T, E extends Exception> {\n" +
+			"		@SuppressWarnings(\"unused\")\n" +
+			"		default void forEachOrdered(Consumer<? super T> action) throws E {}\n" +
+			"	}\n" +
+			"	abstract private static class AbstractStream<T, E extends Exception, STREAM, SELF extends AbstractStream<T, E, STREAM, SELF, CONSUMER>, CONSUMER> implements StreamyBase<T, E> {\n" +
+			"		@SuppressWarnings(\"unused\")\n" +
+			"		public void forEachOrdered(CONSUMER action) throws E {}\n" +
+			"		// remove this method with a warning about it being unused:\n" +
+			"		public final @SafeVarargs void forEachOrdered(Consumer<? super T> action, Consumer<? super T>... actions) throws E {}\n" +
+			"	}\n" +
+			"	private static class UnStream<T> extends AbstractStream<T, RuntimeException, Stream<T>, UnStream<T>, Consumer<? super T>> {}\n" +
+			"	private static class IOStream<T> extends AbstractStream<T, IOException, Stream<T>, IOStream<T>, IOConsumer<? super T>> {}\n" +
+			"	@FunctionalInterface\n" +
+			"	private interface ExConsumer<T, E extends Exception> {\n" +
+			"		void accept(T t1) throws E;\n" +
+			"	}\n" +
+			"	@FunctionalInterface\n" +
+			"	private interface IOConsumer<T> extends ExConsumer<T, IOException> {}\n" +
+			"	public static void tests1(IOStream<String> lines1, UnStream<String> lines2) throws IOException {\n" +
+			"		IOConsumer<? super String> action = s -> Files.isHidden(Paths.get(s));\n" +
+			"		Consumer<? super String> action2 = s -> System.out.println(s);\n" +
+			"		// After removal these two become ambiguous:\n" +
+			"		lines1.forEachOrdered(s -> Files.isHidden(Paths.get(s)));\n" +
+			"		lines1.forEachOrdered(s -> System.out.println(s));\n" +
+			"		lines1.forEachOrdered(action);\n" +
+			"		lines1.forEachOrdered(action2);\n" +
+			"		lines2.forEachOrdered(action2);\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. WARNING in X.java (at line 15)\n" + 
+		"	public final @SafeVarargs void forEachOrdered(Consumer<? super T> action, Consumer<? super T>... actions) throws E {}\n" + 
+		"	                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"The method forEachOrdered(Consumer<? super T>, Consumer<? super T>...) from the type X.AbstractStream<T,E,STREAM,SELF,CONSUMER> is never used locally\n" + 
+		"----------\n" + 
+		"2. WARNING in X.java (at line 17)\n" + 
+		"	private static class UnStream<T> extends AbstractStream<T, RuntimeException, Stream<T>, UnStream<T>, Consumer<? super T>> {}\n" + 
+		"	                     ^^^^^^^^\n" + 
+		"Access to enclosing constructor X.AbstractStream<T,E,STREAM,SELF,CONSUMER>() is emulated by a synthetic accessor method\n" + 
+		"----------\n" + 
+		"3. WARNING in X.java (at line 18)\n" + 
+		"	private static class IOStream<T> extends AbstractStream<T, IOException, Stream<T>, IOStream<T>, IOConsumer<? super T>> {}\n" + 
+		"	                     ^^^^^^^^\n" + 
+		"Access to enclosing constructor X.AbstractStream<T,E,STREAM,SELF,CONSUMER>() is emulated by a synthetic accessor method\n" + 
+		"----------\n" + 
+		"4. ERROR in X.java (at line 29)\n" + 
+		"	lines1.forEachOrdered(s -> Files.isHidden(Paths.get(s)));\n" + 
+		"	       ^^^^^^^^^^^^^^\n" + 
+		"The method forEachOrdered(X.IOConsumer<? super String>) is ambiguous for the type X.IOStream<String>\n" + 
+		"----------\n" + 
+		"5. ERROR in X.java (at line 30)\n" + 
+		"	lines1.forEachOrdered(s -> System.out.println(s));\n" + 
+		"	       ^^^^^^^^^^^^^^\n" + 
+		"The method forEachOrdered(X.IOConsumer<? super String>) is ambiguous for the type X.IOStream<String>\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=433588, [1.8][compiler] ECJ compiles an ambiguous call in the presence of an unrelated unused method.
+public void test433588a() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"import java.io.IOException;\n" +
+			"import java.nio.file.Files;\n" +
+			"import java.nio.file.Paths;\n" +
+			"import java.util.function.Consumer;\n" +
+			"import java.util.stream.Stream;\n" +
+			"public class X {\n" +
+			"	private interface StreamyBase<T, E extends Exception> {\n" +
+			"		@SuppressWarnings(\"unused\")\n" +
+			"		default void forEachOrdered(Consumer<? super T> action) throws E {}\n" +
+			"	}\n" +
+			"	abstract private static class AbstractStream<T, E extends Exception, STREAM, SELF extends AbstractStream<T, E, STREAM, SELF, CONSUMER>, CONSUMER> implements StreamyBase<T, E> {\n" +
+			"		@SuppressWarnings(\"unused\")\n" +
+			"		public void forEachOrdered(CONSUMER action) throws E {}\n" +
+			"		// remove this method with a warning about it being unused:\n" +
+			"		// public final @SafeVarargs void forEachOrdered(Consumer<? super T> action, Consumer<? super T>... actions) throws E {}\n" +
+			"	}\n" +
+			"	private static class UnStream<T> extends AbstractStream<T, RuntimeException, Stream<T>, UnStream<T>, Consumer<? super T>> {}\n" +
+			"	private static class IOStream<T> extends AbstractStream<T, IOException, Stream<T>, IOStream<T>, IOConsumer<? super T>> {}\n" +
+			"	@FunctionalInterface\n" +
+			"	private interface ExConsumer<T, E extends Exception> {\n" +
+			"		void accept(T t1) throws E;\n" +
+			"	}\n" +
+			"	@FunctionalInterface\n" +
+			"	private interface IOConsumer<T> extends ExConsumer<T, IOException> {}\n" +
+			"	public static void tests1(IOStream<String> lines1, UnStream<String> lines2) throws IOException {\n" +
+			"		IOConsumer<? super String> action = s -> Files.isHidden(Paths.get(s));\n" +
+			"		Consumer<? super String> action2 = s -> System.out.println(s);\n" +
+			"		// After removal these two become ambiguous:\n" +
+			"		lines1.forEachOrdered(s -> Files.isHidden(Paths.get(s)));\n" +
+			"		lines1.forEachOrdered(s -> System.out.println(s));\n" +
+			"		lines1.forEachOrdered(action);\n" +
+			"		lines1.forEachOrdered(action2);\n" +
+			"		lines2.forEachOrdered(action2);\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. WARNING in X.java (at line 17)\n" + 
+		"	private static class UnStream<T> extends AbstractStream<T, RuntimeException, Stream<T>, UnStream<T>, Consumer<? super T>> {}\n" + 
+		"	                     ^^^^^^^^\n" + 
+		"Access to enclosing constructor X.AbstractStream<T,E,STREAM,SELF,CONSUMER>() is emulated by a synthetic accessor method\n" + 
+		"----------\n" + 
+		"2. WARNING in X.java (at line 18)\n" + 
+		"	private static class IOStream<T> extends AbstractStream<T, IOException, Stream<T>, IOStream<T>, IOConsumer<? super T>> {}\n" + 
+		"	                     ^^^^^^^^\n" + 
+		"Access to enclosing constructor X.AbstractStream<T,E,STREAM,SELF,CONSUMER>() is emulated by a synthetic accessor method\n" + 
+		"----------\n" + 
+		"3. ERROR in X.java (at line 29)\n" + 
+		"	lines1.forEachOrdered(s -> Files.isHidden(Paths.get(s)));\n" + 
+		"	       ^^^^^^^^^^^^^^\n" + 
+		"The method forEachOrdered(X.IOConsumer<? super String>) is ambiguous for the type X.IOStream<String>\n" + 
+		"----------\n" + 
+		"4. ERROR in X.java (at line 30)\n" + 
+		"	lines1.forEachOrdered(s -> System.out.println(s));\n" + 
+		"	       ^^^^^^^^^^^^^^\n" + 
+		"The method forEachOrdered(X.IOConsumer<? super String>) is ambiguous for the type X.IOStream<String>\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=433735, [1.8] Discrepancy with javac when dealing with local classes in lambda expressions
+public void test433735() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"import java.util.function.Supplier;\n" +
+			"class E {\n" +
+			"	E(Supplier<Object> factory) { }\n" +
+			"}\n" +
+			"public class X extends E {\n" +
+			"	X() {\n" +
+			"		super( () -> {\n" +
+			"			class Z extends E {\n" +
+			"				Z() {\n" +
+			"					super(new Supplier<Object>() {\n" +
+			"						@Override\n" +
+			"						public Object get() {\n" +
+			"							return new Object();\n" +
+			"						}\n" +
+			"					});\n" +
+			"				}\n" +
+			"			} \n" +
+			"			return new Z();\n" +
+			"			});\n" +
+			"	}\n" +
+			"	public static void main(String[] args) {\n" +
+			"		new X();\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 7)\n" + 
+		"	super( () -> {\n" + 
+		"	       ^^^^^\n" + 
+		"No enclosing instance of type X is available due to some intermediate constructor invocation\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=432531 [1.8] VerifyError with anonymous subclass inside of lambda expression in the superclass constructor call
+public void test432531a() {
+	this.runNegativeTest(
+		new String[] {
+			"Y.java", 
+			"import java.util.function.Supplier;\n" + 
+			"class E {\n" + 
+			"	E(Supplier<Object> factory) { }\n" + 
+			"}\n" + 
+			"public class Y extends E {\n" + 
+			"	Y() {\n" + 
+			"		super( () -> {\n" + 
+			"			class Z extends E {\n" + 
+			"				Z() {\n" + 
+			"					super(() -> new Object());\n" + 
+			"				}\n" + 
+			"			}\n" + 
+			"			return new Z();\n" + 
+			"			});\n" + 
+			"	}\n" + 
+			"	public static void main(String[] args) {\n" + 
+			"		new Y();\n" + 
+			"	}\n" + 
+			"}"
+	},
+	"----------\n" + 
+	"1. ERROR in Y.java (at line 7)\n" + 
+	"	super( () -> {\n" + 
+	"	       ^^^^^\n" + 
+	"No enclosing instance of type Y is available due to some intermediate constructor invocation\n" + 
+	"----------\n");
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=444665, Internal compiler error: java.lang.NullPointerException at org.eclipse.jdt.internal.compiler.problem.ProblemReporter.invalidMethod 
+public void test444665() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java", 
+			"public class X {\n" +
+			"    static void foo(java.util.Map<Long, Long> map) {\n" +
+			"        java.util.function.Consumer<int[]> c = array -> map.compute(array.get(0), (k, v) -> null);\n" +
+			"    }\n" +
+			"}\n"
+	},
+	"----------\n" + 
+	"1. ERROR in X.java (at line 3)\n" + 
+	"	java.util.function.Consumer<int[]> c = array -> map.compute(array.get(0), (k, v) -> null);\n" + 
+	"	                                                            ^^^^^^^^^^^^\n" + 
+	"Cannot invoke get(int) on the array type int[]\n" + 
+	"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=442446, [1.8][compiler] compiler unable to infer lambda's generic argument types
+public void _test442446() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java", 
+			"import java.util.Collection;\n" +
+			"import java.util.Map;\n" +
+			"import java.util.function.Function;\n" +
+			"import java.util.stream.Collectors;\n" +
+			"public class X {\n" +
+			"  X(Collection<Object> pCollection) {\n" +
+			"    this(\n" +
+			"      pCollection.stream().collect(\n" +
+			"        Collectors.toMap(\n" +
+			"          Function.identity(), pElement -> 1, (pInt1, pInt2) -> pInt1 + pInt2\n" +
+			"        )\n" +
+			"      )\n" +
+			"    );\n" +
+			"  }\n" +
+			"  X(Map<Object,Integer> pMap) {}\n" +
+			"}\n" 
+	},
+	"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=432759,  [1.8][compiler] Some differences between Javac and ECJ regarding wildcards and static methods
+public void test432759() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java", 
+			"import java.util.function.BinaryOperator;\n" +
+			"import java.util.function.Consumer;\n" +
+			"\n" +
+			"/*Q*/\n" +
+			"@FunctionalInterface interface Subsumer<T> {	void accept(T t);\n" +
+			"  default                                 Subsumer<T> andThe1(                  Subsumer<? super T> afterT) { return (T t) -> {      accept(t); afterT.accept(t); }; }\n" +
+			"  default                                 Subsumer<T> andThe2(Subsumer<T> this, Subsumer<? super T> afterT) { return (T t) -> { this.accept(t); afterT.accept(t); }; }\n" +
+			"  static <U>                              Subsumer<U> andThe3(Subsumer<U> tihs, Subsumer<? super U> afterU) { return (U u) -> { tihs.accept(u); afterU.accept(u); }; }\n" +
+			"  static <S extends ISSUPER_S, ISSUPER_S> Subsumer<S> andThe4(Subsumer<S> tihs, Subsumer<ISSUPER_S> afterS) { return (S s) -> { tihs.accept(s); afterS.accept(s); }; }\n" +
+			"}\n" +
+			"public class X {\n" +
+			"	static <T extends ISSUPER_T, ISSUPER_T> void method() {\n" +
+			"		BinaryOperator<Consumer<? super T>> attempt_X_0 = Consumer::andThen;\n" +
+			"		BinaryOperator<Subsumer<? super T>> attempt_X_1 = Subsumer::andThe1;\n" +
+			"		BinaryOperator<Subsumer<? super T>> attempt_X_2 = Subsumer::andThe2;\n" +
+			"		BinaryOperator<Subsumer<? super T>> attempt_X_3 = Subsumer::andThe3;\n" +
+			"		BinaryOperator<Subsumer<? super T>> attempt_X_4 = Subsumer::andThe4;\n" +
+			"		BinaryOperator<Consumer<ISSUPER_T>> attempt_n_0 = Consumer::andThen;\n" +
+			"		BinaryOperator<Subsumer<ISSUPER_T>> attempt_n_1 = Subsumer::andThe1;\n" +
+			"		BinaryOperator<Subsumer<ISSUPER_T>> attempt_n_2 = Subsumer::andThe2;\n" +
+			"		BinaryOperator<Subsumer<ISSUPER_T>> attempt_n_3 = Subsumer::andThe3;\n" +
+			"		BinaryOperator<Subsumer<ISSUPER_T>> attempt_n_4 = Subsumer::andThe4;\n" +
+			"		// Summary:\n" +
+			"		// ECJ error #1, javac no error\n" +
+			"		// ECJ error #2, javac no error\n" +
+			"		// ECJ error #3, javac no error\n" +
+			"		// ECJ error #4, javac error #1\n" +
+			"		// ECJ error #5, javac error #2\n" +
+			"		// ECJ no error, javac no error\n" +
+			"		// ECJ no error, javac no error\n" +
+			"		// ECJ no error, javac no error\n" +
+			"		// ECJ no error, javac no error\n" +
+			"		// ECJ no error, javac no error\n" +
+			"	}\n" +
+			"}\n" 
+	},
+	"----------\n" + 
+	"1. ERROR in X.java (at line 16)\n" + 
+	"	BinaryOperator<Subsumer<? super T>> attempt_X_3 = Subsumer::andThe3;\n" + 
+	"	                                                  ^^^^^^^^^^^^^^^^^\n" + 
+	"The type Subsumer does not define andThe3(Subsumer<capture#5-of ? super T>, Subsumer<capture#5-of ? super T>) that is applicable here\n" + 
+	"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=439594  [1.8][compiler] nested lambda type incorrectly inferred vs javac
+public void test439594() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java", 
+			"import java.util.ArrayList;\n" +
+			"import java.util.List;\n" +
+			"import java.util.function.Function;\n" +
+			"import java.util.function.Predicate;\n" +
+			"import java.util.stream.Collectors;\n" +
+			"import java.util.stream.Stream;\n" +
+			"public class X {\n" +
+			"	protected static interface IListEntry {\n" +
+			"		public <T> T visitRecordsWithResult(Function<Stream<Record>,T> func);		\n" +
+			"	}\n" +
+			"	protected static final class ImmutableRecord {\n" +
+			"		public ImmutableRecord(Record r) { }\n" +
+			"	}\n" +
+			"	protected static final class Record {}\n" +
+			"	public List<ImmutableRecord> compilesWithEclipseAndJavac() \n" +
+			"	{\n" +
+			"		return visitEntriesWithResult( stream -> {\n" +
+			"			return stream.map( entry -> {\n" +
+			"				final List<ImmutableRecord> result1 = entry.visitRecordsWithResult( stream2 -> stream2\n" +
+			"						.filter( somePredicate() )\n" +
+			"						.map( ImmutableRecord::new )\n" +
+			"						.collect( Collectors.toList() )\n" +
+			"					);	\n" +
+			"				return result1;\n" +
+			"			}).flatMap( List::stream ).collect( Collectors.toCollection( ArrayList::new ) );\n" +
+			"		});		\n" +
+			"	}		\n" +
+			"	public List<ImmutableRecord> compilesWithJavacButNotEclipse1() \n" +
+			"	{\n" +
+			"		return visitEntriesWithResult( stream -> {\n" +
+			"			return stream.map( entry -> {\n" +
+			"				return entry.visitRecordsWithResult( stream2 -> stream2\n" +
+			"						.filter( somePredicate() )\n" +
+			"						.map( ImmutableRecord::new )\n" +
+			"						.collect( Collectors.toList() )\n" +
+			"					);	\n" +
+			"			}).flatMap( List::stream ).collect( Collectors.toCollection( ArrayList::new ) );\n" +
+			"		});		\n" +
+			"	}		\n" +
+			"	public List<ImmutableRecord> compilesWithJavacButNotEclipse2() \n" +
+			"	{\n" +
+			"		return visitEntriesWithResult( stream -> {\n" +
+			"			return stream.map( entry -> entry.visitRecordsWithResult( stream2 -> stream2\n" +
+			"						.filter( somePredicate() )\n" +
+			"						.map( ImmutableRecord::new )\n" +
+			"						.collect( Collectors.toList() ) )\n" +
+			"			).flatMap( List::stream ).collect( Collectors.toCollection( ArrayList::new ) );\n" +
+			"		});		\n" +
+			"	}	\n" +
+			"	public List<ImmutableRecord> compilesWithJavacButNotEclipse3() \n" +
+			"	{\n" +
+			"		return visitEntriesWithResult( stream -> stream.map( entry -> entry.visitRecordsWithResult( stream2 -> stream2\n" +
+			"						.filter( somePredicate() )\n" +
+			"						.map( ImmutableRecord::new )\n" +
+			"						.collect( Collectors.toList() ) )\n" +
+			"			)\n" +
+			"			.flatMap( List::stream )\n" +
+			"			.collect( Collectors.toCollection( ArrayList::new ) )\n" +
+			"		);		\n" +
+			"	}	\n" +
+			"	private static Predicate<Record> somePredicate() {\n" +
+			"		return record -> true;\n" +
+			"	}		\n" +
+			"	private <T> T visitEntriesWithResult(Function<Stream<IListEntry>,T> func) {\n" +
+			"		return func.apply( new ArrayList<IListEntry>().stream() );\n" +
+			"	}\n" +
+			"}\n"
+	},
+	"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=433852, [1.8][compiler] Javac rejects type inference results that ECJ accepts
+public void test433852() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java", 
+			"import java.util.Optional;\n" +
+			"import java.util.function.Function;\n" +
+			"import java.util.stream.Stream;\n" +
+			"public class X {\n" +
+			"	public static void main(String[] args) {\n" +
+			"		System.out.println(test(Stream.of(Stream.of(\"3\"))));\n" +
+			"		System.out.println(test2(Stream.of(Stream.of(\"1\")).skip(1)));\n" +
+			"		System.out.println(test31(Stream.of(Stream.of(\"2\")).skip(1)));\n" +
+			"	}\n" +
+			"	static Optional<Stream<Object>> test(Stream<Stream<String>> s31) {\n" +
+			"		return s31.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).findAny();\n" +
+			"	}\n" +
+			"	static Object test2(Stream<Stream<String>> s3) {\n" +
+			"		return s3.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).flatMap(Function.identity()).findAny().orElse(\n" +
+			"		  X.class);\n" +
+			"	}\n" +
+			"	static Stream<Object> test31(Stream<Stream<String>> s3) {\n" +
+			"		return s3.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).findAny().orElse(Stream.of(new Object()));\n" +
+			"	}\n" +
+			"}\n"
+	},
+	"----------\n" + 
+	"1. ERROR in X.java (at line 11)\n" + 
+	"	return s31.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).findAny();\n" + 
+	"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+	"Type mismatch: cannot convert from Optional<Stream<Integer>> to Optional<Stream<Object>>\n" + 
+	"----------\n" + 
+	"2. ERROR in X.java (at line 14)\n" + 
+	"	return s3.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).flatMap(Function.identity()).findAny().orElse(\n" + 
+	"	                                                                                               ^^^^^^\n" + 
+	"The method orElse(Integer) in the type Optional<Integer> is not applicable for the arguments (Class<X>)\n" + 
+	"----------\n" + 
+	"3. ERROR in X.java (at line 18)\n" + 
+	"	return s3.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).findAny().orElse(Stream.of(new Object()));\n" + 
+	"	                                                                  ^^^^^^\n" + 
+	"The method orElse(Stream<Integer>) in the type Optional<Stream<Integer>> is not applicable for the arguments (Stream<Object>)\n" + 
+	"----------\n");
 }
 public static Class testClass() {
 	return NegativeLambdaExpressionsTest.class;

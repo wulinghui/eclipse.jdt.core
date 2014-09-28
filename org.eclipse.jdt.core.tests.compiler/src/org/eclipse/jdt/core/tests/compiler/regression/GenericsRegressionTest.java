@@ -4632,7 +4632,7 @@ public void testBug430987() {
 			"----------\n");
 	}
 }
-public void testBug430686() {
+public void _testBug430686() {
 	runConformTest(
 		new String[] {
 			"TestClass.java",
@@ -5437,6 +5437,77 @@ public void test416480() {
 		  "}\n" 
       },
       "CCE");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=444024, Type mismatch error in annotation generics assignment which happens "sometimes"
+public void test444024() {
+		this.runConformTest(
+		   new String[] {
+			   "ViewpointOrganisationEntity.java",
+			   "abstract public class ViewpointOrganisationEntity<T> {\n" +
+			   "}\n",
+			   "MetaCombo.java",
+			   "public @interface MetaCombo {\n" +
+			   "	Class< ? extends IComboDataSet< ? >> dataSet();\n" +
+			   "}\n",
+			   "IComboDataSet.java",
+			   "public interface IComboDataSet<T> {\n" +
+			   "}\n",
+			   "ContractantTypeLister.java",
+			   "public class ContractantTypeLister implements IComboDataSet<ContractantType> {\n" +
+			   "}\n",
+			   "ContractantType.java",
+			   "@MetaCombo(dataSet = ContractantTypeLister.class)\n" +
+			   "public class ContractantType extends ViewpointOrganisationEntity<Long>  {\n" +
+			   "}\n",
+		       "Contractant.java",
+		       "public class Contractant extends ViewpointOrganisationEntity<Long> {\n" +
+			   "	@MetaCombo(dataSet = ContractantTypeLister.class)\n" +
+			   "	public ContractantType getContractantType() {\n" +
+			   "		return null;\n" +
+			   "	}\n" +
+			   "}\n",
+		   },
+		   "");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=440019, [1.8][compiler] Type mismatch error with autoboxing/scalar types (works with 1.6)
+public void test440019() {
+	if (this.complianceLevel <= ClassFileConstants.JDK1_7)
+		this.runConformTest(
+		   new String[] {
+			   "A.java",
+			   "public class A {\n" +
+			   "  <T> T get(String name, T defaultValue) { return defaultValue; }\n" +
+			   "  void x() {\n" +
+			   "    long a1 = get(\"key\", 0);\n" +
+			   "    long a3 = get(\"key\", 0L);\n" +
+			   "  }\n" +
+			   "}\n",
+		   },
+		   "");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=443596, [1.8][compiler] Failure for overload resolution in case of Generics and Varags 
+public void test443596() {
+	if (this.complianceLevel >= ClassFileConstants.JDK1_7)
+		this.runNegativeTest(
+		   new String[] {
+			   "X.java",
+			   "public final class X {\n" +
+			   "    static interface Predicate<T> { boolean test(T object); }\n" +
+			   "    public static <T> Predicate<T> in(Predicate<? extends T> arg) { return null; }\n" +
+			   "    public static <T> Predicate<T> and(Predicate<? super T>... arg) { return null; }\n" +
+			   "    public static <T> Predicate<T> and(Predicate<? super T> arg0, Predicate<? super T> arg1) { return null; }\n" +
+			   "    static class FilteredCollection<E> {\n" +
+			   "        Predicate<? super E> predicate;\n" +
+			   "        public void error(Predicate<?> arg) { and(predicate, in(arg)); } // no compile\n" +
+			   "    }\n" +
+			   "}\n",
+		   },
+		   "----------\n" + 
+			"1. WARNING in X.java (at line 4)\n" + 
+			"	public static <T> Predicate<T> and(Predicate<? super T>... arg) { return null; }\n" + 
+			"	                                                           ^^^\n" + 
+			"Type safety: Potential heap pollution via varargs parameter arg\n" + 
+			"----------\n");
 }
 }
 

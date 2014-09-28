@@ -2604,7 +2604,13 @@ protected void consumeExitVariableWithInitialization() {
 	} else if (this.assistNode != null && this.assistNode == variable.initialization) {
 			this.assistNodeParent = variable;
 	}
-	triggerRecoveryUponLambdaClosure(variable, false);
+	if (triggerRecoveryUponLambdaClosure(variable, false)) {
+		if (this.currentElement != null) {
+			this.restartRecovery = true;
+		}
+		if (!isInsideMethod())
+			popElement(K_FIELD_INITIALIZER_DELIMITER);
+	}
 }
 protected void consumeExitVariableWithoutInitialization() {
 	// ExitVariableWithoutInitialization ::= $empty
@@ -3537,6 +3543,7 @@ protected void consumeToken(int token) {
 	if (token == TokenNameIdentifier
 			&& this.identifierStack[this.identifierPtr] == assistIdentifier()
 			&& this.currentElement == null
+			&& (!isIndirectlyInsideLambdaExpression() || isIndirectlyInsideLambdaBlock())
 			&& isIndirectlyInsideFieldInitialization()) {
 		this.scanner.eofPosition = this.cursorLocation < Integer.MAX_VALUE ? this.cursorLocation+1 : this.cursorLocation;
 	}
@@ -5170,14 +5177,15 @@ protected void updateRecoveryState() {
 	/* expose parser state to recovery state */
 	this.currentElement.updateFromParserState();
 
-	/* may be able to retrieve completionNode as an orphan, and then attach it */
-	completionIdentifierCheck();
-	// attachOrphanCompletionNode pops various stacks to construct astNodeParent and enclosingNode. This does not gel well with extended recovery.
+	// completionIdentifierCheck && attachOrphanCompletionNode pops various stacks to construct astNodeParent and enclosingNode. This does not gel well with extended recovery.
 	CommitRollbackParser parser = null;
 	if (lastIndexOfElement(K_LAMBDA_EXPRESSION_DELIMITER) >= 0) {
 		parser = createSnapShotParser();
 		parser.copyState(this);
 	}
+	
+	/* may be able to retrieve completionNode as an orphan, and then attach it */
+	completionIdentifierCheck();
 	attachOrphanCompletionNode();
 	if (parser != null)
 		this.copyState(parser);

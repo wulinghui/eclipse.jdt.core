@@ -59,13 +59,15 @@ public class TypeBound extends ReductionResult {
 	boolean isBound() {
 		return this.right.isProperType(true);
 	}
+	
 	public int hashCode() {
 		return this.left.hashCode() + this.right.hashCode() + this.relation;
 	}
+	
 	public boolean equals(Object obj) {
 		if (obj instanceof TypeBound) {
 			TypeBound other = (TypeBound) obj;
-			return TypeBinding.equalsEquals(this.left, other.left) && TypeBinding.equalsEquals(this.right, other.right) && this.relation == other.relation;
+			return (this.relation == other.relation) && TypeBinding.equalsEquals(this.left, other.left) && TypeBinding.equalsEquals(this.right, other.right);
 		}
 		return false;
 	}

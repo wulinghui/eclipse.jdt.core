@@ -4024,6 +4024,8 @@ public void invalidMethod(MessageSend messageSend, MethodBinding method) {
 	int id = IProblem.UndefinedMethod; //default...
     MethodBinding shownMethod = method;
 	switch (method.problemId()) {
+		case ProblemReasons.NoSuchMethodOnArray :
+			return; // secondary error.
 		case ProblemReasons.NotFound :
 			if ((method.declaringClass.tagBits & TagBits.HasMissingType) != 0) {
 				this.handle(
@@ -6597,7 +6599,7 @@ public void noSuchEnclosingInstance(TypeBinding targetType, ASTNode location, bo
 		new String[] { new String(targetType.readableName())},
 		new String[] { new String(targetType.shortReadableName())},
 		location.sourceStart,
-		location.sourceEnd);
+		location instanceof LambdaExpression ? ((LambdaExpression)location).diagnosticsSourceEnd() : location.sourceEnd);
 }
 public void notCompatibleTypesError(EqualExpression expression, TypeBinding leftType, TypeBinding rightType) {
 	String leftName = new String(leftType.readableName());
@@ -10186,5 +10188,11 @@ public void uninternedIdentityComparison(EqualExpression expr, TypeBinding lhs, 
 			},
 			expr.sourceStart,
 			expr.sourceEnd);
+}
+public void invalidTypeArguments(TypeReference[] typeReference) {
+	this.handle(IProblem.InvalidTypeArguments,
+			NoArgument, NoArgument,
+			typeReference[0].sourceStart,
+			typeReference[typeReference.length - 1].sourceEnd);
 }
 }
