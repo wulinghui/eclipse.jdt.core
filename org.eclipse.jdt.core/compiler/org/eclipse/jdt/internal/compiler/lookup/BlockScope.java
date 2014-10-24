@@ -121,11 +121,8 @@ public final void addLocalType(TypeDeclaration localType) {
 	MethodScope methodScope = methodScope();
 	while (methodScope != null && methodScope.referenceContext instanceof LambdaExpression) {
 		LambdaExpression lambda = (LambdaExpression) methodScope.referenceContext;
-		if (!lambda.scope.isStatic) {
+		if (!lambda.scope.isStatic && !lambda.scope.isConstructorCall) {
 			lambda.shouldCaptureInstance = true;
-			if (lambda.scope.isConstructorCall) {
-				lambda.scope.problemReporter().noSuchEnclosingInstance(enclosingSourceType(), lambda, true);
-			}
 		}
 		methodScope = methodScope.enclosingMethodScope();
 	}
@@ -1037,6 +1034,11 @@ public String toString(int tab) {
 private List trackingVariables; // can be null if no resources are tracked
 /** Used only during analyseCode and only for checking if a resource was closed in a finallyBlock. */
 public FlowInfo finallyInfo;
+public boolean shouldConsultShadowOriginal;
+
+public boolean shouldConsultShadowOriginal() {
+	return this.shouldConsultShadowOriginal;
+}
 /**
  * Register a tracking variable and compute its id.
  */

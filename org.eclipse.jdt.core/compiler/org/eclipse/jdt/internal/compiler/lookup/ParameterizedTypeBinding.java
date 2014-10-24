@@ -35,6 +35,7 @@
  *								Bug 438458 - [1.8][null] clean up handling of null type annotations wrt type variables
  *								Bug 438179 - [1.8][null] 'Contradictory null annotations' error on type variable with explicit null-annotation.
  *								Bug 441693 - [1.8][null] Bogus warning for type argument annotated with @NonNull
+ *								Bug 446434 - [1.8][null] Enable interned captures also when analysing null type annotations
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -43,6 +44,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
+import org.eclipse.jdt.internal.compiler.ast.ASTNode;
 import org.eclipse.jdt.internal.compiler.ast.NullAnnotationMatching;
 import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
@@ -123,11 +125,12 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 	public boolean canBeInstantiated() {
 		return ((this.tagBits & TagBits.HasDirectWildcard) == 0) && super.canBeInstantiated(); // cannot instantiate param type with wildcard arguments
 	}
+
 	/**
 	 * Perform capture conversion for a parameterized type with wildcard arguments
 	 * @see org.eclipse.jdt.internal.compiler.lookup.TypeBinding#capture(Scope,int)
 	 */
-	public TypeBinding capture(Scope scope, int position) {
+	public ParameterizedTypeBinding capture(Scope scope, int position) {
 		if ((this.tagBits & TagBits.HasDirectWildcard) == 0)
 			return this;
 
@@ -139,14 +142,21 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 		ReferenceBinding contextType = scope.enclosingSourceType();
 		if (contextType != null) contextType = contextType.outermostEnclosingType(); // maybe null when used programmatically by DOM
 
+		CompilationUnitScope compilationUnitScope = scope.compilationUnitScope();
+		ASTNode cud = compilationUnitScope.referenceContext;
+		long sourceLevel = this.environment.globalOptions.sourceLevel;
+		final boolean needUniqueCapture = sourceLevel >= ClassFileConstants.JDK1_8;
+		
 		for (int i = 0; i < length; i++) {
 			TypeBinding argument = originalArguments[i];
 			if (argument.kind() == Binding.WILDCARD_TYPE) { // no capture for intersection types
 				final WildcardBinding wildcard = (WildcardBinding) argument;
 				if (wildcard.boundKind == Wildcard.SUPER && wildcard.bound.id == TypeIds.T_JavaLangObject)
 					capturedArguments[i] = wildcard.bound;
-				else
-					capturedArguments[i] = new CaptureBinding(wildcard, contextType, position, scope.compilationUnitScope().nextCaptureID());
+				else if (needUniqueCapture)
+					capturedArguments[i] = this.environment.createCapturedWildcard(wildcard, contextType, position, cud, compilationUnitScope.nextCaptureID());
+				else 
+					capturedArguments[i] = new CaptureBinding(wildcard, contextType, position, compilationUnitScope.nextCaptureID());	
 			} else {
 				capturedArguments[i] = argument;
 			}
@@ -160,7 +170,7 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 		}
 		return capturedParameterizedType;
 	}
-	
+
 	/**
 	 * Perform capture deconversion for a parameterized type with captured wildcard arguments
 	 * @see org.eclipse.jdt.internal.compiler.lookup.TypeBinding#uncapture(Scope)

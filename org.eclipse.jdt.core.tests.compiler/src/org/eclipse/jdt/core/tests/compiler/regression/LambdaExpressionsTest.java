@@ -4163,7 +4163,7 @@ public void test432619a() throws Exception {
 		"OK");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=432682, [1.8][compiler] Type mismatch error with lambda expression
-public void test432682() throws Exception {
+public void _test432682() throws Exception {
 	this.runConformTest(
 		new String[] {
 			"X.java",
@@ -4181,7 +4181,7 @@ public void test432682() throws Exception {
 			"	}\n" +
 			"}\n"
 		},
-		"true");
+		"OK");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=432520, compiler "duplicate method" bug with lamdas and generic interfaces 
 public void test432520() throws Exception {
@@ -4882,109 +4882,171 @@ public void test444785() {
 		},
 		"");
 }
-// https://bugs.eclipse.org/bugs/show_bug.cgi?id=442916,  [1.8][inference] Type Inference is broken for CompletableFuture then-methods  
-public void test442916() {
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=447119, [1.8][compiler] method references lost generic type information (4.4 -> 4.4.1 regression) 
+public void test447119() {
 	this.runConformTest(
-		new String[] {
-			"X.java",
-			"import static java.util.concurrent.CompletableFuture.completedFuture;\n" +
-			"import java.util.Arrays;\n" +
-			"import java.util.concurrent.CompletableFuture;\n" +
-			"public class X {\n" +
-			"    public static CompletableFuture<Integer> cf(int value) {\n" +
-			"		return completedFuture(value);\n" +
-			"    }\n" +
-			"    public static void main(String[] args) {\n" +
-			"		cf(1).thenCompose((xInt) -> cf(2).thenApply((zInt) -> Arrays.asList(xInt, zInt)))\n" +
-			"		.thenAccept((ints) -> {\n" +
-			"			/* !!!! ints is incorrectly inferred to be an Object, but it is List<Integer> */\n" +
-			"			System.out.println(ints.get(0) + ints.get(1)); // should print 3;\n" +
-			"		});\n" +
-			"	}\n" +
-			"}\n"
-		},
-		"3");
+			new String[] {
+				"X.java",
+				"import java.lang.reflect.Method;\n" +
+				"import java.lang.reflect.Parameter;\n" +
+				"import java.util.Arrays;\n" +
+				"import java.util.function.Function;\n" +
+				"import java.util.List;\n" +
+				"public class X {\n" +
+				"    private static List<String> foo(List<String> x){return x;}\n" +
+				"    public static void main(String[] args) {\n" +
+				"        Function<List<String>,List<String>> f = i -> { return i; };\n" +
+				"        Method[] methods = X.class.getDeclaredMethods();\n" +
+				"        for (Method m : methods) {\n" +
+				"        	if (m.getName().contains(\"lambda\")) {\n" +
+				"        		System.out.println(\"- \" + m.getGenericReturnType() + \" \" + m.getName() + \"(\" + Arrays.asList(m.getGenericParameterTypes()) + \")\");\n" +
+				"        	}\n" +
+				"        }\n" +
+				"    }\n" +
+				"}\n"
+			},
+			"- interface java.util.List lambda$0([interface java.util.List])");
 }
-// https://bugs.eclipse.org/bugs/show_bug.cgi?id=442446, [1.8][compiler] compiler unable to infer lambda's generic argument types  
-public void _test442446() {
-	this.runNegativeTest(
-		new String[] {
-			"X.java",
-			"import java.util.Collection;\n" +
-			"import java.util.Map;\n" +
-			"import java.util.function.Function;\n" +
-			"import java.util.stream.Collectors;\n" +
-			"public class Test {\n" +
-			"  Test(Collection<Object> pCollection) {\n" +
-			"    this(\n" +
-			"      pCollection.stream().collect(\n" +
-			"        Collectors.toMap(\n" +
-			"          Function.identity(), pElement -> 1, (pInt1, pInt2) -> pInt1 + pInt2\n" +
-			"        )\n" +
-			"      )\n" +
-			"    );\n" +
-			"  }\n" +
-			"  Test(Map<Object,Integer> pMap) {}\n" +
-			"}\n"
-		},
-		"");
-}
-// https://bugs.eclipse.org/bugs/show_bug.cgi?id=432605, [1.8] Incorrect error "The type ArrayList<T> does not define add(ArrayList<T>, Object) that is applicable here"
-public void test432605() {
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=447119, [1.8][compiler] method references lost generic type information (4.4 -> 4.4.1 regression) 
+public void test447119a() {
 	this.runConformTest(
-		new String[] {
-			"X.java", 
-			"import java.util.ArrayList;\n" +
-			"import java.util.HashMap;\n" +
-			"import java.util.function.Function;\n" +
-			"import java.util.function.Supplier;\n" +
-			"import java.util.stream.Collector;\n" +
-			"import java.util.stream.Collectors;\n" +
-			"import java.util.stream.Stream;\n" +
-			"public class X {\n" +
-			"static <T, E extends Exception, K, L, M> M terminalAsMapToList(\n" +
-			"    Function<? super T, ? extends K> classifier,\n" +
-			"    Function<HashMap<K, L>, M> intoMap,\n" +
-			"    Function<ArrayList<T>, L> intoList,\n" +
-			"    Supplier<Stream<T>> supplier,\n" +
-			"    Class<E> classOfE) throws E {\n" +
-			"  	return terminalAsCollected(\n" +
-			"  	  classOfE,\n" +
-			"  	  Collectors.collectingAndThen(\n" +
-			"  	    Collectors.groupingBy(\n" +
-			"  	      classifier,\n" +
-			"  	      HashMap<K, L>::new,\n" +
-			"  	      Collectors.collectingAndThen(\n" +
-			"  	      	// The type ArrayList<T> does not define add(ArrayList<T>, Object) that is applicable here\n" +
-			"  	      	// from ArrayList<T>::add:\n" +
-			"  	        Collector.of(ArrayList<T>::new, ArrayList<T>::add, (ArrayList<T> left, ArrayList<T> right) -> { \n" +
-			"  		        left.addAll(right);\n" +
-			"  		        return left;\n" +
-			"  	        }),\n" +
-			"  	        intoList)),\n" +
-			"  	    intoMap),\n" +
-			"  	  supplier);\n" +
-			"  }\n" +
-			"	static <E extends Exception, T, M> M terminalAsCollected(\n" +
-			"    Class<E> class1,\n" +
-			"    Collector<T, ?, M> collector,\n" +
-			"    Supplier<Stream<T>> supplier) throws E {\n" +
-			"  	try(Stream<T> s = supplier.get()) {\n" +
-			"  		return s.collect(collector);\n" +
-			"  	} catch(RuntimeException e) {\n" +
-			"  		throw unwrapCause(class1, e);\n" +
-			"  	}\n" +
-			"  }\n" +
-			"	static <E extends Exception> E unwrapCause(Class<E> classOfE, RuntimeException e) throws E {\n" +
-			"		Throwable cause = e.getCause();\n" +
-			"		if(classOfE.isInstance(cause) == false) {\n" +
-			"			throw e;\n" +
-			"		}\n" +
-			"		throw classOfE.cast(cause);\n" +
-			"}\n" +
-			"}\n"
-	},
-	"");
+			new String[] {
+				"X.java",
+				"import java.lang.reflect.Method;\n" +
+				"import java.lang.reflect.Parameter;\n" +
+				"import java.util.Arrays;\n" +
+				"import java.util.function.Function;\n" +
+				"import java.util.List;\n" +
+				"public class X {\n" +
+				"    private static List<String> foo(List<String> x){return x;}\n" +
+				"    public static void main(String[] args) {\n" +
+				"        Function<List<String>,List<String>> f = X::foo;\n" +
+				"        Method[] methods = X.class.getDeclaredMethods();\n" +
+				"        for (Method m : methods) {\n" +
+				"        	if (m.getName().contains(\"lambda\")) {\n" +
+				"        		System.out.println(\"- \" + m.getGenericReturnType() + \" \" + m.getName() + \"(\" + Arrays.asList(m.getGenericParameterTypes()) + \")\");\n" +
+				"        	}\n" +
+				"        }\n" +
+				"    }\n" +
+				"}\n"
+			},
+			"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=447119, [1.8][compiler] method references lost generic type information (4.4 -> 4.4.1 regression) 
+public void test447119b() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"import java.lang.reflect.Method;\n" +
+				"import java.lang.reflect.Parameter;\n" +
+				"import java.util.Arrays;\n" +
+				"import java.util.function.Function;\n" +
+				"import java.util.List;\n" +
+				"import java.io.Serializable;" +
+				"public class X {\n" +
+				"    private static interface SerializableFunction<A, R> extends Function<A, R>, Serializable { }" +
+				"    private static List<String> foo(List<String> x){return x;}\n" +
+				"    public static void main(String[] args) {\n" +
+				"        SerializableFunction<List<String>, List<String>> f = i -> { return i; };\n" +
+				"        Method[] methods = X.class.getDeclaredMethods();\n" +
+				"        for (Method m : methods) {\n" +
+				"        	if (m.getName().contains(\"lambda\")) {\n" +
+				"        		System.out.println(\"- \" + m.getGenericReturnType() + \" \" + m.getName() + \"(\" + Arrays.asList(m.getGenericParameterTypes()) + \")\");\n" +
+				"        	}\n" +
+				"        }\n" +
+				"    }\n" +
+				"}\n"
+			},
+			"- interface java.util.List lambda$0([interface java.util.List])");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=447119, [1.8][compiler] method references lost generic type information (4.4 -> 4.4.1 regression) 
+public void test447119c() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"import java.lang.reflect.Method;\n" +
+				"import java.lang.reflect.Parameter;\n" +
+				"import java.util.Arrays;\n" +
+				"import java.util.function.Function;\n" +
+				"import java.util.List;\n" +
+				"import java.io.Serializable;" +
+				"public class X {\n" +
+				"    private static interface SerializableFunction<A, R> extends Function<A, R>, Serializable { }" +
+				"    private static List<String> foo(List<String> x){return x;}\n" +
+				"    public static void main(String[] args) {\n" +
+				"        SerializableFunction<List<String>, List<String>> f = X::foo;\n" +
+				"        Method[] methods = X.class.getDeclaredMethods();\n" +
+				"        for (Method m : methods) {\n" +
+				"        	if (m.getName().contains(\"lambda\")) {\n" +
+				"        		System.out.println(\"- \" + m.getGenericReturnType() + \" \" + m.getName() + \"(\" + Arrays.asList(m.getGenericParameterTypes()) + \")\");\n" +
+				"        	}\n" +
+				"        }\n" +
+				"    }\n" +
+				"}\n"
+			},
+			"- java.util.List<java.lang.String> lambda$0([java.util.List<java.lang.String>])");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=447119, [1.8][compiler] method references lost generic type information (4.4 -> 4.4.1 regression) 
+public void test447119d() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"import java.io.ObjectStreamClass;\n" +
+				"import java.io.Serializable;\n" +
+				"import java.lang.invoke.SerializedLambda;\n" +
+				"import java.lang.reflect.Method;\n" +
+				"import java.util.List;\n" +
+				"import java.util.function.Function;\n" +
+				"public class X {\n" +
+				"	private static interface SerializableFunction<A, R> extends Function<A, R>, Serializable { }\n" +
+				"	private static List<String> noop(List<String> l) { return l; }\n" +
+				"	public static void main(String[] args) throws Exception {\n" +
+				"		SerializableFunction<List<String>, List<String>> f = X::noop;\n" +
+				"		Method invokeWriteReplaceMethod = ObjectStreamClass.class.getDeclaredMethod(\"invokeWriteReplace\", Object.class);\n" +
+				"		invokeWriteReplaceMethod.setAccessible(true);\n" +
+				"		SerializedLambda l = (SerializedLambda)invokeWriteReplaceMethod.invoke(ObjectStreamClass.lookupAny(f.getClass()), f);\n" +
+				"		System.out.println(\"Lambda binds to: \" + l.getImplClass() + \".\" + l.getImplMethodName());\n" +
+				"		System.out.println(\"Methods (with generics):\");\n" +
+				"		for(Method m : X.class.getDeclaredMethods()) {\n" +
+				"			if(m.getName().equals(\"main\")) continue;\n" +
+				"			if(m.getName().contains(\"deserializeLambda\")) continue;\n" +
+				"			System.out.println(\"- \" + m.getGenericReturnType() + \" \" + m.getName() + \"(\" + m.getGenericParameterTypes()[0] + \")\");\n" +
+				"		}\n" +
+				"	}\n" +
+				"}\n"
+			},
+			"Lambda binds to: X.lambda$0\n" + 
+			"Methods (with generics):\n" + 
+			"- java.util.List<java.lang.String> noop(java.util.List<java.lang.String>)\n" + 
+			"- java.util.List<java.lang.String> lambda$0(java.util.List<java.lang.String>)",
+			null,
+			true,
+			new String [] { "-Ddummy" }); // Not sure, unless we force the VM to not be reused by passing dummy vm argument, the generated program aborts midway through its execution.
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=447119, [1.8][compiler] method references lost generic type information (4.4 -> 4.4.1 regression) 
+public void test447119e() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"import java.lang.reflect.Method;\n" +
+				"import java.lang.reflect.Parameter;\n" +
+				"import java.util.Arrays;\n" +
+				"import java.util.function.Function;\n" +
+				"import java.util.List;\n" +
+				"public class X implements java.io.Serializable {\n" +
+				"    private static List<String> foo(List<String> x){return x;}\n" +
+				"    public static void main(String[] args) {\n" +
+				"        Function<List<String>,List<String>> f = X::foo;\n" +
+				"        Method[] methods = X.class.getDeclaredMethods();\n" +
+				"        for (Method m : methods) {\n" +
+				"        	if (m.getName().contains(\"lambda\")) {\n" +
+				"        		System.out.println(\"- \" + m.getGenericReturnType() + \" \" + m.getName() + \"(\" + Arrays.asList(m.getGenericParameterTypes()) + \")\");\n" +
+				"        	}\n" +
+				"        }\n" +
+				"    }\n" +
+				"}\n"
+			},
+			"");
 }
 public static Class testClass() {
 	return LambdaExpressionsTest.class;

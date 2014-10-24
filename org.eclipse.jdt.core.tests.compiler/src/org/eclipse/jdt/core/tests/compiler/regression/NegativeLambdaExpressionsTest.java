@@ -8482,7 +8482,7 @@ public void test428300a() {
 		"");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=428177, - [1.8][compiler] Insistent capture issues
-public void test428177() {
+public void _test428177() {
 	runNegativeTest(
 		new String[] {
 			"X.java",
@@ -8533,22 +8533,7 @@ public void test428177() {
 			"  }\n" +
 			"}\n"
 		},
-		"----------\n" + 
-		"1. ERROR in X.java (at line 21)\n" + 
-		"	withoutWildcard(stream); // ERROR\n" + 
-		"	^^^^^^^^^^^^^^^\n" + 
-		"The method withoutWildcard(Stream<String>) in the type InsistentCapture is not applicable for the arguments (Stream<capture#10-of ? extends String>)\n" + 
-		"----------\n" + 
-		"2. ERROR in X.java (at line 36)\n" + 
-		"	if(\"1\" == \"\") { return stream.collect(Collectors.toList()).stream(); // ERROR\n" + 
-		"	                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
-		"Type mismatch: cannot convert from Stream<capture#14-of ? extends String> to Stream<String>\n" + 
-		"----------\n" + 
-		"3. ERROR in X.java (at line 38)\n" + 
-		"	return stream.collect(Collectors.toList()); // NO ERROR\n" + 
-		"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
-		"Type mismatch: cannot convert from List<capture#16-of ? extends String> to Stream<String>\n" + 
-		"----------\n");
+		"valid error messages go here - some are expected since javac also complains");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=428795, - [1.8]Internal compiler error: java.lang.NullPointerException at org.eclipse.jdt.internal.compiler.ast.MessageSend.analyseCode
 public void test428795() {
@@ -9540,7 +9525,7 @@ public void test433735() {
 		"1. ERROR in X.java (at line 7)\n" + 
 		"	super( () -> {\n" + 
 		"	       ^^^^^\n" + 
-		"No enclosing instance of type X is available due to some intermediate constructor invocation\n" + 
+		"Cannot refer to \'this\' nor \'super\' while explicitly invoking a constructor\n" + 
 		"----------\n");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=432531 [1.8] VerifyError with anonymous subclass inside of lambda expression in the superclass constructor call
@@ -9572,10 +9557,71 @@ public void test432531a() {
 	"1. ERROR in Y.java (at line 7)\n" + 
 	"	super( () -> {\n" + 
 	"	       ^^^^^\n" + 
+	"Cannot refer to \'this\' nor \'super\' while explicitly invoking a constructor\n" + 
+	"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=432605, [1.8] Incorrect error "The type ArrayList<T> does not define add(ArrayList<T>, Object) that is applicable here"
+public void _test432605() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java", 
+			"import java.util.ArrayList;\n" +
+			"import java.util.HashMap;\n" +
+			"import java.util.function.Function;\n" +
+			"import java.util.function.Supplier;\n" +
+			"import java.util.stream.Collector;\n" +
+			"import java.util.stream.Collectors;\n" +
+			"import java.util.stream.Stream;\n" +
+			"public class X {\n" +
+			"static <T, E extends Exception, K, L, M> M terminalAsMapToList(\n" +
+			"    Function<? super T, ? extends K> classifier,\n" +
+			"    Function<HashMap<K, L>, M> intoMap,\n" +
+			"    Function<ArrayList<T>, L> intoList,\n" +
+			"    Supplier<Stream<T>> supplier,\n" +
+			"    Class<E> classOfE) throws E {\n" +
+			"  	return terminalAsCollected(\n" +
+			"  	  classOfE,\n" +
+			"  	  Collectors.collectingAndThen(\n" +
+			"  	    Collectors.groupingBy(\n" +
+			"  	      classifier,\n" +
+			"  	      HashMap<K, L>::new,\n" +
+			"  	      Collectors.collectingAndThen(\n" +
+			"  	      	// The type ArrayList<T> does not define add(ArrayList<T>, Object) that is applicable here\n" +
+			"  	      	// from ArrayList<T>::add:\n" +
+			"  	        Collector.of(ArrayList<T>::new, ArrayList<T>::add, (ArrayList<T> left, ArrayList<T> right) -> { \n" +
+			"  		        left.addAll(right);\n" +
+			"  		        return left;\n" +
+			"  	        }),\n" +
+			"  	        intoList)),\n" +
+			"  	    intoMap),\n" +
+			"  	  supplier);\n" +
+			"  }\n" +
+			"	static <E extends Exception, T, M> M terminalAsCollected(\n" +
+			"    Class<E> class1,\n" +
+			"    Collector<T, ?, M> collector,\n" +
+			"    Supplier<Stream<T>> supplier) throws E {\n" +
+			"  	try(Stream<T> s = supplier.get()) {\n" +
+			"  		return s.collect(collector);\n" +
+			"  	} catch(RuntimeException e) {\n" +
+			"  		throw unwrapCause(class1, e);\n" +
+			"  	}\n" +
+			"  }\n" +
+			"	static <E extends Exception> E unwrapCause(Class<E> classOfE, RuntimeException e) throws E {\n" +
+			"		Throwable cause = e.getCause();\n" +
+			"		if(classOfE.isInstance(cause) == false) {\n" +
+			"			throw e;\n" +
+			"		}\n" +
+			"		throw classOfE.cast(cause);\n" +
+			"}\n" +
+			"}\n"
+	},
+	"----------\n" + 
+	"1. ERROR in Y.java (at line 7)\n" + 
+	"	super( () -> {\n" + 
+	"	       ^^^^^\n" + 
 	"No enclosing instance of type Y is available due to some intermediate constructor invocation\n" + 
 	"----------\n");
 }
-
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=444665, Internal compiler error: java.lang.NullPointerException at org.eclipse.jdt.internal.compiler.problem.ProblemReporter.invalidMethod 
 public void test444665() {
 	this.runNegativeTest(
@@ -9659,130 +9705,7 @@ public void test432759() {
 			"	}\n" +
 			"}\n" 
 	},
-	"----------\n" + 
-	"1. ERROR in X.java (at line 16)\n" + 
-	"	BinaryOperator<Subsumer<? super T>> attempt_X_3 = Subsumer::andThe3;\n" + 
-	"	                                                  ^^^^^^^^^^^^^^^^^\n" + 
-	"The type Subsumer does not define andThe3(Subsumer<capture#5-of ? super T>, Subsumer<capture#5-of ? super T>) that is applicable here\n" + 
-	"----------\n");
-}
-// https://bugs.eclipse.org/bugs/show_bug.cgi?id=439594  [1.8][compiler] nested lambda type incorrectly inferred vs javac
-public void test439594() {
-	this.runNegativeTest(
-		new String[] {
-			"X.java", 
-			"import java.util.ArrayList;\n" +
-			"import java.util.List;\n" +
-			"import java.util.function.Function;\n" +
-			"import java.util.function.Predicate;\n" +
-			"import java.util.stream.Collectors;\n" +
-			"import java.util.stream.Stream;\n" +
-			"public class X {\n" +
-			"	protected static interface IListEntry {\n" +
-			"		public <T> T visitRecordsWithResult(Function<Stream<Record>,T> func);		\n" +
-			"	}\n" +
-			"	protected static final class ImmutableRecord {\n" +
-			"		public ImmutableRecord(Record r) { }\n" +
-			"	}\n" +
-			"	protected static final class Record {}\n" +
-			"	public List<ImmutableRecord> compilesWithEclipseAndJavac() \n" +
-			"	{\n" +
-			"		return visitEntriesWithResult( stream -> {\n" +
-			"			return stream.map( entry -> {\n" +
-			"				final List<ImmutableRecord> result1 = entry.visitRecordsWithResult( stream2 -> stream2\n" +
-			"						.filter( somePredicate() )\n" +
-			"						.map( ImmutableRecord::new )\n" +
-			"						.collect( Collectors.toList() )\n" +
-			"					);	\n" +
-			"				return result1;\n" +
-			"			}).flatMap( List::stream ).collect( Collectors.toCollection( ArrayList::new ) );\n" +
-			"		});		\n" +
-			"	}		\n" +
-			"	public List<ImmutableRecord> compilesWithJavacButNotEclipse1() \n" +
-			"	{\n" +
-			"		return visitEntriesWithResult( stream -> {\n" +
-			"			return stream.map( entry -> {\n" +
-			"				return entry.visitRecordsWithResult( stream2 -> stream2\n" +
-			"						.filter( somePredicate() )\n" +
-			"						.map( ImmutableRecord::new )\n" +
-			"						.collect( Collectors.toList() )\n" +
-			"					);	\n" +
-			"			}).flatMap( List::stream ).collect( Collectors.toCollection( ArrayList::new ) );\n" +
-			"		});		\n" +
-			"	}		\n" +
-			"	public List<ImmutableRecord> compilesWithJavacButNotEclipse2() \n" +
-			"	{\n" +
-			"		return visitEntriesWithResult( stream -> {\n" +
-			"			return stream.map( entry -> entry.visitRecordsWithResult( stream2 -> stream2\n" +
-			"						.filter( somePredicate() )\n" +
-			"						.map( ImmutableRecord::new )\n" +
-			"						.collect( Collectors.toList() ) )\n" +
-			"			).flatMap( List::stream ).collect( Collectors.toCollection( ArrayList::new ) );\n" +
-			"		});		\n" +
-			"	}	\n" +
-			"	public List<ImmutableRecord> compilesWithJavacButNotEclipse3() \n" +
-			"	{\n" +
-			"		return visitEntriesWithResult( stream -> stream.map( entry -> entry.visitRecordsWithResult( stream2 -> stream2\n" +
-			"						.filter( somePredicate() )\n" +
-			"						.map( ImmutableRecord::new )\n" +
-			"						.collect( Collectors.toList() ) )\n" +
-			"			)\n" +
-			"			.flatMap( List::stream )\n" +
-			"			.collect( Collectors.toCollection( ArrayList::new ) )\n" +
-			"		);		\n" +
-			"	}	\n" +
-			"	private static Predicate<Record> somePredicate() {\n" +
-			"		return record -> true;\n" +
-			"	}		\n" +
-			"	private <T> T visitEntriesWithResult(Function<Stream<IListEntry>,T> func) {\n" +
-			"		return func.apply( new ArrayList<IListEntry>().stream() );\n" +
-			"	}\n" +
-			"}\n"
-	},
 	"");
-}
-// https://bugs.eclipse.org/bugs/show_bug.cgi?id=433852, [1.8][compiler] Javac rejects type inference results that ECJ accepts
-public void test433852() {
-	this.runNegativeTest(
-		new String[] {
-			"X.java", 
-			"import java.util.Optional;\n" +
-			"import java.util.function.Function;\n" +
-			"import java.util.stream.Stream;\n" +
-			"public class X {\n" +
-			"	public static void main(String[] args) {\n" +
-			"		System.out.println(test(Stream.of(Stream.of(\"3\"))));\n" +
-			"		System.out.println(test2(Stream.of(Stream.of(\"1\")).skip(1)));\n" +
-			"		System.out.println(test31(Stream.of(Stream.of(\"2\")).skip(1)));\n" +
-			"	}\n" +
-			"	static Optional<Stream<Object>> test(Stream<Stream<String>> s31) {\n" +
-			"		return s31.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).findAny();\n" +
-			"	}\n" +
-			"	static Object test2(Stream<Stream<String>> s3) {\n" +
-			"		return s3.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).flatMap(Function.identity()).findAny().orElse(\n" +
-			"		  X.class);\n" +
-			"	}\n" +
-			"	static Stream<Object> test31(Stream<Stream<String>> s3) {\n" +
-			"		return s3.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).findAny().orElse(Stream.of(new Object()));\n" +
-			"	}\n" +
-			"}\n"
-	},
-	"----------\n" + 
-	"1. ERROR in X.java (at line 11)\n" + 
-	"	return s31.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).findAny();\n" + 
-	"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
-	"Type mismatch: cannot convert from Optional<Stream<Integer>> to Optional<Stream<Object>>\n" + 
-	"----------\n" + 
-	"2. ERROR in X.java (at line 14)\n" + 
-	"	return s3.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).flatMap(Function.identity()).findAny().orElse(\n" + 
-	"	                                                                                               ^^^^^^\n" + 
-	"The method orElse(Integer) in the type Optional<Integer> is not applicable for the arguments (Class<X>)\n" + 
-	"----------\n" + 
-	"3. ERROR in X.java (at line 18)\n" + 
-	"	return s3.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).findAny().orElse(Stream.of(new Object()));\n" + 
-	"	                                                                  ^^^^^^\n" + 
-	"The method orElse(Stream<Integer>) in the type Optional<Stream<Integer>> is not applicable for the arguments (Stream<Object>)\n" + 
-	"----------\n");
 }
 public static Class testClass() {
 	return NegativeLambdaExpressionsTest.class;

@@ -4456,6 +4456,12 @@ public abstract class Scope {
 								continue nextJ;
 							}
 						}
+						if (levelj == VARARGS_COMPATIBLE && levelk == VARARGS_COMPATIBLE) {
+							TypeBinding s = InferenceContext18.getParameter(mbjParameters, argumentTypes.length, true);
+							TypeBinding t = InferenceContext18.getParameter(mbkParameters, argumentTypes.length, true);
+							if (TypeBinding.notEquals(s, t) && t.isSubtypeOf(s))
+								continue nextJ;
+						}
 					}
 				}
 				moreSpecific[count++] = visible[j];
@@ -4488,6 +4494,7 @@ public abstract class Scope {
 				public boolean receiverIsImplicitThis() { return invocationSite.receiverIsImplicitThis();}
 				public InferenceContext18 freshInferenceContext(Scope scope) { return null; /* no inference when ignoring genericTypeArgs */ }
 				public ExpressionContext getExpressionContext() { return ExpressionContext.VANILLA_CONTEXT; }
+				public boolean isQualifiedSuper() { return invocationSite.isQualifiedSuper(); }
 			};
 			int count = 0;
 			for (int level = 0, max = VARARGS_COMPATIBLE; level <= max; level++) {
@@ -5117,6 +5124,7 @@ public abstract class Scope {
 				methodScope = methodScope.enclosingMethodScope();
 			}
 		}
+		MethodBinding enclosingMethod = enclosingType != null ? enclosingType.enclosingMethod() : null;
 		while (methodScope != null) {
 			while (methodScope != null && methodScope.referenceContext instanceof LambdaExpression) {
 				LambdaExpression lambda = (LambdaExpression) methodScope.referenceContext;
@@ -5127,6 +5135,8 @@ public abstract class Scope {
 			if (methodScope != null) {
 				if (methodScope.referenceContext instanceof MethodDeclaration) {
 					MethodDeclaration methodDeclaration = (MethodDeclaration) methodScope.referenceContext;
+					if (methodDeclaration.binding == enclosingMethod)
+						break;
 					methodDeclaration.bits &= ~ASTNode.CanBeStatic;
 				}
 				ClassScope enclosingClassScope = methodScope.enclosingClassScope();

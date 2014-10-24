@@ -107,6 +107,7 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 	private boolean shapeAnalysisComplete = false;
 	boolean returnsValue;
 	public boolean isSerializable;
+	private boolean requiresGenericSignature;
 	boolean returnsVoid;
 	public LambdaExpression original = this;
 	public SyntheticArgumentBinding[] outerLocalVariables = NO_SYNTHETIC_ARGUMENTS;
@@ -119,15 +120,20 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 	private Set thrownExceptions;
 	public char[] text;  // source representation of the lambda.
 	private static final SyntheticArgumentBinding [] NO_SYNTHETIC_ARGUMENTS = new SyntheticArgumentBinding[0];
-	private static final Block NO_BODY = new Block(0, true);
+	private static final Block NO_BODY = new Block(0);
 
-	public LambdaExpression(CompilationResult compilationResult, boolean assistNode) {
+	public LambdaExpression(CompilationResult compilationResult, boolean assistNode, boolean requiresGenericSignature) {
 		super(compilationResult);
 		this.assistNode = assistNode;
+		this.requiresGenericSignature = requiresGenericSignature;
 		setArguments(NO_ARGUMENTS);
 		setBody(NO_BODY);
 	}
-	
+
+	public LambdaExpression(CompilationResult compilationResult, boolean assistNode) {
+		this(compilationResult, assistNode, false);
+	}
+
 	public void setArguments(Argument [] arguments) {
 		this.arguments = arguments != null ? arguments : ASTNode.NO_ARGUMENTS;
 		this.argumentTypes = new TypeBinding[arguments != null ? arguments.length : 0];
@@ -337,7 +343,11 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 						this.resolvedType = null; // continue to type check.
 					}
 				}
-
+				if (this.requiresGenericSignature) {
+					TypeBinding leafType = parameterType.leafComponentType();
+					if (leafType instanceof ReferenceBinding && (((ReferenceBinding) leafType).modifiers & ExtraCompilerModifiers.AccGenericSignature) != 0)
+						this.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature;
+				}
 				newParameters[i] = argument.bind(this.scope, parameterType, false);				
 				if (argument.annotations != null) {
 					this.binding.tagBits |= TagBits.HasParameterAnnotations;
@@ -373,12 +383,19 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 			if ((exception.tagBits & TagBits.HasMissingType) != 0) {
 				this.binding.tagBits |= TagBits.HasMissingType;
 			}
+			if (this.requiresGenericSignature)
+				this.binding.modifiers |= (exception.modifiers & ExtraCompilerModifiers.AccGenericSignature);
 		}
 		
 		TypeBinding returnType = this.binding.returnType;
 		if (returnType != null) {
 			if ((returnType.tagBits & TagBits.HasMissingType) != 0) {
 				this.binding.tagBits |= TagBits.HasMissingType;
+			}
+			if (this.requiresGenericSignature) {
+				TypeBinding leafType = returnType.leafComponentType();
+				if (leafType instanceof ReferenceBinding && (((ReferenceBinding) leafType).modifiers & ExtraCompilerModifiers.AccGenericSignature) != 0)
+					this.binding.modifiers |= ExtraCompilerModifiers.AccGenericSignature;
 			}
 		} // TODO (stephan): else? (can that happen?)
 
@@ -414,6 +431,9 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 		}
 		if ((this.binding.tagBits & TagBits.HasMissingType) != 0) {
 			this.scope.problemReporter().missingTypeInLambda(this, this.binding);
+		}
+		if (this.shouldCaptureInstance && this.scope.isConstructorCall) {
+			this.scope.problemReporter().fieldsOrThisBeforeConstructorInvocation(this);
 		}
 		return this.resolvedType;
 	}
@@ -734,12 +754,14 @@ public class LambdaExpression extends FunctionalExpression implements ReferenceC
 				if (this.body instanceof Block) {
 					if (this.returnsVoid) {
 						this.shapeAnalysisComplete = true;
+						break shapeAnalysis;
 					}
 				} else {
-					final Expression expressionBody = (Expression) this.body;
+					final Expression expressionBody = (Expression) copy.body;
 					this.voidCompatible = this.assistNode ? true : expressionBody.statementExpression();
 					this.valueCompatible = expressionBody.resolvedType != TypeBinding.VOID;
 					this.shapeAnalysisComplete = true;
+					break shapeAnalysis;
 				}
 				// Do not proceed with data/control flow analysis if resolve encountered errors.
 				if (this.hasIgnoredMandatoryErrors || enclosingScopesHaveErrors()) {

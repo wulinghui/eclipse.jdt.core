@@ -27,6 +27,7 @@
  *								Bug 438458 - [1.8][null] clean up handling of null type annotations wrt type variables
  *								Bug 440759 - [1.8][null] @NonNullByDefault should never affect wildcards and uses of a type variable
  *								Bug 441693 - [1.8][null] Bogus warning for type argument annotated with @NonNull
+ *								Bug 446434 - [1.8][null] Enable interned captures also when analysing null type annotations
  *      Jesper S Moller <jesper@selskabet.org> -  Contributions for
  *								bug 382701 - [1.8][compiler] Implement semantic analysis of Lambda expressions & Reference expression
  *******************************************************************************/
@@ -98,9 +99,9 @@ public TypeBinding() {
 	super();
 }
 	
-public TypeBinding(TypeBinding prototype) {  // faithfully copy all instance state - clone operation should specialize/override suitably.
+public TypeBinding(TypeBinding prototype) {  // faithfully copy most instance state - clone operation should specialize/override suitably.
 	this.id = prototype.id;
-	this.tagBits = prototype.tagBits;
+	this.tagBits = prototype.tagBits & ~TagBits.AnnotationNullMASK;
 }
 
 /**
@@ -252,6 +253,13 @@ public int dimensions() {
 public int depth() {
 	return 0;
 }
+
+/* Answer the receiver's enclosing method ... null if the receiver is not a local type.
+ */
+public MethodBinding enclosingMethod() {
+	return null;
+}
+
 
 /* Answer the receiver's enclosing type... null if the receiver is a top level type or is an array or a non reference type.
  */
@@ -526,6 +534,14 @@ public final boolean isBaseType() {
 	return (this.tagBits & TagBits.IsBaseType) != 0;
 }
 
+public boolean isPertinentToApplicability(TypeVariableBinding typeVariable, MethodBinding method) {
+	return true;
+}
+
+public boolean isPertinentToApplicability(TypeBinding argument, MethodBinding method) {
+	return true;
+}
+
 /* Answer true if the receiver is a base type other than void or null
  */
 public final boolean isPrimitiveType() {
@@ -740,6 +756,11 @@ public boolean isParameterizedWithOwnVariables() {
 public boolean isProperType(boolean admitCapture18) {
 	return true;
 }
+
+public boolean isPolyType() {
+	return false;
+}
+
 /**
  * Substitute all occurrences of 'var' within the current type by 'substituteType.
  * @param var an inference variable (JLS8 18.1.1)

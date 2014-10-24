@@ -689,8 +689,9 @@ public void test018a() throws JavaModelException { // computing visible elements
 			"expectedTypesKeys={Z,C,I,J,F,D,[C,Ljava/lang/String;,Ljava/lang/Object;}\n" +
 			"completion token location=UNKNOWN\n" +
 			"visibleElements={\n" +
+			"	xLambdaLocal [in main(String[]) [in X [in [Working copy] X.java [in <default> [in src [in Completion]]]]]],\n" +
+			"	xyz [in main(String[]) [in X [in [Working copy] X.java [in <default> [in src [in Completion]]]]]],\n" +
 			"	xLocal [in main(String[]) [in X [in [Working copy] X.java [in <default> [in src [in Completion]]]]]],\n" +
-	        "	xLambdaLocal [in main(String[]) [in X [in [Working copy] X.java [in <default> [in src [in Completion]]]]]],\n" +
 			"	xField {key=LX;.xField)LX;} [in X [in [Working copy] X.java [in <default> [in src [in Completion]]]]],\n" +
 			"	goo(String) {key=LX;.goo(Ljava/lang/String;)LX;} [in X [in [Working copy] X.java [in <default> [in src [in Completion]]]]],\n" +
 			"}" , requestor.getContext());
@@ -1593,7 +1594,7 @@ public void test433178() throws JavaModelException {
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 	assertResults("new[KEYWORD]{new, null, null, null, null, new, null, [183, 185], " + 
 											(RelevanceConstants.R_DEFAULT + RelevanceConstants.R_RESOLVED + RelevanceConstants.R_INTERESTING + RelevanceConstants.R_NON_RESTRICTED
-											+ RelevanceConstants.R_CASE + RelevanceConstants.R_CONSTRUCTOR) + "}", requestor.getResults());
+											+ RelevanceConstants.R_CASE + RelevanceConstants.R_UNQUALIFIED) + "}", requestor.getResults());
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=433178
 public void test433178a() throws JavaModelException {
@@ -2222,5 +2223,35 @@ public void test431811() throws JavaModelException {
 	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 	assertResults("super[KEYWORD]{super, null, null, null, null, super, null, [192, 194], 26}", requestor.getResults());
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=447774, Auto complete does not work when using lambdas with cast
+public void test447774() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+			"/Completion/src/X.java",
+			"import java.io.Serializable;\n" +
+			"import java.util.function.Function;\n" +
+			"import java.util.function.Predicate;\n" +
+			"public final class X {\n" +
+			"    public static <T, R> Predicate<T> apply(Predicate<R> predicate, Function<? super T, ? extends R> function) {\n" +
+			"	     syso\n" +
+			"        return (Predicate<T> & Serializable) t -> predicate.test(function.apply(t));\n" +
+			"    }\n" +
+			"}\n");
+
+	CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true, true, true, false);
+	requestor.allowAllRequiredProposals();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "syso";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+	assertResults("", requestor.getResults());
+	assertEquals("completion offset=248\n" +
+			"completion range=[244, 247]\n" +
+			"completion token=\"syso\"\n" +
+			"completion token kind=TOKEN_KIND_NAME\n" +
+			"expectedTypesSignatures=null\n" +
+			"expectedTypesKeys=null\n" +
+			"completion token location={STATEMENT_START}", requestor.getContext());
 }
 }

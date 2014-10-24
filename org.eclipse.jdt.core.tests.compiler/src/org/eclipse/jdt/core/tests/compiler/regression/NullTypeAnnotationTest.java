@@ -2719,7 +2719,7 @@ public class NullTypeAnnotationTest extends AbstractNullAnnotationTest {
 	}
 
 	// conflicting annotations from type variable application and type variable substitution
-	public void _testNullTypeInference3c() { 
+	public void testNullTypeInference3c() { 
 		runNegativeTestWithLibs(
 			new String[] {
 				"Generics.java",
@@ -2742,10 +2742,20 @@ public class NullTypeAnnotationTest extends AbstractNullAnnotationTest {
 			},
 			getCompilerOptions(),
 			"----------\n" + 
-			"1. ERROR in Generics.java (at line 14)\n" + 
+			"1. WARNING in Generics.java (at line 13)\n" + 
+			"	Collection<@Nullable String> result = map1(inList, f);\n" + 
+			"	                                           ^^^^^^\n" + 
+			"Null type safety (type annotations): The expression of type \'@NonNull List<Object>\' needs unchecked conversion to conform to \'Collection<@NonNull Object>\'\n" + 
+			"----------\n" + 
+			"2. WARNING in Generics.java (at line 14)\n" + 
 			"	map2(inList, f);\n" + 
 			"	     ^^^^^^\n" + 
-			"Contradictory null annotations: method was inferred as \'Collection<@NonNull String> map2(Collection<@NonNull @Nullable Object>, Function<@NonNull @Nullable Object,@NonNull String>)\', but only one of \'@NonNull\' and \'@Nullable\' can be effective at any location\n" + 
+			"Null type safety (type annotations): The expression of type \'@NonNull List<Object>\' needs unchecked conversion to conform to \'Collection<@Nullable Object>\'\n" + 
+			"----------\n" + 
+			"3. ERROR in Generics.java (at line 14)\n" + 
+			"	map2(inList, f);\n" + 
+			"	             ^\n" + 
+			"Null type mismatch (type annotations): required \'Function<@Nullable Object,@NonNull String>\' but this expression has type \'MyFunc\', corresponding supertype is \'Function<@NonNull Object,@Nullable String>\'\n" + 
 			"----------\n");
 	}
 
@@ -6750,7 +6760,119 @@ public void test443467() throws Exception {
 		"	filter2.map(p -> new Pair<>(updateToFile.get(p), p->ideFiles.get(p)));\n" + 
 		"	                                                 ^^^^^^^^^^^^^^^^^^\n" + 
 		"The target type of this expression must be a functional interface\n" + 
+		"----------\n" + 
+		"3. ERROR in BuildIdeMain.java (at line 9)\n" + 
+		"	filter2.map(p -> new Pair<>(updateToFile.get(p), p->ideFiles.get(p)));\n" + 
+		"	                                                 ^^^^^^^^^^^^^^^^^^\n" + 
+		"The target type of this expression must be a functional interface\n" + 
 		"----------\n",
 		new String[]{jfxJar});
+}
+public void testBug445227() {
+	runConformTestWithLibs(
+		new String[] {
+			"Bar.java",
+			"@org.eclipse.jdt.annotation.NonNullByDefault\n" + 
+			"class Bar<E extends Bar.Foo<E>> {\n" + 
+			"    final Iterable<E> list;\n" + 
+			"\n" + 
+			"    Bar() {\n" + 
+			"        this((Iterable<E>) emptyList());\n" + 
+			"    }\n" + 
+			"\n" + 
+			"    Bar(Iterable<E> list) { this.list = list; }\n" + 
+			"\n" + 
+			"    private static <X extends Foo<X>> Iterable<X> emptyList() { throw new UnsupportedOperationException(); }\n" + 
+			"\n" + 
+			"    interface Foo<F extends Foo<F>> { }\n" + 
+			"}\n"
+		}, 
+		getCompilerOptions(), 
+		"----------\n" + 
+		"1. WARNING in Bar.java (at line 6)\n" + 
+		"	this((Iterable<E>) emptyList());\n" + 
+		"	     ^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type safety: Unchecked cast from Iterable<Bar.Foo<Bar.Foo<X>>> to Iterable<E>\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=446715, [compiler] org.eclipse.jdt.internal.compiler.lookup.TypeSystem.cacheDerivedType
+public void test446715() {
+	Map options = getCompilerOptions();
+	runConformTestWithLibs(
+		new String[] {
+			"Y.java",
+			"import org.eclipse.jdt.annotation.NonNull;\n" +
+			"public class Y {\n" +
+			"	public Z.ZI @NonNull [] zz = new Z.ZI[0];\n" +
+			"}\n",
+			"Z.java",
+			"public class Z {\n" +
+			"	public class ZI {\n" +
+			"	}\n" +
+			"}\n"
+		},
+		options,
+		"");
+	runNegativeTestWithLibs(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"	public static void main(String[] args) {\n" +
+			"		Y y = new Y();\n" +
+			"		y.zz = null;\n" +
+			"	}\n" +
+			"}\n"
+		},
+		options,
+		"----------\n" + 
+		"1. ERROR in X.java (at line 4)\n" + 
+		"	y.zz = null;\n" + 
+		"	       ^^^^\n" + 
+		"Null type mismatch: required \'Z.ZI @NonNull[]\' but the provided value is null\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=445669, java.lang.IllegalStateException at org.eclipse.jdt.internal.compiler.lookup.UnresolvedReferenceBinding.clone
+public void test445669() {
+	Map options = getCompilerOptions();
+	runConformTestWithLibs(
+		new String[] {
+			"Y.java",
+			"import org.eclipse.jdt.annotation.*;\n" +
+			"@NonNullByDefault(DefaultLocation.FIELD)\n" +
+			"public class Y {\n" +
+			"	public Z.ZI zzi = new Z().new ZI();\n" +
+			"	public Z z = new Z();\n" +
+			"}\n",
+			"Z.java",
+			"public class Z {\n" +
+			"	public class ZI {\n" +
+			"	}\n" +
+			"}\n"
+		},
+		options,
+		"");
+	runNegativeTestWithLibs(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"	public static void main(String[] args) {\n" +
+			"		Y y = new Y();\n" +
+			"		y.zzi = null;\n" +
+			"       y.z = null;\n" +
+			"	}\n" +
+			"}\n"
+		},
+		options,
+		"----------\n" + 
+		"1. ERROR in X.java (at line 4)\n" + 
+		"	y.zzi = null;\n" + 
+		"	        ^^^^\n" + 
+		"Null type mismatch: required \'Z.@NonNull ZI\' but the provided value is null\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 5)\n" + 
+		"	y.z = null;\n" + 
+		"	      ^^^^\n" + 
+		"Null type mismatch: required \'@NonNull Z\' but the provided value is null\n" + 
+		"----------\n");
 }
 }

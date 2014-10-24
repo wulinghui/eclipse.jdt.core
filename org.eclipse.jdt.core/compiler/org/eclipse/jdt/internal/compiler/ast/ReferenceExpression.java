@@ -56,6 +56,7 @@ import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
+import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
 import org.eclipse.jdt.internal.compiler.lookup.IntersectionCastTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
@@ -117,7 +118,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 		
 		int argc = this.descriptor.parameters.length;
 		
-		LambdaExpression implicitLambda = new LambdaExpression(this.compilationResult, false);
+		LambdaExpression implicitLambda = new LambdaExpression(this.compilationResult, false, (this.binding.modifiers & ExtraCompilerModifiers.AccGenericSignature) != 0);
 		Argument [] arguments = new Argument[argc];
 		for (int i = 0; i < argc; i++)
 			arguments[i] = new Argument(("arg" + i).toCharArray(), 0, null, 0, true); //$NON-NLS-1$
@@ -706,6 +707,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 		MethodBinding previousBinding = this.binding;
 		MethodBinding previousDescriptor = this.descriptor;
 		TypeBinding previousResolvedType = this.resolvedType;
+		TypeBinding previousExpectedType = this.expectedType;
 		try {
 			setExpressionContext(INVOCATION_CONTEXT);
 			setExpectedType(targetType);
@@ -720,7 +722,7 @@ public class ReferenceExpression extends FunctionalExpression implements Invocat
 			this.descriptor = previousDescriptor;
 			this.resolvedType = previousResolvedType;
 			setExpressionContext(previousContext);
-			this.expectedType = null; // don't call setExpectedType(null), would NPE
+			this.expectedType = previousExpectedType;
 			this.trialResolution = false;
 		}
 	}
