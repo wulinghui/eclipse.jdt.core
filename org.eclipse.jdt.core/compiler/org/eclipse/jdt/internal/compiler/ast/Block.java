@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -146,5 +146,18 @@ public void branchChainTo(BranchLabel label) {
 	if (this.statements != null) {
 		this.statements[this.statements.length - 1].branchChainTo(label);
 	}
+}
+
+// A block does not complete normally if the last statement which we presume is reachable does not complete normally.
+@Override
+public boolean doesNotCompleteNormally() {
+	int length = this.statements == null ? 0 : this.statements.length;
+	return length > 0 && this.statements[length - 1].doesNotCompleteNormally();
+}
+
+@Override
+public boolean completesByContinue() {
+	int length = this.statements == null ? 0 : this.statements.length;
+	return length > 0 && this.statements[length - 1].completesByContinue();
 }
 }

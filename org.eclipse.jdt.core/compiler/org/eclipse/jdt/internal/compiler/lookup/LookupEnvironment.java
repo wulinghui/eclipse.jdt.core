@@ -27,6 +27,8 @@
  *								Bug 438458 - [1.8][null] clean up handling of null type annotations wrt type variables
  *								Bug 439516 - [1.8][null] NonNullByDefault wrongly applied to implicit type bound of binary type
  *								Bug 434602 - Possible error with inferred null annotations leading to contradictory null annotations
+ *								Bug 435805 - [1.8][compiler][null] Java 8 compiler does not recognize declaration style null annotations
+ *								Bug 453475 - [1.8][null] Contradictory null annotations (4.5 M3 edition)
  *								Bug 440477 - [null] Infrastructure for feeding external annotations into compilation
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
@@ -437,7 +439,7 @@ public TypeBinding computeBoxingType(TypeBinding type) {
 			break;
 		case Binding.POLY_TYPE:
 			return ((PolyTypeBinding) type).computeBoxingType();
-		case Binding.INTERSECTION_CAST_TYPE:
+		case Binding.INTERSECTION_TYPE18:
 			return computeBoxingType(type.getIntersectingTypes()[0]);
 	}
 	return type;
@@ -674,8 +676,8 @@ public ArrayBinding createArrayType(TypeBinding leafComponentType, int dimension
 	return this.typeSystem.getArrayType(leafComponentType, dimensionCount, annotations);
 }
 
-public TypeBinding createIntersectionCastType(ReferenceBinding[] intersectingTypes) {
-	return this.typeSystem.getIntersectionCastType(intersectingTypes);
+public TypeBinding createIntersectionType18(ReferenceBinding[] intersectingTypes) {
+	return this.typeSystem.getIntersectionType18(intersectingTypes);
 }	
 
 public BinaryTypeBinding createBinaryTypeFrom(IBinaryType binaryType, PackageBinding packageBinding, AccessRestriction accessRestriction) {
@@ -1004,8 +1006,8 @@ public WildcardBinding createWildcard(ReferenceBinding genericType, int rank, Ty
 	return this.typeSystem.getWildcard(genericType, rank, bound, otherBounds, boundKind);
 }
 
-public CaptureBinding createCapturedWildcard(WildcardBinding wildcard, ReferenceBinding contextType, int position, ASTNode cud, int id) {
-	return this.typeSystem.getCapturedWildcard(wildcard, contextType, position, cud, id);
+public CaptureBinding createCapturedWildcard(WildcardBinding wildcard, ReferenceBinding contextType, int start, int end, ASTNode cud, int id) {
+	return this.typeSystem.getCapturedWildcard(wildcard, contextType, start, end, cud, id);
 }
 
 public WildcardBinding createWildcard(ReferenceBinding genericType, int rank, TypeBinding bound, TypeBinding[] otherBounds, int boundKind, AnnotationBinding [] annotations) {
@@ -1073,6 +1075,28 @@ public char[][] getNonNullAnnotationName() {
 
 public char[][] getNonNullByDefaultAnnotationName() {
 	return this.globalOptions.nonNullByDefaultAnnotationName;
+}
+
+public boolean usesNullTypeAnnotations() {
+	if (this.globalOptions.useNullTypeAnnotations != null)
+		return this.globalOptions.useNullTypeAnnotations;
+
+	this.globalOptions.useNullTypeAnnotations = Boolean.FALSE;
+	if (!this.globalOptions.isAnnotationBasedNullAnalysisEnabled || this.globalOptions.sourceLevel < ClassFileConstants.JDK1_8)
+		return false;
+	ReferenceBinding nullable = this.nullableAnnotation != null ? this.nullableAnnotation.getAnnotationType() : getType(this.getNullableAnnotationName());
+	ReferenceBinding nonNull = this.nonNullAnnotation != null ? this.nonNullAnnotation.getAnnotationType() : getType(this.getNonNullAnnotationName());
+	if (nullable == null && nonNull == null)
+		return false;
+	if (nullable == null || nonNull == null)
+		return false; // TODO should report an error about inconsistent setup
+	long nullableMetaBits = nullable.getAnnotationTagBits() & TagBits.AnnotationForTypeUse;
+	long nonNullMetaBits = nonNull.getAnnotationTagBits() & TagBits.AnnotationForTypeUse;
+	if (nullableMetaBits != nonNullMetaBits)
+		return false; // TODO should report an error about inconsistent setup
+	if (nullableMetaBits == 0)
+		return false;
+	return this.globalOptions.useNullTypeAnnotations = Boolean.TRUE;
 }
 
 /* Answer the top level package named name if it exists in the cache.
@@ -1467,7 +1491,7 @@ public TypeBinding getTypeFromTypeSignature(SignatureWrapper wrapper, TypeVariab
 }
 
 private TypeBinding getTypeFromTypeVariable(TypeVariableBinding typeVariableBinding, int dimension, AnnotationBinding [][] annotationsOnDimensions, ITypeAnnotationWalker walker, char [][][] missingTypeNames) {
-	AnnotationBinding [] annotations = BinaryTypeBinding.createAnnotations(walker.getAnnotationsAtCursor(0), this, missingTypeNames);
+	AnnotationBinding [] annotations = BinaryTypeBinding.createAnnotations(walker.getAnnotationsAtCursor(-1), this, missingTypeNames);
 	if (annotations != null && annotations != Binding.NO_ANNOTATIONS)
 		typeVariableBinding = (TypeVariableBinding) createAnnotatedType(typeVariableBinding, new AnnotationBinding [][] { annotations });
 
@@ -1494,18 +1518,18 @@ TypeBinding getTypeFromVariantTypeSignature(
 			// ? super aType
 			wrapper.start++;
 			TypeBinding bound = getTypeFromTypeSignature(wrapper, staticVariables, enclosingType, missingTypeNames, walker.toWildcardBound());
-			AnnotationBinding [] annotations = BinaryTypeBinding.createAnnotations(walker.getAnnotationsAtCursor(0), this, missingTypeNames);
+			AnnotationBinding [] annotations = BinaryTypeBinding.createAnnotations(walker.getAnnotationsAtCursor(-1), this, missingTypeNames);
 			return this.typeSystem.getWildcard(genericType, rank, bound, null /*no extra bound*/, Wildcard.SUPER, annotations);
 		case '+' :
 			// ? extends aType
 			wrapper.start++;
 			bound = getTypeFromTypeSignature(wrapper, staticVariables, enclosingType, missingTypeNames, walker.toWildcardBound());
-			annotations = BinaryTypeBinding.createAnnotations(walker.getAnnotationsAtCursor(0), this, missingTypeNames);
+			annotations = BinaryTypeBinding.createAnnotations(walker.getAnnotationsAtCursor(-1), this, missingTypeNames);
 			return this.typeSystem.getWildcard(genericType, rank, bound, null /*no extra bound*/, Wildcard.EXTENDS, annotations);
 		case '*' :
 			// ?
 			wrapper.start++;
-			annotations = BinaryTypeBinding.createAnnotations(walker.getAnnotationsAtCursor(0), this, missingTypeNames);
+			annotations = BinaryTypeBinding.createAnnotations(walker.getAnnotationsAtCursor(-1), this, missingTypeNames);
 			return this.typeSystem.getWildcard(genericType, rank, null, null /*no extra bound*/, Wildcard.UNBOUND, annotations);
 		default :
 			return getTypeFromTypeSignature(wrapper, staticVariables, enclosingType, missingTypeNames, walker);
@@ -1634,5 +1658,22 @@ public AnnotationBinding[] filterNullTypeAnnotations(AnnotationBinding[] typeAnn
 		return typeAnnotations;
 	System.arraycopy(filtered, 0, filtered = new AnnotationBinding[count], 0, count);
 	return filtered;
+}
+
+public boolean containsNullTypeAnnotation(IBinaryAnnotation[] typeAnnotations) {
+	if (typeAnnotations.length == 0)
+		return false;
+	char[][] nonNullAnnotationName = this.getNonNullAnnotationName();
+	char[][] nullableAnnotationName = this.getNullableAnnotationName();
+	for (int i = 0; i < typeAnnotations.length; i++) {
+		IBinaryAnnotation typeAnnotation = typeAnnotations[i];
+		char[] typeName = typeAnnotation.getTypeName();
+		// typeName must be "Lfoo/X;"
+		if (typeName == null || typeName.length < 3 || typeName[0] != 'L') continue;
+		char[][] name = CharOperation.splitOn('/', typeName, 1, typeName.length-1);
+		if (CharOperation.equals(name, nonNullAnnotationName) || CharOperation.equals(name, nullableAnnotationName))
+			return true;
+	}
+	return false;
 }
 }

@@ -13,6 +13,7 @@ package org.eclipse.jdt.internal.compiler.lookup;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.eclipse.jdt.internal.compiler.ast.Invocation;
 import org.eclipse.jdt.internal.compiler.ast.Wildcard;
 
 /**
@@ -60,15 +61,17 @@ class ConstraintTypeFormula extends ConstraintFormula {
 		case COMPATIBLE:
 			// 18.2.2:
 			if (this.left.isProperType(true) && this.right.isProperType(true)) {
-				if (isCompatibleWithInLooseInvocationContext(this.left, this.right, inferenceContext))
-					return TRUE;
-				return FALSE;
+				return this.left.isCompatibleWith(this.right, inferenceContext.scope) || this.left.isBoxingCompatibleWith(this.right, inferenceContext.scope) ? TRUE : FALSE;
 			}
 			if (this.left.isPrimitiveType()) {
+				if (inferenceContext.inferenceKind == InferenceContext18.CHECK_STRICT)
+					inferenceContext.inferenceKind = InferenceContext18.CHECK_LOOSE;
 				TypeBinding sPrime = inferenceContext.environment.computeBoxingType(this.left);
 				return ConstraintTypeFormula.create(sPrime, this.right, COMPATIBLE, this.isSoft);
 			}
 			if (this.right.isPrimitiveType()) {
+				if (inferenceContext.inferenceKind == InferenceContext18.CHECK_STRICT)
+					inferenceContext.inferenceKind = InferenceContext18.CHECK_LOOSE;
 				TypeBinding tPrime = inferenceContext.environment.computeBoxingType(this.right);
 				return ConstraintTypeFormula.create(this.left, tPrime, SAME, this.isSoft);
 			}
@@ -96,6 +99,9 @@ class ConstraintTypeFormula extends ConstraintFormula {
 			// 18.2.3:
 			return reduceSubType(inferenceContext.scope, this.right, this.left);
 		case SAME:
+			if (inferenceContext.environment.globalOptions.isAnnotationBasedNullAnalysisEnabled)
+				if (!checkIVFreeTVmatch(this.left, this.right))
+					checkIVFreeTVmatch(this.right, this.left);
 			// 18.2.4:
 			return reduceTypeEquality(inferenceContext.object);
 		case TYPE_ARGUMENT_CONTAINED:
@@ -141,6 +147,16 @@ class ConstraintTypeFormula extends ConstraintFormula {
 			}
 		default: throw new IllegalStateException("Unexpected relation kind "+this.relation); //$NON-NLS-1$
 		}
+	}
+
+	/** Detect when we are equating an inference variable against a free type variable. */
+	boolean checkIVFreeTVmatch(TypeBinding one, TypeBinding two) {
+		if (one instanceof InferenceVariable && two.isTypeVariable() && (two.tagBits & TagBits.AnnotationNullMASK) == 0) {
+			// found match => avoid inferring any null annotation (by marking as contradiction):
+			((InferenceVariable)one).nullHints = TagBits.AnnotationNullMASK;
+			return true;
+		}
+		return false;
 	}
 
 	private Object reduceTypeEquality(TypeBinding object) {
@@ -304,13 +320,20 @@ class ConstraintTypeFormula extends ConstraintFormula {
 			case Binding.INTERSECTION_TYPE:
 				superCandidate = ((WildcardBinding) superCandidate).allBounds();
 				//$FALL-THROUGH$
-			case Binding.INTERSECTION_CAST_TYPE:
-				TypeBinding[] intersectingTypes = ((IntersectionCastTypeBinding) superCandidate).intersectingTypes;
+			case Binding.INTERSECTION_TYPE18:
+				TypeBinding[] intersectingTypes = ((IntersectionTypeBinding18) superCandidate).intersectingTypes;
 				ConstraintFormula[] result = new ConstraintFormula[intersectingTypes.length];
 				for (int i = 0; i < intersectingTypes.length; i++) {
 					result[i] = ConstraintTypeFormula.create(subCandidate, intersectingTypes[i], SUBTYPE, this.isSoft);
 				}
 				return result;
+			case Binding.POLY_TYPE:
+				PolyTypeBinding poly = (PolyTypeBinding) superCandidate;
+				Invocation invocation = (Invocation) poly.expression;
+				MethodBinding binding = invocation.binding();
+				if (binding == null || !binding.isValidBinding())
+					return FALSE;
+				return reduceSubType(scope, subCandidate, binding.returnType.capture(scope, invocation.sourceStart(), invocation.sourceEnd()));
 		}
 		throw new IllegalStateException("Unexpected RHS "+superCandidate); //$NON-NLS-1$
 	}
@@ -347,27 +370,13 @@ class ConstraintTypeFormula extends ConstraintFormula {
 			return true;
 		if (!(cb instanceof ParameterizedTypeBinding)) {
 			// if C is parameterized with its own type variables, there're no more constraints to be created here, otherwise let's fail
-			return isInsignificantParameterized(ca);
+			return ca.isParameterizedWithOwnVariables();
 		}
 		TypeBinding[] bi = ((ParameterizedTypeBinding) cb).arguments;
 		if (cb.isRawType() || bi == null || bi.length == 0)
 			return (this.isSoft && InferenceContext18.SIMULATE_BUG_JDK_8026527) ? true : false; // FALSE would conform to the spec 
 		for (int i = 0; i < ai.length; i++)
 			constraints.add(ConstraintTypeFormula.create(bi[i], ai[i], TYPE_ARGUMENT_CONTAINED, this.isSoft));
-		return true;
-	}
-
-	private boolean isInsignificantParameterized(ParameterizedTypeBinding ca) {
-		TypeVariableBinding[] typeVariables = ca.original().typeVariables();
-		TypeBinding[] typeArguments = ca.arguments;
-		if (typeVariables == null || typeArguments == null)
-			return typeVariables == typeArguments;
-		if (typeVariables.length != typeArguments.length)
-			return false;
-		for (int i = 0; i < typeArguments.length; i++) {
-			if (TypeBinding.notEquals(typeVariables[i], typeArguments[i]))
-				return false;
-		}
 		return true;
 	}
 

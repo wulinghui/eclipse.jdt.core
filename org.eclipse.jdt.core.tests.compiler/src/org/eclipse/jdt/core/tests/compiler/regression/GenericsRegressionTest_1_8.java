@@ -18,6 +18,7 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 import junit.framework.Test;
 
+@SuppressWarnings({ "unchecked", "rawtypes" })
 public class GenericsRegressionTest_1_8 extends AbstractRegressionTest {
 
 static {
@@ -467,10 +468,15 @@ public void testBug401850a() {
 			"}\n"
 		},
 		"----------\n" + 
-		"1. ERROR in X.java (at line 7)\n" + 
-		"	int i = m(new X<>(\"\"));\n" + 
-		"	          ^^^^^^^^^^^\n" + 
-		"The constructor X<String>(String) is ambiguous\n" + 
+		"1. WARNING in X.java (at line 1)\n" + 
+		"	import java.util.List;\n" + 
+		"	       ^^^^^^^^^^^^^^\n" + 
+		"The import java.util.List is never used\n" + 
+		"----------\n" + 
+		"2. WARNING in X.java (at line 2)\n" + 
+		"	import java.util.ArrayList;\n" + 
+		"	       ^^^^^^^^^^^^^^^^^^^\n" + 
+		"The import java.util.ArrayList is never used\n" + 
 		"----------\n");
 }
 public void testBug401850b() {
@@ -619,11 +625,6 @@ public void testBug424712a() {
 		"Y cannot be resolved to a type\n" + 
 		"----------\n" + 
 		"3. ERROR in X.java (at line 12)\n" + 
-		"	Set<Y> rosterSet = (Set<Y>) foo(null, Set::new);\n" + 
-		"	                                      ^^^^^^^^\n" + 
-		"The target type of this expression must be a functional interface\n" + 
-		"----------\n" + 
-		"4. ERROR in X.java (at line 12)\n" + 
 		"	Set<Y> rosterSet = (Set<Y>) foo(null, Set::new);\n" + 
 		"	                                      ^^^\n" + 
 		"Cannot instantiate the type Set\n" + 
@@ -1230,7 +1231,12 @@ public void testBug425493() {
 		"	^^^^^^^^^^^^\n" + 
 		"The method addAttribute(Test.Attribute<T>, T) in the type Test is not applicable for the arguments (Test.Attribute<capture#1-of ?>, capture#2-of ?)\n" + 
 		"----------\n" + 
-		"2. ERROR in Test.java (at line 5)\n" + 
+		"2. ERROR in Test.java (at line 3)\n" + 
+		"	addAttribute(java.util.Objects.requireNonNull(attribute, \"\"),\n" + 
+		"	             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from Test.Attribute<capture#1-of ?> to Test.Attribute<T>\n" + 
+		"----------\n" + 
+		"3. ERROR in Test.java (at line 5)\n" + 
 		"	addAttribute(attribute, attribute.getDefault());\n" + 
 		"	^^^^^^^^^^^^\n" + 
 		"The method addAttribute(Test.Attribute<T>, T) in the type Test is not applicable for the arguments (Test.Attribute<capture#3-of ?>, capture#4-of ?)\n" + 
@@ -1732,7 +1738,12 @@ public void testBug427164() {
 			"}\n"
 		},
 		"----------\n" + 
-		"1. ERROR in NNLambda.java (at line 13)\n" + 
+		"1. ERROR in NNLambda.java (at line 1)\n" + 
+		"	printem((i) -> {\n" + 
+		"	^^^^^^^\n" + 
+		"The method printem(FInter, INP) in the type NNLambda is not applicable for the arguments (FInter, String)\n" + 
+		"----------\n" + 
+		"2. ERROR in NNLambda.java (at line 13)\n" + 
 		"	Collections.<String>singletonList(\"const\")\n" + 
 		"	                                         ^\n" + 
 		"Syntax error, insert \";\" to complete BlockStatements\n" + 
@@ -2047,8 +2058,21 @@ public void testBug427626() {
 			"	}\n" + 
 			"}"
 		},
+		// 8u20 emits just one message inferred type not conforming to upper bound. ECJ's message is actually better.
+		// We used to emit only 1 error here. Here the lambda is broken, so inference fails leading to two messages.			
 		"----------\n" + 
-		"1. ERROR in X.java (at line 13)\n" + 
+		"1. ERROR in X.java (at line 8)\n" + 
+		"	ss.stream().map(s -> {\n" + 
+		"          class L1 {};\n" + 
+		"          class L2 {\n" + 
+		"            void mm(L1 l) {}\n" + 
+		"          }\n" + 
+		"          return new L2().mm(new L1());\n" + 
+		"        }).forEach(e -> System.out.println(e));\n" + 
+		"	^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from Stream<Object> to <unknown>\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 13)\n" + 
 		"	return new L2().mm(new L1());\n" + 
 		"	^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
 		"Cannot return a void result\n" + 
@@ -2520,9 +2544,8 @@ public void testBug429490_comment33() {
             "}\n"
         });
 }
-public void _testBug428811() {
-	// perhaps fail is the correct answer? FIXME: validate!
-	runNegativeTest(
+public void testBug428811() {
+	runConformTest(
 		new String[] {
 			"MoreCollectors.java",
 			"import java.util.AbstractList;\n" + 
@@ -2569,18 +2592,7 @@ public void _testBug428811() {
 			"    }\n" + 
 			"}\n"
 		},
-		"----------\n" + 
-		"1. ERROR in MoreCollectors.java (at line 16)\n" + 
-		"	return Collector.of(ArrayList<T>::new,\n" + 
-		"	                 ^^\n" + 
-		"The method of(ArrayList<T>::new, List<T>::add, (<no type> left, <no type> right) -> {}" + 
-		", ImmutableList::copyOf) is undefined for the type Collector\n" + 
-		"----------\n" + 
-		"2. WARNING in MoreCollectors.java (at line 23)\n" + 
-		"	public static <T> ImmutableList<T> copyOf (Collection<T> c) {\n" + 
-		"	                                   ^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
-		"The method copyOf(Collection<T>) from the type MoreCollectors.ImmutableList<T> is never used locally\n" + 
-		"----------\n");
+		"[a, b, c]");
 }
 // all exceptions can be inferred to match
 public void testBug429430() {
@@ -2636,8 +2648,7 @@ public void testBug429430a() {
 		"----------\n");
 }
 // one of two incompatible exceptions is caught
-// FIXME: should be possible to infer X to EmptyStream
-public void _testBug429430b() {
+public void testBug429430b() {
 	runConformTest(
 		new String[] {
 			"Main.java",
@@ -2663,6 +2674,45 @@ public void _testBug429430b() {
 			"  }\n" +
 			"}\n"
 		});
+}
+public void testBug429430b2() {
+	runNegativeTest(
+		new String[] {
+			"X.java",
+			"import java.io.*;\n" +
+			"@SuppressWarnings(\"serial\") class EmptyStream extends Exception {}\n" +
+			"public class X {\n" +
+			"  public static interface Closer<T, V extends Exception> {\n" +
+			"    void closeIt(T it) throws V;\n" +
+			"  }\n" +
+			"\n" +
+			"  public static void close( Closer<InputStream, EmptyStream> closer, InputStream it ) throws EmptyStream {\n" +
+			"    closer.closeIt(it);\n" +
+			"  }\n" +
+			"\n" +
+			"  public static void main(String[] args) throws EmptyStream {\n" +
+			"    InputStream in = new ByteArrayInputStream(\"hello\".getBytes());\n" +
+			"    close( x ->  {\n" +
+			"			if (x == null)\n" +
+			"				throw new IOException();\n" +
+			"			else \n" +
+			"				throw new EmptyStream(); \n" +
+			"		},\n" +
+			"		in);\n" +
+			"  }\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 16)\n" + 
+		"	throw new IOException();\n" + 
+		"	^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Unhandled exception type IOException\n" + 
+		"----------\n" + 
+		"2. WARNING in X.java (at line 18)\n" + 
+		"	throw new EmptyStream(); \n" + 
+		"	^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Statement unnecessarily nested within else clause. The corresponding then clause does not complete normally\n" + 
+		"----------\n");
 }
 // ensure type annotation on exception doesn't confuse the inference
 public void testBug429430c() {
@@ -2746,7 +2796,7 @@ public void testBug429424() {
 			"\n"
 		});
 }
-public void _testBug426537() {
+public void testBug426537() {
 	runNegativeTest(
 		new String[] {
 			"X.java",
@@ -2843,6 +2893,7 @@ public void testBug429203() {
 			"	public DTest(Function<T, T> func) { }\n" + 
 			"	\n" + 
 			"	public DTest(DTest<Integer> dti) {}\n" + 
+			"	public DTest() {}\n" + 
 			"	\n" + 
 			"	public static void main(String[] args) {\n" + 
 			"		DTest<String> t1 = new DTest<String>(new DTest<Integer>());\n" + 
@@ -2850,16 +2901,11 @@ public void testBug429203() {
 			"}\n"
 		},
 		"----------\n" + 
-		"1. ERROR in DTest.java (at line 10)\n" + 
+		"1. ERROR in DTest.java (at line 11)\n" + 
 		"	DTest<String> t1 = new DTest<String>(new DTest<Integer>());\n" + 
 		"	                       ^^^^^\n" + 
 		"Redundant specification of type arguments <String>\n" + 
-		"----------\n" + 
-		"2. ERROR in DTest.java (at line 10)\n" + 
-		"	DTest<String> t1 = new DTest<String>(new DTest<Integer>());\n" + 
-		"	                                     ^^^^^^^^^^^^^^^^^^^^\n" + 
-		"The constructor DTest<Integer>() is undefined\n" +
-		"----------\n",
+		"----------\n", 
 		null, true, customOptions);
 }
 public void testBug430296() {
@@ -2887,15 +2933,18 @@ public void testBug430296() {
 		"----------\n" + 
 		"1. ERROR in AnnotationCollector.java (at line 9)\n" + 
 		"	return persons.collect(Collectors.toMap((Person p) -> p.getLastName(),\n" + 
-		"                                                                Function::identity,\n" + 
-		"                                                        (p1, p2) -> p1));\n" + 
-		"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
-		"Type mismatch: cannot convert from Map<String,Object> to Map<String,Person>\n" + 
+		"	                                  ^^^^^\n" + 
+		"The method toMap(Function<? super T,? extends K>, Function<? super T,? extends U>, BinaryOperator<U>) in the type Collectors is not applicable for the arguments ((Person p) -> {}, Function::identity, BinaryOperator<U>)\n" + 
 		"----------\n" + 
-		"2. ERROR in AnnotationCollector.java (at line 10)\n" + 
+		"2. ERROR in AnnotationCollector.java (at line 9)\n" + 
+		"	return persons.collect(Collectors.toMap((Person p) -> p.getLastName(),\n" + 
+		"	                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from Function<Person,? extends K> to Function<? super T,? extends K>\n" + 
+		"----------\n" + 
+		"3. ERROR in AnnotationCollector.java (at line 10)\n" + 
 		"	Function::identity,\n" + 
 		"	^^^^^^^^^^^^^^^^^^\n" + 
-		"The type Function does not define identity(Person) that is applicable here\n" + 
+		"The type Function does not define identity(T) that is applicable here\n" + 
 		"----------\n");
 }
 public void testBug430759() {
@@ -3042,14 +3091,9 @@ public void testBug433158() {
 			"	}\n" + 
 			"}\n"
 		},
-		"----------\n" + 
-		"1. ERROR in CollectorsMaps.java (at line 20)\n" + 
-		"	p -> p.lhs.stream().map(p::keepingRhs)).collect(\n" + 
-		"	                                        ^^^^^^^\n" + 
-		"The method collect(Collector<? super Object,A,R>) in the type Stream<Object> is not applicable for the arguments (Collector<CollectorsMaps.Pair<String,String>,capture#3-of ?,Map<String,List<String>>>)\n" + 
-		"----------\n");
+		"");
 }
-public void _testBug432626() {
+public void testBug432626() {
 	runConformTest(
 		new String[] {
 			"StreamInterface2.java",
@@ -3112,6 +3156,29 @@ public void _testBug432626() {
 			"	static <T> ArrayList<T> combined(ArrayList<T> left, ArrayList<T> right) {\n" + 
 			"		left.addAll(right);\n" + 
 			"		return left;\n" + 
+			"	}\n" +
+			"}\n"
+		});
+}
+public void testBug432626_reduced() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.ArrayList;\n" +
+			"import java.util.HashMap;\n" +
+			"import java.util.Map;\n" +
+			"import java.util.function.Function;\n" +
+			"import java.util.stream.Collector;\n" +
+			"import java.util.stream.Collectors;\n" +
+			"public interface X {\n" +
+			"	static <T, K> Map<K, ArrayList<T>> terminalAsMapToList(Function<? super T, ? extends K> classifier)  {\n" +
+			"		return terminalAsCollected(Collectors.groupingBy(\n" +
+			"			  classifier,\n" +
+			"			  () -> new HashMap<>(),\n" +
+			"			  (Collector<T,ArrayList<T>,ArrayList<T>>) null));\n" +
+			"	}\n" +
+			"	static <T, M> M terminalAsCollected(Collector<T, ?, M> collector) {\n" +
+			"		return null;\n" +
 			"	}\n" +
 			"}\n"
 		});
@@ -3329,14 +3396,14 @@ public void testBug435187() {
 			"}\n"
 		},
 		"----------\n" + 
-		"1. ERROR in ExtractLocalLambda.java (at line 22)\n" + 
-		"	).collect(groupingBy);\n" + 
-		"	  ^^^^^^^\n" + 
-		"The method collect(Collector<? super Object,A,R>) in the type Stream<Object> is not applicable for the arguments (Collector<Map.Entry<String,String>,capture#1-of ?,Map<String,List<String>>>)\n" + 
+		"1. WARNING in ExtractLocalLambda.java (at line 5)\n" + 
+		"	import java.util.function.Function;\n" + 
+		"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"The import java.util.function.Function is never used\n" + 
 		"----------\n");
 }
 public void testBug435767() {
-	runNegativeTest(
+	runConformTest(
 		new String[] {
 			"DummyClass.java",
 			"import java.util.*;\n" +
@@ -3378,17 +3445,7 @@ public void testBug435767() {
 			"	}\n" + 
 			"}\n"
 		},
-		"----------\n" + 
-		"1. ERROR in DummyClass.java (at line 18)\n" + 
-		"	.collect(Collectors.toMap(path -> this.getKey(path), path -> this.getValue(path))));\n" + 
-		"	                                       ^^^^^^\n" + 
-		"The method getKey(String) in the type DummyClass is not applicable for the arguments (Object)\n" + 
-		"----------\n" + 
-		"2. ERROR in DummyClass.java (at line 18)\n" + 
-		"	.collect(Collectors.toMap(path -> this.getKey(path), path -> this.getValue(path))));\n" + 
-		"	                                                                  ^^^^^^^^\n" + 
-		"The method getValue(String) in the type DummyClass is not applicable for the arguments (Object)\n" + 
-		"----------\n");
+		"");
 }
 public void testBug434483() {
 	runConformTest(
@@ -4401,6 +4458,537 @@ public void testBug442245() {
 			"		String toString();\n"+
 			"	}\n"+
 			"\n"+
+			"}\n"
+		});
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=439594  [1.8][compiler] nested lambda type incorrectly inferred vs javac
+public void test439594() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java", 
+			"import java.util.ArrayList;\n" +
+			"import java.util.List;\n" +
+			"import java.util.function.Function;\n" +
+			"import java.util.function.Predicate;\n" +
+			"import java.util.stream.Collectors;\n" +
+			"import java.util.stream.Stream;\n" +
+			"public class X {\n" +
+			"	protected static interface IListEntry {\n" +
+			"		public <T> T visitRecordsWithResult(Function<Stream<Record>,T> func);		\n" +
+			"	}\n" +
+			"	protected static final class ImmutableRecord {\n" +
+			"		public ImmutableRecord(Record r) { }\n" +
+			"	}\n" +
+			"	protected static final class Record {}\n" +
+			"	public List<ImmutableRecord> compilesWithEclipseAndJavac() \n" +
+			"	{\n" +
+			"		return visitEntriesWithResult( stream -> {\n" +
+			"			return stream.map( entry -> {\n" +
+			"				final List<ImmutableRecord> result1 = entry.visitRecordsWithResult( stream2 -> stream2\n" +
+			"						.filter( somePredicate() )\n" +
+			"						.map( ImmutableRecord::new )\n" +
+			"						.collect( Collectors.toList() )\n" +
+			"					);	\n" +
+			"				return result1;\n" +
+			"			}).flatMap( List::stream ).collect( Collectors.toCollection( ArrayList::new ) );\n" +
+			"		});		\n" +
+			"	}		\n" +
+			"	public List<ImmutableRecord> compilesWithJavacButNotEclipse1() \n" +
+			"	{\n" +
+			"		return visitEntriesWithResult( stream -> {\n" +
+			"			return stream.map( entry -> {\n" +
+			"				return entry.visitRecordsWithResult( stream2 -> stream2\n" +
+			"						.filter( somePredicate() )\n" +
+			"						.map( ImmutableRecord::new )\n" +
+			"						.collect( Collectors.toList() )\n" +
+			"					);	\n" +
+			"			}).flatMap( List::stream ).collect( Collectors.toCollection( ArrayList::new ) );\n" +
+			"		});		\n" +
+			"	}		\n" +
+			"	public List<ImmutableRecord> compilesWithJavacButNotEclipse2() \n" +
+			"	{\n" +
+			"		return visitEntriesWithResult( stream -> {\n" +
+			"			return stream.map( entry -> entry.visitRecordsWithResult( stream2 -> stream2\n" +
+			"						.filter( somePredicate() )\n" +
+			"						.map( ImmutableRecord::new )\n" +
+			"						.collect( Collectors.toList() ) )\n" +
+			"			).flatMap( List::stream ).collect( Collectors.toCollection( ArrayList::new ) );\n" +
+			"		});		\n" +
+			"	}	\n" +
+			"	public List<ImmutableRecord> compilesWithJavacButNotEclipse3() \n" +
+			"	{\n" +
+			"		return visitEntriesWithResult( stream -> stream.map( entry -> entry.visitRecordsWithResult( stream2 -> stream2\n" +
+			"						.filter( somePredicate() )\n" +
+			"						.map( ImmutableRecord::new )\n" +
+			"						.collect( Collectors.toList() ) )\n" +
+			"			)\n" +
+			"			.flatMap( List::stream )\n" +
+			"			.collect( Collectors.toCollection( ArrayList::new ) )\n" +
+			"		);		\n" +
+			"	}	\n" +
+			"	private static Predicate<Record> somePredicate() {\n" +
+			"		return record -> true;\n" +
+			"	}		\n" +
+			"	private <T> T visitEntriesWithResult(Function<Stream<IListEntry>,T> func) {\n" +
+			"		return func.apply( new ArrayList<IListEntry>().stream() );\n" +
+			"	}\n" +
+			"}\n"
+	},
+	"");
+}
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=433852, [1.8][compiler] Javac rejects type inference results that ECJ accepts
+public void test433852() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java", 
+			"import java.util.Optional;\n" +
+			"import java.util.function.Function;\n" +
+			"import java.util.stream.Stream;\n" +
+			"public class X {\n" +
+			"	public static void main(String[] args) {\n" +
+			"		System.out.println(test(Stream.of(Stream.of(\"3\"))));\n" +
+			"		System.out.println(test2(Stream.of(Stream.of(\"1\")).skip(1)));\n" +
+			"		System.out.println(test31(Stream.of(Stream.of(\"2\")).skip(1)));\n" +
+			"	}\n" +
+			"	static Optional<Stream<Object>> test(Stream<Stream<String>> s31) {\n" +
+			"		return s31.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).findAny();\n" +
+			"	}\n" +
+			"	static Object test2(Stream<Stream<String>> s3) {\n" +
+			"		return s3.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).flatMap(Function.identity()).findAny().orElse(\n" +
+			"		  X.class);\n" +
+			"	}\n" +
+			"	static Stream<Object> test31(Stream<Stream<String>> s3) {\n" +
+			"		return s3.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).findAny().orElse(Stream.of(new Object()));\n" +
+			"	}\n" +
+			"}\n"
+	},
+	"----------\n" + 
+	"1. ERROR in X.java (at line 11)\n" + 
+	"	return s31.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).findAny();\n" + 
+	"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+	"Type mismatch: cannot convert from Optional<Stream<Integer>> to Optional<Stream<Object>>\n" + 
+	"----------\n" + 
+	"2. ERROR in X.java (at line 14)\n" + 
+	"	return s3.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).flatMap(Function.identity()).findAny().orElse(\n" + 
+	"	                                                                                               ^^^^^^\n" + 
+	"The method orElse(Integer) in the type Optional<Integer> is not applicable for the arguments (Class<X>)\n" + 
+	"----------\n" + 
+	"3. ERROR in X.java (at line 18)\n" + 
+	"	return s3.map(s2 -> s2.map(s1 -> Integer.parseInt(s1))).findAny().orElse(Stream.of(new Object()));\n" + 
+	"	                                                                  ^^^^^^\n" + 
+	"The method orElse(Stream<Integer>) in the type Optional<Stream<Integer>> is not applicable for the arguments (Stream<Object>)\n" + 
+	"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=442916,  [1.8][inference] Type Inference is broken for CompletableFuture then-methods  
+public void test442916() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import static java.util.concurrent.CompletableFuture.completedFuture;\n" +
+			"import java.util.Arrays;\n" +
+			"import java.util.concurrent.CompletableFuture;\n" +
+			"public class X {\n" +
+			"    public static CompletableFuture<Integer> cf(int value) {\n" +
+			"		return completedFuture(value);\n" +
+			"    }\n" +
+			"    public static void main(String[] args) {\n" +
+			"		cf(1).thenCompose((xInt) -> cf(2).thenApply((zInt) -> Arrays.asList(xInt, zInt)))\n" +
+			"		.thenAccept((ints) -> {\n" +
+			"			/* !!!! ints is incorrectly inferred to be an Object, but it is List<Integer> */\n" +
+			"			System.out.println(ints.get(0) + ints.get(1)); // should print 3;\n" +
+			"		});\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"3");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=442769, [1.8][compiler] Invalid type inference using Stream  
+public void test442769() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.nio.file.Path;\n" +
+			"import java.nio.file.Paths;\n" +
+			"import java.util.Arrays;\n" +
+			"import java.util.HashMap;\n" +
+			"import java.util.List;\n" +
+			"import java.util.Map;\n" +
+			"import java.util.Map.Entry;\n" +
+			"import java.util.stream.Collector;\n" +
+			"import java.util.stream.Collectors;\n" +
+			"import java.util.stream.Stream;\n" +
+			"import java.io.Serializable;\n" +
+			"public class X {\n" +
+			"	public static void main(String[] args) {\n" +
+			"		Map<Object, Integer> allocated = new HashMap<>();\n" +
+			"		   Arrays.asList(\"a\", \"b\", \"c\", \"d\", \"e\") // List<String>\n" +
+			"	          .stream() // Stream<String>\n" +
+			"	          .map(Paths::get) // Stream<Path>\n" +
+			"	          .flatMap(path -> allocated.keySet() // Set<Object>\n" +
+			"	                                    .stream() // Stream<Object>\n" +
+			"	                                    .map(group -> Pair.of(group, path) /*Pair<Object,Path>*/) // Stream<Pair<Object, Path>>\n" +
+			"	          ) // Stream<Object> [FAIL]\n" +
+			"	          .collect(Collectors.toList()) // List<Object>\n" +
+			"	          .forEach(item -> System.out.println(item.getKey() + \": \" + item.getValue())); // Consumer<? super Object>\n" +
+			"	    // with explicit type\n" +
+			"	    Arrays.asList(\"a\", \"b\", \"c\", \"d\", \"e\") // List<String>\n" +
+			"	          .stream() // Stream<String>\n" +
+			"	          .map(Paths::get) // Stream<Path>\n" +
+			"	          .flatMap(path -> allocated.keySet() // Set<Object>\n" +
+			"	                                    .stream() // Stream<Object>\n" +
+			"	                                    .<Pair<Object,Path>>map(group -> Pair.of(group, path) /*Pair<Object,Path>*/) // Stream<Pair<Object, Path>>\n" +
+			"	          ) // Stream<Pair<Object, Path>>\n" +
+			"	          .collect(Collectors.toList()) // List<Pair<Object, Path>>\n" +
+			"	          .forEach(item -> System.out.println(item.getKey() + \": \" + item.getValue())); // Consumer<? super Pair<Object, Path>>\n" +
+			"	}\n" +
+			"}\n" +
+			"abstract class Pair<L, R> implements Map.Entry<L, R>, Comparable<Pair<L, R>>, Serializable {\n" +
+			"    public static <L, R> Pair<L, R> of(final L left, final R right) {\n" +
+			"        return null;\n" +
+			"    }\n" +
+			"    public final L getKey() {\n" +
+			"        return null;\n" +
+			"    }\n" +
+			"    public R getValue() {\n" +
+		"        return null;\n" +
+			"    }\n" +
+			"}\n"
+		},
+		"");
+}
+// Test allocation expression boxing compatibility
+public void testAllocationBoxingCompatibility() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public class X  {\n" +
+			"    static <T> int m(T o1, byte o2) {return 1;}       \n" +
+			"    static boolean call() {\n" +
+			"        return m(new Long(12l), new Byte((byte)1)) == 1;\n" +
+			"    }\n" +
+			"\n" +
+			"    public static void main(String argv[]) {\n" +
+			"       System.out.println(call());\n" +
+			"    }\n" +
+			"}\n",
+		}, "true");
+}
+// NPE while building JRE8: https://bugs.eclipse.org/bugs/show_bug.cgi?id=437444#c113
+public void test437444_c113() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"import java.util.List;\n" +
+			"public class X {\n" +
+			"	final List<String>[] ls = Util.cast(new List<>[] { null });\n" +
+			"	\n" +
+			"}\n" +
+			"class Util {\n" +
+			"	@SuppressWarnings(\"unchecked\")\n" +
+			"	public static <T> T cast(Object x) {\n" +
+			"		return (T) x;\n" +
+			"	}\n" +
+			"}\n",
+		}, 
+		"----------\n" + 
+		"1. ERROR in X.java (at line 3)\n" + 
+		"	final List<String>[] ls = Util.cast(new List<>[] { null });\n" + 
+		"	                                        ^^^^\n" + 
+		"Incorrect number of arguments for type List<E>; it cannot be parameterized with arguments <>\n" + 
+		"----------\n");
+}
+// Error while building JRE8: https://bugs.eclipse.org/bugs/show_bug.cgi?id=437444#c113
+public void test437444_c113a() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.List;\n" +
+			"public class X {\n" +
+			"	final List<String>[] ls = Util.cast(new List<?>[] { null });\n" +
+			"	\n" +
+			"}\n" +
+			"class Util {\n" +
+			"	@SuppressWarnings(\"unchecked\")\n" +
+			"	public static <T> T cast(Object x) {\n" +
+			"		return (T) x;\n" +
+			"	}\n" +
+			"}\n",
+		}, 
+		"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=434394, [1.8] inference fails in some cases when conditional expression is involved
+public void test434394() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.ArrayList;\n" +
+			"import java.util.Collections;\n" +
+			"import java.util.Comparator;\n" +
+			"import java.util.List;\n" +
+			"public class X {\n" +
+			"  public void bla() {\n" +
+			"    boolean b = Boolean.TRUE.booleanValue();\n" +
+			"    List<String> c1 = new ArrayList<>();\n" +
+			"    Collections.sort(c1, new Foo(new State<>((b ? new Val<>(\"AAAA\") : new Val<>(\"BBBB\"))))); // Cannot infer type arguments for State\n" +
+			"    Collections.sort(c1,new Foo(b ? new State<>(new Val<>(\"AAAA\")) : new State<>(new Val<>(\"BBBB\")))); // this is fine\n" +
+			"  }\n" +
+			"  static class Foo implements Comparator<String>{\n" +
+			"	  public Foo(State<String> st) {\n" +
+			"		  //\n" +
+			"	  }\n" +
+			"	@Override\n" +
+			"	public int compare(String o1, String o2) {\n" +
+			"		// TODO Auto-generated method stub\n" +
+			"		return 0;\n" +
+			"	}\n" +
+			"  }\n" +
+			"	static class State<R> {\n" +
+			"		State(Val<?> o) {\n" +
+			"		}\n" +
+			"	}\n" +
+			"	static class Val<T> {\n" +
+			"		Val(T t) {}\n" +
+			"	}\n" +
+			"}\n",
+		}, 
+		"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=445725,  [1.8][inference] Type inference not occurring with lambda expression and constructor reference
+public void test445725() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.ArrayList;\n" +
+			"import java.util.Arrays;\n" +
+			"import java.util.Collection;\n" +
+			"import java.util.function.Function;\n" +
+			"import java.util.stream.Collectors;\n" +
+			"import java.util.stream.Stream;\n" +
+			"public class X {\n" +
+			"/**\n" +
+			"   * Takes a collection, applies a mapper to it, and then passes the result into the finishing\n" +
+			"   * function\n" +
+			"   */\n" +
+			"  public static <FROM, TO, RESULT> RESULT mapped(Collection<FROM> collection,\n" +
+			"                                                 Function<? super FROM, ? extends TO> mapper,\n" +
+			"                                                 Function<? super Collection<TO>, RESULT> finisher)\n" +
+			"  {\n" +
+			"    return mapped(collection.stream(), mapper, finisher);\n" +
+			"  }\n" +
+			"  /**\n" +
+			"   * Takes a stream, applies a mapper to it, and then passes the result into the finishing function\n" +
+			"   */\n" +
+			"  public static <FROM, TO, RESULT> RESULT mapped(Stream<FROM> stream,\n" +
+			"                                                 Function<? super FROM, ? extends TO> mapper,\n" +
+			"                                                 Function<? super Collection<TO>, RESULT> finisher)\n" +
+			"  {\n" +
+			"    return finisher.apply(stream.map(mapper).collect(Collectors.toList()));\n" +
+			"  }\n" +
+			"  public static void example()\n" +
+			"  {\n" +
+			"    mapped(Stream.of(\"1, 2, 3\"), Integer::parseInt, ArrayList<Integer>::new);\n" +
+			"    mapped(Arrays.asList(\"1, 2, 3\"), Integer::parseInt, ArrayList<Integer>::new);\n" +
+			"\n" +
+			"    mapped(Stream.of(\"1, 2, 3\"), Integer::parseInt, IntCollection::new);\n" +
+			"    mapped(Arrays.asList(\"1, 2, 3\"), Integer::parseInt, IntCollection::new);\n" +
+			"  }\n" +
+			"  public static class IntCollection extends ArrayList<Integer>\n" +
+			"  {\n" +
+			"    public IntCollection(Collection<Integer> numbers)\n" +
+			"    {\n" +
+			"      super(numbers);\n" +
+			"    }\n" +
+			"  }\n" +
+			"}\n",
+		}, 
+		"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=447767, [1.8][compiler] Spurious method not applicable error due to interaction between overload resolution and type inference
+public void test447767() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"interface I {\n" +
+			"	void bar(String t);\n" +
+			"}\n" +
+			"public class X<T> {\n" +
+			"	X(String x) {}\n" +
+			"	X(T x) { \n" +
+			"		System.out.println(\"Here\");\n" +
+			"	}\n" +
+			"	X(T x, String ...strings) {}\n" +
+			"	public void one(X<I> c){}\n" +
+			"	public void two() {\n" +
+			"		one(new X<>((String s) -> { }));\n" +
+			"	}\n" +
+			"	public static void main(String[] args) {\n" +
+			"		new X(\"\").two();\n" +
+			"	}\n" +
+			"}\n",
+		}, 
+		"Here");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=426633, [1.8][compiler] Compiler generates code that invokes inapplicable method.
+public void test426633c() {
+	runNegativeTest(
+		new String[] {
+			"X.java",
+			"interface I {\n" +
+			"	 default <T> void foo (T... p) {}\n" +
+			"}\n" +
+			"abstract class A  {\n" +
+			"	public abstract void foo(Object [] p);\n" +
+			"}\n" +
+			"abstract class B extends A implements I {\n" +
+			"}\n" +
+			"public abstract class X extends B implements I {\n" +
+			"	public static void main(B b) {\n" +
+			"		b.foo(\"hello\", \"world\");\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. WARNING in X.java (at line 2)\n" + 
+		"	default <T> void foo (T... p) {}\n" + 
+		"	                           ^\n" + 
+		"Type safety: Potential heap pollution via varargs parameter p\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=426633, [1.8][compiler] Compiler generates code that invokes inapplicable method.
+public void test426633d() {
+	runNegativeTest(
+		new String[] {
+			"X.java",
+			"interface I {\n" +
+			"	 default <T> void foo (T... p) {}\n" +
+			"}\n" +
+			"abstract class A  {\n" +
+			"	public void foo(Object [] p) {}\n" +
+			"}\n" +
+			"abstract class B extends A implements I {\n" +
+			"}\n" +
+			"public abstract class X extends B implements I {\n" +
+			"	public static void main(B b) {\n" +
+			"		b.foo(\"hello\", \"world\");\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. WARNING in X.java (at line 2)\n" + 
+		"	default <T> void foo (T... p) {}\n" + 
+		"	                           ^\n" + 
+		"Type safety: Potential heap pollution via varargs parameter p\n" + 
+		"----------\n" + 
+		"2. WARNING in X.java (at line 7)\n" + 
+		"	abstract class B extends A implements I {\n" + 
+		"	               ^\n" + 
+		"Varargs methods should only override or be overridden by other varargs methods unlike A.foo(Object[]) and I.foo(Object...)\n" + 
+		"----------\n" + 
+		"3. WARNING in X.java (at line 9)\n" + 
+		"	public abstract class X extends B implements I {\n" + 
+		"	                      ^\n" + 
+		"Varargs methods should only override or be overridden by other varargs methods unlike A.foo(Object[]) and I.foo(Object...)\n" + 
+		"----------\n" + 
+		"4. ERROR in X.java (at line 11)\n" + 
+		"	b.foo(\"hello\", \"world\");\n" + 
+		"	  ^^^\n" + 
+		"The method foo(T...) of type I cannot be invoked as it is overridden by an inapplicable method\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=426633, [1.8][compiler] Compiler generates code that invokes inapplicable method.
+public void test426633e() {
+	runNegativeTest(
+		new String[] {
+			"X.java",
+			"interface I {\n" +
+			"	 default <T> void foo (T... p) {}\n" +
+			"}\n" +
+			"abstract class A  {\n" +
+			"	public void foo(String [] p) {}\n" +
+			"}\n" +
+			"abstract class B extends A implements I {\n" +
+			"}\n" +
+			"public abstract class X extends B implements I {\n" +
+			"	public static void main(B b) {\n" +
+			"		b.foo(\"hello\", \"world\");\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. WARNING in X.java (at line 2)\n" + 
+		"	default <T> void foo (T... p) {}\n" + 
+		"	                           ^\n" + 
+		"Type safety: Potential heap pollution via varargs parameter p\n" + 
+		"----------\n");
+}
+// original:
+public void testBug452788a() {
+	runConformTest(
+		new String[] {
+			"Test.java",
+			"import java.util.function.Function;\n" + 
+			"\n" + 
+			"interface Test<A> {\n" + 
+			"\n" + 
+			"	<B3> Test<B3> create(B3 b);\n" + 
+			"\n" + 
+			"	<B2> Test<B2> transform(Function<? extends A, Test<B2>> f);\n" + 
+			"\n" + 
+			"	default <B1> Test<B1> wrap(Function<? super A, ? extends B1> f) {\n" + 
+			"		return transform(a -> create(f.apply(a)));\n" + 
+			"	}\n" + 
+			"}\n"
+		});
+}
+// variants:
+public void testBug452788b() {
+	runConformTest(
+		new String[] {
+			"Test.java",
+			"import java.util.function.Function;\n" + 
+			"\n" + 
+			"interface Test<A> {\n" + 
+			"\n" + 
+			"	<B3> Test<B3> create(B3 b);\n" + 
+			"\n" + 
+			"	<B2> Test<B2> transform(Function<? extends A, Test<B2>> f);\n" + 
+			"\n" + 
+			"	default <B1> Test<B1> wrap(Function<? super A, ? extends B1> f) {\n" + 
+			"		return transform((A a) -> create(f.apply(a)));\n" + // explicitly typed lambda
+			"	}\n" +
+			"	default <B> Function<? extends A, Test<B>> test1(Function<? super A, ? extends B> f) {\n" + 
+			"		return a -> create(f.apply(a));\n" + // remove outer invocation
+			"	}\n" + 
+			"	default <B> Function<? extends A, Function<? extends A, Test<B>>> test2(Function<? super A, ? extends B> f) {\n" + 
+			"		return a1 -> a2 -> create(f.apply(a2));\n" + // outer lambda instead of outer invocation
+			"	}\n" + 
+			"}\n"
+		});
+}
+// diamond allocation instead of method (was OK before the patch).
+public void testBug452788c() {
+	runConformTest(
+		new String[] {
+			"Test2.java",
+			"import java.util.function.Function;\n" + 
+			"\n" + 
+			"\n" + 
+			"public interface Test2<A> {\n" + 
+			"	<B2> Test2<B2> transform(Function<? extends A, Test2<B2>> f);\n" + 
+			"\n" + 
+			"	default <B1> Test2<B1> wrap(Function<? super A, ? extends B1> f) {\n" + 
+			"		return transform(a -> new TestImpl<>(f.apply(a)));\n" + 
+			"	}\n" + 
+			"}\n" + 
+			"\n" + 
+			"class TestImpl<A> implements Test2<A> {\n" + 
+			"\n" + 
+			"	public TestImpl(A a) { }\n" + 
+			"\n" + 
+			"	@Override\n" + 
+			"	public <B2> Test2<B2> transform(Function<? extends A, Test2<B2>> f) {\n" + 
+			"		return null;\n" + 
+			"	}	\n" + 
 			"}\n"
 		});
 }

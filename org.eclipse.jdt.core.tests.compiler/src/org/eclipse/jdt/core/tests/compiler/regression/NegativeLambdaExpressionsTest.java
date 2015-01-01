@@ -30,6 +30,8 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 import junit.framework.Test;
+
+@SuppressWarnings({ "unchecked", "rawtypes" })
 public class NegativeLambdaExpressionsTest extends AbstractRegressionTest {
 
 static {
@@ -5784,42 +5786,17 @@ public void test401939b() {
 				"	^^^\n" + 
 				"The method goo(I) in the type X is not applicable for the arguments ((<no type> x) -> {})\n" + 
 				"----------\n" + 
-				"2. ERROR in X.java (at line 15)\n" + 
-				"	goo((x) -> { while (TRUE) throw new Exception(); });\n" + 
-				"	^^^\n" + 
-				"The method goo(I) in the type X is not applicable for the arguments ((<no type> x) -> {})\n" + 
-				"----------\n" + 
-				"3. ERROR in X.java (at line 16)\n" + 
-				"	goo((x) -> { while (NIJAM) throw new Exception(); });\n" + 
-				"	^^^\n" + 
-				"The method goo(I) in the type X is not applicable for the arguments ((<no type> x) -> {})\n" + 
-				"----------\n" + 
-				"4. ERROR in X.java (at line 17)\n" + 
+				"2. ERROR in X.java (at line 17)\n" + 
 				"	goo((x) -> { while (POI) throw new Exception(); });\n" + 
 				"	^^^\n" + 
 				"The method goo(I) in the type X is not applicable for the arguments ((<no type> x) -> {})\n" + 
 				"----------\n" + 
-				"5. ERROR in X.java (at line 18)\n" + 
-				"	goo((x) -> { if (TRUE) throw new Exception(); else throw new Exception(); });\n" + 
-				"	^^^\n" + 
-				"The method goo(I) in the type X is not applicable for the arguments ((<no type> x) -> {})\n" + 
-				"----------\n" + 
-				"6. ERROR in X.java (at line 19)\n" + 
+				"3. ERROR in X.java (at line 19)\n" + 
 				"	goo((x) -> { if (TRUE) throw new Exception(); });\n" + 
 				"	^^^\n" + 
 				"The method goo(I) in the type X is not applicable for the arguments ((<no type> x) -> {})\n" + 
 				"----------\n" + 
-				"7. ERROR in X.java (at line 20)\n" + 
-				"	goo((x) -> { if (true) throw new Exception(); else throw new Exception(); });\n" + 
-				"	^^^\n" + 
-				"The method goo(I) in the type X is not applicable for the arguments ((<no type> x) -> {})\n" + 
-				"----------\n" + 
-				"8. ERROR in X.java (at line 21)\n" + 
-				"	goo((x) -> { if (false) throw new Exception(); else throw new Exception(); });\n" + 
-				"	^^^\n" + 
-				"The method goo(I) in the type X is not applicable for the arguments ((<no type> x) -> {})\n" + 
-				"----------\n" + 
-				"9. ERROR in X.java (at line 22)\n" + 
+				"4. ERROR in X.java (at line 22)\n" + 
 				"	goo((x) -> { while (BLANK) throw new Exception(); });\n" + 
 				"	^^^\n" + 
 				"The method goo(I) in the type X is not applicable for the arguments ((<no type> x) -> {})\n" + 
@@ -5893,8 +5870,8 @@ public void test401939d() {
 				"----------\n" + 
 				"1. ERROR in X.java (at line 8)\n" + 
 				"	goo((x) -> { if (x) return null; });\n" + 
-				"	^^^\n" + 
-				"The method goo(I) in the type X is not applicable for the arguments ((<no type> x) -> {})\n" + 
+				"	    ^^^^^^\n" + 
+				"This method must return a result of type String\n" + 
 				"----------\n");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=401939, [1.8][compiler] Incorrect shape analysis leads to method resolution failure .
@@ -6216,11 +6193,6 @@ public void test402609() {
 			},
 			"----------\n" + 
 			"1. ERROR in X.java (at line 18)\n" + 
-			"	f(super::foo);\n" + 
-			"	^\n" + 
-			"The method f(I) in the type X is not applicable for the arguments (super::foo)\n" + 
-			"----------\n" + 
-			"2. ERROR in X.java (at line 18)\n" + 
 			"	f(super::foo);\n" + 
 			"	  ^^^^^\n" + 
 			"Cannot use super in a static context\n" + 
@@ -6867,6 +6839,11 @@ public void test412453() {
 		},
 		"----------\n" + 
 		"1. ERROR in X.java (at line 13)\n" + 
+		"	final Optional<Integer> min = empty.minBy((a, b) -> a - b);\n" + 
+		"	                                    ^^^^^\n" + 
+		"The method minBy(Function<Integer,C>) in the type Y<Integer> is not applicable for the arguments ((<no type> a, <no type> b) -> {})\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 13)\n" + 
 		"	final Optional<Integer> min = empty.minBy((a, b) -> a - b);\n" + 
 		"	                                          ^^^^^^^^^^^^^^^\n" + 
 		"Lambda expression\'s signature does not match the signature of the functional interface method apply(Integer)\n" + 
@@ -7776,21 +7753,16 @@ public void test423129() {
 					"	}\n" +
 					"}\n"
 			},
-			"----------\n" + 
-			"1. ERROR in X.java (at line 11)\n" + 
-			"	System.out.println(xyz);\n" + 
-			"	                   ^^^\n" + 
-			"xyz cannot be resolved to a variable\n" + 
+			"----------\n" +
+			"1. ERROR in X.java (at line 1)\n" + 
+			"	return xyz.\n" + 
+			"	       ^^^\n" + 
+			"Type mismatch: cannot convert from Integer to String\n" + 
 			"----------\n" + 
 			"2. ERROR in X.java (at line 12)\n" + 
 			"	return xyz.\n" + 
 			"	          ^\n" + 
-			"Syntax error, insert \"new ClassType ( )\" to complete ClassInstanceCreationExpression\n" + 
-			"----------\n" + 
-			"3. ERROR in X.java (at line 12)\n" + 
-			"	return xyz.\n" + 
-			"	          ^\n" + 
-			"Syntax error, insert \";\" to complete ReturnStatement\n" + 
+			"Syntax error on token \".\", ; expected\n" + 
 			"----------\n",
 			true);
 }
@@ -8482,7 +8454,7 @@ public void test428300a() {
 		"");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=428177, - [1.8][compiler] Insistent capture issues
-public void _test428177() {
+public void test428177() {
 	runNegativeTest(
 		new String[] {
 			"X.java",
@@ -8533,7 +8505,32 @@ public void _test428177() {
 			"  }\n" +
 			"}\n"
 		},
-		"valid error messages go here - some are expected since javac also complains");
+		"----------\n" + 
+		"1. ERROR in X.java (at line 19)\n" + 
+		"	Stream<String> stream2 = entries.map(toName).distinct(); // ERROR\n" + 
+		"	                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from Stream<capture#7-of ? extends String> to Stream<String>\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 20)\n" + 
+		"	withoutWildcard(entries.map(toName).distinct()); // ERROR\n" + 
+		"	^^^^^^^^^^^^^^^\n" + 
+		"The method withoutWildcard(Stream<String>) in the type InsistentCapture is not applicable for the arguments (Stream<capture#9-of ? extends String>)\n" + 
+		"----------\n" + 
+		"3. ERROR in X.java (at line 21)\n" + 
+		"	withoutWildcard(stream); // ERROR\n" + 
+		"	^^^^^^^^^^^^^^^\n" + 
+		"The method withoutWildcard(Stream<String>) in the type InsistentCapture is not applicable for the arguments (Stream<capture#10-of ? extends String>)\n" + 
+		"----------\n" + 
+		"4. ERROR in X.java (at line 36)\n" + 
+		"	if(\"1\" == \"\") { return stream.collect(Collectors.toList()).stream(); // ERROR\n" + 
+		"	                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from Stream<capture#14-of ? extends String> to Stream<String>\n" + 
+		"----------\n" + 
+		"5. ERROR in X.java (at line 38)\n" + 
+		"	return stream.collect(Collectors.toList()); // NO ERROR\n" + 
+		"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from List<capture#18-of ? extends String> to Stream<String>\n" + 
+		"----------\n");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=428795, - [1.8]Internal compiler error: java.lang.NullPointerException at org.eclipse.jdt.internal.compiler.ast.MessageSend.analyseCode
 public void test428795() {
@@ -9118,11 +9115,12 @@ public void test442983() {
 			"	}	\n" +
 			"}\n"
 		},
+		// Note: new message aligns better with javac 8u20.
 		"----------\n" + 
 		"1. ERROR in X.java (at line 7)\n" + 
 		"	Function<CL<Integer>, String> v5 = CL::method1;\n" + 
 		"	                                   ^^^^^^^^^^^\n" + 
-		"The type CL does not define method1(CL<Integer>) that is applicable here\n" + 
+		"Cannot make a static reference to the non-static method method1(CL) from the type CL\n" + 
 		"----------\n" + 
 		"2. ERROR in X.java (at line 8)\n" + 
 		"	v5 = t -> t.method1();	\n" + 
@@ -9641,7 +9639,7 @@ public void test444665() {
 	"----------\n");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=442446, [1.8][compiler] compiler unable to infer lambda's generic argument types
-public void _test442446() {
+public void test442446() {
 	this.runNegativeTest(
 		new String[] {
 			"X.java", 
@@ -9706,6 +9704,67 @@ public void test432759() {
 			"}\n" 
 	},
 	"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=437444#c36,  NPE in broken code
+public void test437444() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java", 
+			"import java.util.ArrayList;\n" +
+			"import java.util.List;\n" +
+			"import java.util.stream.Collectors;\n" +
+			"public class X {\n" +
+			"	public static void main(String[] args) {\n" +
+			"		List<Person> roster = new ArrayList<>();\n" +
+			"        Map<String, Person> map = \n" +
+			"            roster\n" +
+			"                .stream()\n" +
+			"                .collect(\n" +
+			"                    Collectors.toMap(\n" +
+			"                        Person::getLast,\n" +
+			"                        Function.identity() \n" +
+			"                    ));\n" +
+			"	}\n" +
+			"}\n" +
+			"class Person {\n" +
+			"}\n" 
+	},
+	"----------\n" + 
+	"1. ERROR in X.java (at line 7)\n" + 
+	"	Map<String, Person> map = \n" + 
+	"	^^^\n" + 
+	"Map cannot be resolved to a type\n" + 
+	"----------\n" + 
+	"2. ERROR in X.java (at line 13)\n" + 
+	"	Function.identity() \n" + 
+	"	^^^^^^^^\n" + 
+	"Function cannot be resolved\n" + 
+	"----------\n");
+}
+// test ground target type with wildcards left in non parameter positions.
+public void testGroundTargetTypeWithWithWildcards() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"class A {}\n" +
+			"class B {}\n" +
+			"class C {}\n" +
+			"class Y extends C {}\n" +
+			"interface I<R, S, T> {\n" +
+			"    T m(R r, S s);\n" +
+			"}\n" +
+			"public class X extends A {\n" +
+			"    Object m(I<? extends A, ? extends B, ? extends C> i) {\n" +
+			"    	return m((X x1, X x2) -> { return new Y(); });\n" +
+			"    }\n" +
+			"}\n",
+		}, 
+		"----------\n" + 
+		"1. ERROR in X.java (at line 10)\n" + 
+		"	return m((X x1, X x2) -> { return new Y(); });\n" + 
+		"	         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from I<X,X,? extends C> to I<? extends A,? extends B,? extends C>\n" + 
+		"----------\n");
 }
 public static Class testClass() {
 	return NegativeLambdaExpressionsTest.class;

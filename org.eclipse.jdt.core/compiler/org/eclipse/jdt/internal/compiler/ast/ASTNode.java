@@ -32,6 +32,7 @@
  *								Bug 440143 - [1.8][null] one more case of contradictory null annotations regarding type variables
  *								Bug 441693 - [1.8][null] Bogus warning for type argument annotated with @NonNull
  *								Bug 434483 - [1.8][compiler][inference] Type inference not picked up with method reference
+ *								Bug 446442 - [1.8] merge null annotations from super methods
  *     Jesper S Moller - Contributions for
  *								bug 382721 - [1.8][compiler] Effectively final variables needs special treatment
  *								bug 412153 - [1.8][compiler] Check validity of annotations which may be repeatable
@@ -60,10 +61,7 @@ import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.PackageBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedGenericMethodBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ParameterizedMethodBinding;
-import org.eclipse.jdt.internal.compiler.lookup.PolyTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemMethodBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Scope;
 import org.eclipse.jdt.internal.compiler.lookup.SourceTypeBinding;
@@ -656,123 +654,48 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 	 * After method lookup has produced 'methodBinding' but when poly expressions have been seen as arguments,
 	 * inspect the arguments to trigger another round of resolving with improved target types from the methods parameters.
 	 * If this resolving produces better types for any arguments, update the 'argumentTypes' array in-place as an
-	 * intended side effect that will feed better type information in checkInvocationArguments() and others.
+	 * intended side effect that will feed better type information in checkInvocationArguments() and others. 
 	 * @param invocation the outer invocation which is being resolved
-	 * @param methodBinding the method produced by lookup (possibly involving type inference).
-	 * @param argumentTypes the argument types as collected from first resolving the invocation arguments and as used for
-	 * 	the method lookup.
-	 * @param scope scope for error reporting
+	 * @param method the method produced by lookup (possibly involving type inference).
+	 * @param argumentTypes the argument types as collected from first resolving the invocation arguments and as used for the method lookup.
+	 * @param scope scope for resolution.
 	 */
-	public static void resolvePolyExpressionArguments(Invocation invocation, MethodBinding methodBinding, TypeBinding[] argumentTypes, Scope scope) {
-		if (!invocation.innersNeedUpdate())
+	public static void resolvePolyExpressionArguments(Invocation invocation, MethodBinding method, TypeBinding[] argumentTypes, BlockScope scope) {
+		MethodBinding candidateMethod = method.isValidBinding() ? method : method instanceof ProblemMethodBinding ? ((ProblemMethodBinding) method).closestMatch : null;
+		if (candidateMethod == null)
 			return;
-		int problemReason = 0;
-		MethodBinding candidateMethod;
-		if (methodBinding.isValidBinding()) {
-			candidateMethod = methodBinding;
-		} else if (methodBinding instanceof ProblemMethodBinding) {
-			problemReason = methodBinding.problemId();
-			candidateMethod = ((ProblemMethodBinding) methodBinding).closestMatch;
-		} else {
-			candidateMethod = null;
-		}
-		if (candidateMethod != null) {
-			boolean variableArity = candidateMethod.isVarargs();
-			InferenceContext18 infCtx = null;
-			if (candidateMethod instanceof ParameterizedMethodBinding) {
-				infCtx = invocation.getInferenceContext((ParameterizedMethodBinding) candidateMethod);
-				if (infCtx != null) {
-					if (infCtx.stepCompleted != InferenceContext18.TYPE_INFERRED) {
-						// only work in the exact state of TYPE_INFERRED
-						// - below we're not yet ready
-						// - above we're already done-done
-						return;
-					}
-					variableArity &= infCtx.isVarArgs(); // TODO: if no infCtx is available, do we have to re-check if this is a varargs invocation?
-				}
-			} else if (invocation instanceof AllocationExpression) {
-				if (((AllocationExpression)invocation).suspendedResolutionState != null)
-					return; // not yet ready
-			}
-			
-			final TypeBinding[] parameters = candidateMethod.parameters;
-			Expression[] innerArguments = invocation.arguments();
-			Expression [] arguments = innerArguments;
-			if (infCtx == null && variableArity && arguments != null && parameters.length == arguments.length) { // re-check
-				TypeBinding lastParam = parameters[parameters.length-1];
-				Expression lastArg = arguments[arguments.length-1];
-				if (lastArg.isCompatibleWith(lastParam, null)) {
-					variableArity = false;
-				}
-			}
-			for (int i = 0, length = arguments == null ? 0 : arguments.length; i < length; i++) {
-				Expression argument = arguments[i];
-				TypeBinding updatedArgumentType = null;
-				TypeBinding parameterType = InferenceContext18.getParameter(parameters, i, variableArity);
-				if (parameterType == null && problemReason != ProblemReasons.NoError)
-					continue; // not much we can do without a target type, assume it only happens after some resolve error
-
-				if (argument instanceof LambdaExpression && ((LambdaExpression) argument).hasErrors())
-					continue; // don't update if inner poly has errors
-
-				if (argument instanceof Invocation) {
-					Invocation innerInvocation = (Invocation)argument;
-					MethodBinding binding = innerInvocation.binding(parameterType, true, scope);
-					if (binding instanceof ParameterizedGenericMethodBinding) {
-						ParameterizedGenericMethodBinding parameterizedMethod = (ParameterizedGenericMethodBinding) binding;
-						InferenceContext18 innerContext = innerInvocation.getInferenceContext(parameterizedMethod);
-						if (innerContext != null) {
-							if (!innerContext.hasResultFor(parameterType)) {
-								argument.setExpectedType(parameterType);
-								MethodBinding improvedBinding = innerContext.inferInvocationType(innerInvocation, parameterizedMethod);
-								if (!improvedBinding.isValidBinding()) {
-									innerContext.reportInvalidInvocation(innerInvocation, improvedBinding);
-								}
-								if (innerInvocation.updateBindings(improvedBinding, parameterType)) {
-									resolvePolyExpressionArguments(innerInvocation, improvedBinding, scope);
-								}
-							} else if (innerContext.stepCompleted < InferenceContext18.BINDINGS_UPDATED) {
-								innerContext.rebindInnerPolies(parameterizedMethod, innerInvocation);
-							}
-						}
-						continue; // otherwise these have been dealt with during inner method lookup
-					}
-				}
-
-				if (argument.isPolyExpression()) {
-					// poly expressions in an invocation context may need to be resolved now:
-					if (infCtx != null && infCtx.stepCompleted == InferenceContext18.BINDINGS_UPDATED)
-						updatedArgumentType = argument.resolvedType; // in this case argument was already resolved via InferenceContext18.acceptPendingPolyArguments()
-					else
-						updatedArgumentType = argument.checkAgainstFinalTargetType(parameterType, scope);
-
-					if (problemReason == ProblemReasons.NoError // preserve errors
-							&& updatedArgumentType != null					// do we have a relevant update? ...
-							&& !(updatedArgumentType instanceof PolyTypeBinding))
-					{
-						// update the argumentTypes array (supposed to be owned by the calling method)
-						// in order to give better information for subsequent checks
-						argumentTypes[i] = updatedArgumentType;
-					}
-				}
+		boolean variableArity = candidateMethod.isVarargs();
+		final TypeBinding[] parameters = candidateMethod.parameters;
+		Expression[] arguments = invocation.arguments();
+		if (variableArity && arguments != null && parameters.length == arguments.length) {
+			if (arguments[arguments.length-1].isCompatibleWith(parameters[parameters.length-1], scope)) {
+				variableArity = false;
 			}
 		}
-		invocation.innerUpdateDone();
-	}
-
-	public static void resolvePolyExpressionArguments(Invocation invocation, MethodBinding methodBinding, Scope scope) {
-		TypeBinding[] argumentTypes = null;
-		Expression[] innerArguments = invocation.arguments();
-		if (innerArguments != null) {
-			argumentTypes = new TypeBinding[innerArguments.length];
-			for (int i = 0; i < innerArguments.length; i++)
-				argumentTypes[i] = innerArguments[i].resolvedType;
+		for (int i = 0, length = arguments == null ? 0 : arguments.length; i < length; i++) {
+			Expression argument = arguments[i];
+			TypeBinding parameterType = InferenceContext18.getParameter(parameters, i, variableArity);
+			if (parameterType == null)
+				continue; // not much we can do without a target type, assume it only happens after some resolve error
+			if (argumentTypes[i] != null && argumentTypes[i].isPolyType()) {
+				argument.setExpectedType(parameterType);
+				TypeBinding updatedArgumentType = argument.resolveType(scope); 
+				if (argument instanceof LambdaExpression) {
+					// LE.resolveType may return a valid binding because resolve does not detect structural errors at this point.
+					LambdaExpression lambda = (LambdaExpression) argument;
+					if (!lambda.isCompatibleWith(parameterType, scope) || lambda.hasErrors())
+						continue;
+				}
+				if (updatedArgumentType != null && updatedArgumentType.kind() != Binding.POLY_TYPE)
+					argumentTypes[i] = updatedArgumentType;
+			}
 		}
-		resolvePolyExpressionArguments(invocation, methodBinding, argumentTypes, scope);
 	}
 
 	public static void resolveAnnotations(BlockScope scope, Annotation[] sourceAnnotations, Binding recipient) {
 		resolveAnnotations(scope, sourceAnnotations, recipient, false);
+		if (recipient instanceof SourceTypeBinding)
+			((SourceTypeBinding) recipient).evaluateNullAnnotations(scope);
 	}
 	
 	/**
@@ -1027,7 +950,7 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 		AnnotationBinding [] se8Annotations = null;
 		int se8count = 0;
 		long se8nullBits = 0;
-		Annotation se8NullAnnotation = null;
+		Annotation se8NullAnnotation = null; // just any involved annotation so we have a location for error reporting
 		int firstSE8 = -1;
 		for (int i = 0, length = annotations.length; i < length; i++) {
 			AnnotationBinding annotation = annotations[i].getCompilerAnnotation();
@@ -1050,10 +973,10 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 					se8Annotations[se8count++] = annotation;
 				}
 				if (annotationType.id == TypeIds.T_ConfiguredAnnotationNonNull) {
-					se8nullBits = TagBits.AnnotationNonNull;
+					se8nullBits |= TagBits.AnnotationNonNull;
 					se8NullAnnotation = annotations[i];
 				} else if (annotationType.id == TypeIds.T_ConfiguredAnnotationNullable) {
-					se8nullBits = TagBits.AnnotationNullable;
+					se8nullBits |= TagBits.AnnotationNullable;
 					se8NullAnnotation = annotations[i];
 				}
 			}
@@ -1118,13 +1041,14 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 		
 		// for arrays: @T X[] SE7 associates @T to the type, but in SE8 it affects the leaf component type
 		long prevNullBits = existingType.leafComponentType().tagBits & TagBits.AnnotationNullMASK;
-		if (se8nullBits != 0 && prevNullBits != se8nullBits && ((prevNullBits | se8nullBits) == TagBits.AnnotationNullMASK)) {
-			if (existingType instanceof TypeVariableBinding) {
-				// let type-use annotations override annotations on the type parameter declaration
-				existingType = existingType.withoutToplevelNullAnnotation();
-			} else {
-				scope.problemReporter().contradictoryNullAnnotations(se8NullAnnotation);
+		if ((prevNullBits | se8nullBits) == TagBits.AnnotationNullMASK) { // contradiction after merge?
+			if (!(existingType instanceof TypeVariableBinding)) { // let type-use annotations override annotations on the type parameter declaration
+				if (prevNullBits != TagBits.AnnotationNullMASK && se8nullBits != TagBits.AnnotationNullMASK) { // conflict caused by the merge?
+					scope.problemReporter().contradictoryNullAnnotations(se8NullAnnotation);
+				}
+				se8Annotations = Binding.NO_ANNOTATIONS;
 			}
+			existingType = existingType.withoutToplevelNullAnnotation();
 		}
 		TypeBinding oldLeafType = (unionRef == null) ? existingType.leafComponentType() : unionRef.resolvedType;
 		AnnotationBinding [][] goodies = new AnnotationBinding[typeRef.getAnnotatableLevels()][];
@@ -1239,6 +1163,16 @@ public static void resolveDeprecatedAnnotations(BlockScope scope, Annotation[] a
 	}
 }
 
+	// ---- "default methods" for InvocationSite. Can we move to 1.8 and spare ourselves this ugliness please ?
+	public boolean checkingPotentialCompatibility() {
+		return false;
+	}
+	
+	public void acceptPotentiallyCompatibleMethods(MethodBinding [] methods) {
+		// Discard. Interested subclasses should override and grab these goodies. 
+	}
+	// --- "default methods" for InvocationSite
+	
 	public int sourceStart() {
 		return this.sourceStart;
 	}

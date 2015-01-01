@@ -1794,7 +1794,7 @@ public void test424198() throws JavaModelException {
 	);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=424198, [1.8][hover] IAE in Signature.createCharArrayTypeSignature when hovering on variable of wildcard type, plus compile errors
-public void _test424198a() throws JavaModelException {
+public void test424198a() throws JavaModelException {
 	this.wc = getWorkingCopy(
 			"/Resolve/src/X.java",
 			"import java.io.IOException;\n" +
@@ -1853,13 +1853,13 @@ public void _test424198a() throws JavaModelException {
 	IJavaElement[] elements = this.wc.codeSelect(start, length);
 	assertElementsEqual(
 		"Unexpected elements",
-		"v2 [in apply(? extends java.lang.String) [in <lambda #1> [in processJar(Path) [in InsistentCapture [in [Working copy] X.java [in <default> [in src [in Resolve]]]]]]]]",
+		"v2 [in apply(capture-of ? extends java.lang.String) [in <lambda #1> [in processJar(Path) [in InsistentCapture [in [Working copy] X.java [in <default> [in src [in Resolve]]]]]]]]",
 		elements,
 		true
 	);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=424198, [1.8][hover] IAE in Signature.createCharArrayTypeSignature when hovering on variable of wildcard type, plus compile errors
-public void _test424198b() throws JavaModelException {
+public void test424198b() throws JavaModelException {
 	this.wc = getWorkingCopy(
 			"/Resolve/src/X.java",
 			"import java.io.IOException;\n" +
@@ -1918,7 +1918,7 @@ public void _test424198b() throws JavaModelException {
 	IJavaElement[] elements = this.wc.codeSelect(start, length);
 	assertElementsEqual(
 		"Unexpected elements",
-		"s1 [in accept(? extends java.lang.String) [in <lambda #1> [in withWildcard(Stream<? extends String>) [in InsistentCapture [in [Working copy] X.java [in <default> [in src [in Resolve]]]]]]]]",
+		"s1 [in accept(capture-of ? extends java.lang.String) [in <lambda #1> [in withWildcard(Stream<? extends String>) [in InsistentCapture [in [Working copy] X.java [in <default> [in src [in Resolve]]]]]]]]",
 		elements,
 		true
 	);
@@ -2187,7 +2187,7 @@ public void test428968() throws JavaModelException {
 	IJavaElement[] elements = this.wc.codeSelect(start, length);
 	assertElementsEqual(
 		"Unexpected elements",
-		"comparing(java.util.function.Function<? super T,? extends U>) {key=Ljava/util/Comparator<>;.comparing<T:Ljava/lang/Object;U::Ljava/lang/Comparable<-TU;>;>(Ljava/util/function/Function<-TT;+TU;>;)Ljava/util/Comparator<TT;>;%<Ljava/lang/Object;^{218#0};>} [in Comparator [in Comparator.class [in java.util [in "+ getExternalPath() + "jclFull1.8.jar]]]]",
+		"comparing(java.util.function.Function<? super T,? extends U>) {key=Ljava/util/Comparator<>;.comparing<T:Ljava/lang/Object;U::Ljava/lang/Comparable<-TU;>;>(Ljava/util/function/Function<-TT;+TU;>;)Ljava/util/Comparator<TT;>;%<Ljava/lang/Object;^{259#0};>} [in Comparator [in Comparator.class [in java.util [in "+ getExternalPath() + "jclFull1.8.jar]]]]",
 		elements, true
 	);
 }

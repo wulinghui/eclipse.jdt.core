@@ -264,12 +264,12 @@ public TypeBinding resolveType(BlockScope scope) {
 				this.delegateThis = scope.getField(scope.enclosingSourceType(), EvaluationConstants.DELEGATE_THIS, this);
 				if (this.delegateThis == null){ // if not found then internal error, field should have been found
 					this.constant = Constant.NotAConstant;
-					scope.problemReporter().invalidMethod(this, this.binding);
+					scope.problemReporter().invalidMethod(this, this.binding, scope);
 					return null;
 				}
 			} else {
 				this.constant = Constant.NotAConstant;
-				scope.problemReporter().invalidMethod(this, this.binding);
+				scope.problemReporter().invalidMethod(this, this.binding, scope);
 				return null;
 			}
 			CodeSnippetScope localScope = new CodeSnippetScope(scope);
@@ -286,7 +286,7 @@ public TypeBinding resolveType(BlockScope scope) {
 						return null;
 					}
 				}
-				scope.problemReporter().invalidMethod(this, this.binding);
+				scope.problemReporter().invalidMethod(this, this.binding, scope);
 				return null;
 			} else {
 				this.binding = privateBinding;
@@ -300,7 +300,7 @@ public TypeBinding resolveType(BlockScope scope) {
 					return null;
 				}
 			}
-			scope.problemReporter().invalidMethod(this, this.binding);
+			scope.problemReporter().invalidMethod(this, this.binding, scope);
 			return null;
 		}
 	}
@@ -347,7 +347,7 @@ public TypeBinding resolveType(BlockScope scope) {
 			if ((this.bits & ASTNode.Unchecked) != 0 && this.genericTypeArguments == null) {
 				returnType = scope.environment().convertToRawType(returnType.erasure(), true);
 			}
-			returnType = returnType.capture(scope, this.sourceEnd);			
+			returnType = returnType.capture(scope, this.sourceStart, this.sourceEnd);			
 		}
 		this.resolvedType = returnType;
 	}

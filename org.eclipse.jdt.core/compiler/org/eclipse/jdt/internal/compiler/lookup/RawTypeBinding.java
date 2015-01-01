@@ -205,6 +205,16 @@ public class RawTypeBinding extends ParameterizedTypeBinding {
 		}
 		this.arguments = typeArguments;
 	}
+		
+	@Override
+	public ParameterizedTypeBinding capture(Scope scope, int start, int end) {
+		return this;
+	}
+	
+	@Override 
+	public TypeBinding uncapture(Scope scope) {
+		return this;
+	}
 	
 	@Override
 	TypeBinding substituteInferenceVariable(InferenceVariable var, TypeBinding substituteType) {

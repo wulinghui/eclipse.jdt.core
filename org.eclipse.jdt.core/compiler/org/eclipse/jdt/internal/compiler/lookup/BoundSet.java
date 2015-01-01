@@ -104,7 +104,7 @@ class BoundSet {
 				}
 			}
 			if (i == 0)
-				return Binding.NO_TYPES;
+				return simpleUpper != null ? new TypeBinding[] { simpleUpper } : Binding.NO_TYPES;
 			if (i == 1 && simpleUpper != null)
 				return new TypeBinding[] { simpleUpper }; // no nullHints since not a reference type
 			if (i < rights.length)
@@ -422,7 +422,13 @@ class BoundSet {
 		}
 		return hasProperBound;
 	}
-
+	
+	public void addBounds(BoundSet that, LookupEnvironment environment) {
+		if (that == null || environment == null)
+			return;
+		addBounds(that.flatten(), environment);
+	}
+	
 	public boolean isInstantiated(InferenceVariable inferenceVariable) {
 		ThreeSets three = this.boundsPerVariable.get(inferenceVariable.prototype());
 		if (three != null)
@@ -469,8 +475,6 @@ class BoundSet {
 			if (!incorporate(context, freshBounds, freshBounds))
 				return false;
 
-			this.captures.clear();
-			
 			// Merge the bounds into one incorporated generation.
 			final int incorporatedLength = this.incorporatedBounds.length;
 			final int unincorporatedLength = freshBounds.length;
@@ -499,6 +503,8 @@ class BoundSet {
 			TypeBound boundI = first[i];
 			for (int j = 0, jLength = next.length; j < jLength; j++) {
 				TypeBound boundJ = next[j];
+				if (boundI == boundJ)
+					continue;
 				int iteration = 1;
 				do {
 					ConstraintTypeFormula newConstraint = null;
@@ -626,6 +632,10 @@ class BoundSet {
 							it = three.sameBounds.iterator();
 							while (it.hasNext()) {
 								TypeBound bound = it.next();
+								if (InferenceContext18.SHOULD_WORKAROUND_BUG_JDK_8054721) {
+									if (bound.right instanceof CaptureBinding && bound.right.isProperType(true))
+										continue;
+								}
 								if (!(bound.right instanceof InferenceVariable))
 									return false;
 							}
@@ -648,7 +658,7 @@ class BoundSet {
 										ReferenceBinding[] allBounds = new ReferenceBinding[n];
 										allBounds[0] = (ReferenceBinding) bi1; // TODO is this safe?
 										System.arraycopy(otherBounds, 0, allBounds, 1, n-1);
-										bi = new IntersectionCastTypeBinding(allBounds, context.environment);
+										bi = context.environment.createIntersectionType18(allBounds);
 									}
 									addTypeBoundsFromWildcardBound(context, theta, wildcardBinding.boundKind, t, r, bi);
 									//										if (otherBounds != null) {
@@ -681,6 +691,7 @@ class BoundSet {
 				}
 			}
 		}
+		this.captures.clear();
 		return true;
 	}
 
@@ -969,7 +980,6 @@ class BoundSet {
 		if (three == null) return null;
 		return three.findSingleWrapperType();
 	}
-
 	// this condition is just way too complex to check it in-line:
 	public boolean condition18_5_2_bullet_3_3_1(InferenceVariable alpha, TypeBinding targetType) {
 		// T is a reference type, but is not a wildcard-parameterized type, and either 
@@ -1005,8 +1015,15 @@ class BoundSet {
 				for (int j=i+1; j<len; j++) {
 					TypeBinding s2 = superBounds.get(j).right;
 					TypeBinding[] supers = superTypesWithCommonGenericType(s1, s2);
-					if (supers != null && !TypeBinding.equalsEquals(supers[0], supers[1]))
-						return true;
+					if (supers != null) {
+						/* HashMap<K#8,V#9> and HashMap<K#8,ArrayList<T>> with an instantiation for V9 = ArrayList<T> already in the 
+						   bound set should not be seen as two different parameterizations of the same generic class or interface.
+						   See https://bugs.eclipse.org/bugs/show_bug.cgi?id=432626 for a test that triggers this condition.
+						   See https://bugs.openjdk.java.net/browse/JDK-8056092: recommendation is to check for proper types.
+						*/
+						if (supers[0].isProperType(true) && supers[1].isProperType(true) && !TypeBinding.equalsEquals(supers[0], supers[1]))
+							return true;
+					}
 				}
 			}
 		}
@@ -1044,7 +1061,8 @@ class BoundSet {
 	private boolean superOnlyRaw(TypeBinding g, TypeBinding s, LookupEnvironment env) {
 		if (s instanceof InferenceVariable)
 			return false; // inference has no super types
-		if (s.findSuperTypeOriginatingFrom(g) == null)
+		final TypeBinding superType = s.findSuperTypeOriginatingFrom(g);
+		if (superType != null && !superType.isParameterizedType())
 			return s.isCompatibleWith(env.convertToRawType(g, false));
 		return false;
 	}
@@ -1068,6 +1086,26 @@ class BoundSet {
 				result = superTypesWithCommonGenericType(superInterfaces[i], t);
 				if (result != null)
 					return result;
+			}
+		}
+		return null;
+	}
+
+	public TypeBinding getEquivalentOuterVariable(InferenceVariable variable, InferenceVariable[] outerVariables) {
+		ThreeSets three = this.boundsPerVariable.get(variable);
+		if (three != null) {
+			for (TypeBound bound : three.sameBounds) {
+				for (InferenceVariable iv : outerVariables)
+					if (TypeBinding.equalsEquals(bound.right, iv))
+						return iv;
+			}
+		}
+		for (InferenceVariable iv : outerVariables) {
+			three = this.boundsPerVariable.get(outerVariables);
+			if (three != null) {
+				for (TypeBound bound : three.sameBounds)
+					if (TypeBinding.equalsEquals(bound.right, variable))
+						return iv;
 			}
 		}
 		return null;

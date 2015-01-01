@@ -202,6 +202,10 @@ public class TypeSystem {
 	   See ArrayBinding.swapUnresolved for further special case handling if incoming leafType is a URB that would resolve to a raw type later.
 	*/ 
 	public ArrayBinding getArrayType(TypeBinding leafType, int dimensions) {
+		if  (leafType instanceof ArrayBinding) {
+			dimensions += leafType.dimensions();
+			leafType = leafType.leafComponentType();
+		}
 		TypeBinding unannotatedLeafType = getUnannotatedType(leafType);
 		TypeBinding[] derivedTypes = this.types[unannotatedLeafType.id];
 		int i, length = derivedTypes.length;
@@ -342,20 +346,36 @@ public class TypeSystem {
 		return (WildcardBinding) (this.types[wildcard.id = this.typeid++][0] = wildcard);
 	}
 	
-	// No need for an override in ATS, since we are dealing with recaptures here.
-	public final CaptureBinding getCapturedWildcard(WildcardBinding wildcard, ReferenceBinding contextType, int position, ASTNode cud, int id) {
+	// No need for an override in ATS, since interning is position specific and either the wildcard there is annotated or not.
+	public final CaptureBinding getCapturedWildcard(WildcardBinding wildcard, ReferenceBinding contextType, int start, int end, ASTNode cud, int id) {
 		
 		WildcardBinding unannotatedWildcard = (WildcardBinding) getUnannotatedType(wildcard);
 		TypeBinding[] derivedTypes = this.types[unannotatedWildcard.id];  // by construction, cachedInfo != null now.
 		int i, length = derivedTypes.length;
-		for (i = 0; i < length; i++) {
-			TypeBinding derivedType = derivedTypes[i];
-			if (derivedType == null) 
+		
+		/* Search backwards looking at recent captures, if we encounter a capture from a different compilation unit, this is a fresh uninterned capture.
+		   While compiling one file, we may reach into another file to build structure, we should not compile method bodies there, so we expect to see 
+		   all captures from the same file together without being interleaved by captures from other files.
+		*/
+		int nullSlot = length;
+		for (i = length - 1; i >= -1; --i) {
+			if (i == -1) {
+				i = nullSlot;
 				break;
+			}
+			TypeBinding derivedType = derivedTypes[i];
+			if (derivedType == null) { 
+				nullSlot = i;
+				continue;
+			}
 			if (!derivedType.isCapture())
 				continue;
 			CaptureBinding prior = (CaptureBinding) derivedType;
-			if (prior.sourceType != contextType || prior.position != position || prior.cud != cud) //$IDENTITY-COMPARISON$
+			if (prior.cud != cud) { // Searching further to the left is futile, exit the loop.
+				i = nullSlot;
+				break;
+			}
+			if (prior.sourceType != contextType || prior.start != start || prior.end != end) //$IDENTITY-COMPARISON$
 				continue;
 			return prior;
 		}
@@ -364,7 +384,7 @@ public class TypeSystem {
 			System.arraycopy(derivedTypes, 0, derivedTypes = new TypeBinding[length * 2], 0, length);
 			this.types[unannotatedWildcard.id] = derivedTypes;
 		}
-		TypeBinding capture = derivedTypes[i] = new CaptureBinding(wildcard, contextType, position, cud, id);
+		TypeBinding capture = derivedTypes[i] = new CaptureBinding(wildcard, contextType, start, end, cud, id);
 	
 		int typesLength = this.types.length;
 		if (this.typeid == typesLength)
@@ -488,7 +508,7 @@ public class TypeSystem {
 		}
 	}
 
-	public final TypeBinding getIntersectionCastType(ReferenceBinding[] intersectingTypes) {
+	public final TypeBinding getIntersectionType18(ReferenceBinding[] intersectingTypes) {
 		int intersectingTypesLength = intersectingTypes == null ? 0 : intersectingTypes.length;
 		if (intersectingTypesLength == 0)
 			return null;
@@ -503,7 +523,7 @@ public class TypeSystem {
 			TypeBinding derivedType = derivedTypes[i];
 			if (derivedType == null) 
 				break;
-			if (!derivedType.isIntersectionCastType())
+			if (!derivedType.isIntersectionType18())
 				continue;
 			ReferenceBinding [] priorIntersectingTypes = derivedType.getIntersectingTypes();
 			if (priorIntersectingTypes.length != intersectingTypesLength)
@@ -514,7 +534,7 @@ public class TypeSystem {
 			}	
 			return derivedType;
 		}
-		return cacheDerivedType(keyType, new IntersectionCastTypeBinding(intersectingTypes, this.environment));
+		return cacheDerivedType(keyType, new IntersectionTypeBinding18(intersectingTypes, this.environment));
 	}
 	
 	/**

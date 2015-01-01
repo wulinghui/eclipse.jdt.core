@@ -2203,6 +2203,13 @@ public void configure(String[] argv) {
 							CompilerOptions.GENERATE);
 					continue;
 				}
+				if (currentArg.equals("-genericsignature")) { //$NON-NLS-1$
+					mode = DEFAULT;
+					this.options.put(
+							CompilerOptions.OPTION_LambdaGenericSignature,
+							CompilerOptions.GENERATE);
+					continue;
+				}
 				if (currentArg.startsWith("-g")) { //$NON-NLS-1$
 					mode = DEFAULT;
 					String debugOption = currentArg;
@@ -3834,6 +3841,9 @@ private void handleErrorOrWarningToken(String token, boolean isEnabling, int sev
 				return;
 			} else if (token.equals("unusedArgument") || token.equals("unusedArguments")/*backward compatible*/) { //$NON-NLS-1$ //$NON-NLS-2$
 				setSeverity(CompilerOptions.OPTION_ReportUnusedParameter, severity, isEnabling);
+				return;
+			} else if (token.equals("unusedExceptionParam")) { //$NON-NLS-1$
+				setSeverity(CompilerOptions.OPTION_ReportUnusedExceptionParameter, severity, isEnabling);
 				return;
 			} else if (token.equals("unusedImport") || token.equals("unusedImports")/*backward compatible*/) { //$NON-NLS-1$ //$NON-NLS-2$
 				setSeverity(CompilerOptions.OPTION_ReportUnusedImport, severity, isEnabling);

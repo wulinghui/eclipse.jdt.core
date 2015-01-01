@@ -20,6 +20,8 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 import junit.framework.Test;
+
+@SuppressWarnings({ "unchecked", "rawtypes" })
 public class GenericsRegressionTest_1_7 extends AbstractRegressionTest {
 
 static {
@@ -1178,11 +1180,6 @@ public void test0026() {
 			"	X<Object> x4 = new X<>(1).idem();\n" + 
 			"	               ^^^^^^^^^^^^^^^^^\n" + 
 			"Type mismatch: cannot convert from X<Integer> to X<Object>\n" + 
-			"----------\n" + 
-			"2. ERROR in X.java (at line 15)\n" + 
-			"	int i = m(new X<>(\"\"));\n" + 
-			"	          ^^^^^^^^^^^\n" + 
-			"The constructor X<String>(String) is ambiguous\n" + 
 			"----------\n");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=344655
@@ -1400,7 +1397,7 @@ public void test0034() {
 		"5. ERROR in X.java (at line 17)\n" + 
 		"	X<Integer>.Y<String> y4 = new X<>(1).new Y<>(\"\",\"\");\n" + 
 		"	                          ^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-		"The constructor X<Integer>.Y<String>(String, String) is undefined\n" + 
+		"Cannot infer type arguments for Y<>\n" + 
 		"----------\n" + 
 		"6. ERROR in X.java (at line 19)\n" + 
 		"	X<Integer>.Y<String> y6 = new X<>().new Y<>(1,\"\");\n" + 
@@ -1419,6 +1416,35 @@ public void test0034() {
 		:
 		"Cannot infer type arguments for Y<>\n"
 		) +
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=345559
+public void test0034b() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X<T>  {\n" +
+			"    X(T t) {}\n" +
+			"    X() {}\n" +
+			"    void foo(T a) {\n" +
+			"	 System.out.println(a);\n" +
+			"	 }\n" +
+			"	 class Y<K>{\n" +
+			"		Y(T t,K k) {}\n" +
+			"		Y(K k) {}\n" +
+			"	 }\n" +
+			"    public static void main(String[] args) {\n" +
+			"		X<String>.Y<String> y42 = new X<>(\"\").new Y<>(\"\");\n" +
+			"		X<String>.Y<String> y41 = new X<>(\"\").new Y<>(\"\",\"\");\n" +
+			"		X<Integer>.Y<String> y4 = new X<>(1).new Y<>(\"\",\"\");\n" +
+			"	 }\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 14)\n" + 
+		"	X<Integer>.Y<String> y4 = new X<>(1).new Y<>(\"\",\"\");\n" + 
+		"	                          ^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Cannot infer type arguments for Y<>\n" + 
 		"----------\n");
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=345559
@@ -2176,6 +2202,35 @@ public void test0052c() {
 		customOptions);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=340747
+public void test0052d() {
+	Map customOptions = getCompilerOptions();
+	customOptions.put(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, CompilerOptions.ERROR);	
+	customOptions.put(CompilerOptions.OPTION_ReportRawTypeReference, CompilerOptions.IGNORE);	
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X<E> {\n" +
+			"    X(E e) {}\n" +
+			"    X() {}\n" +
+			"    public static void main(String[] args) {\n" +
+			"        X<Number> x = new X<Number>(1);\n" +
+			"	}\n" +
+			"}\n" +
+			"class AX<T>{}\n"
+		},
+		this.complianceLevel < ClassFileConstants.JDK1_8 ?
+		"" : 
+		"----------\n" + 
+		"1. ERROR in X.java (at line 5)\n" + 
+		"	X<Number> x = new X<Number>(1);\n" + 
+		"	                  ^\n" + 
+		"Redundant specification of type arguments <Number>\n" + 
+		"----------\n",
+		null,
+		false,
+		customOptions);
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=340747
 public void test0053() {
 	Map customOptions = getCompilerOptions();
 	customOptions.put(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, CompilerOptions.ERROR);	
@@ -2676,6 +2731,212 @@ public void test442929() {
 			"}\n",
 		},
 		"Expected CCE");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=448028, [1.8] 1.8 cannot infer type arguments where 1.7 does 
+public void test448028() {
+	Map customOptions = getCompilerOptions();
+	customOptions.put(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, CompilerOptions.ERROR);	
+	this.runNegativeTest(
+		   new String[] {
+			   "X.java",
+			   "public class X {\n" +
+			   "\n" +
+			   "  public static interface I {/*empty*/}\n" +
+			   "\n" +
+			   "  public static class C\n" +
+			   "    implements I {/*empty*/}\n" +
+			   "\n" +
+			   "  public static class W<T extends I>\n" +
+			   "    implements I {\n" +
+			   "\n" +
+			   "    // --- problem is triggered only, when there is a vararg-parameter\n" +
+			   "    public W(final T t, final Object... o) {\n" +
+			   "      super();\n" +
+			   "    }\n" +
+			   "  }\n" +
+			   "\n" +
+			   "  // --- needed to trigger problem\n" +
+			   "  public static final <T> T inspect(final T t) {\n" +
+			   "    return t;\n" +
+			   "  }\n" +
+			   "\n" +
+			   "  // --- this compiles ok when having JDK Compilance set to 1.7 !\n" +
+			   "  public static final W<C> err1() {\n" +
+			   "    final C c = new C();\n" +
+			   "    final Object o = new Object();\n" +
+			   "    return inspect(new W<>(c, o)); // - ERROR: Cannot infer type arguments for W<> F.java\n" +
+			   "  }\n" +
+			   "\n" +
+			   "  public static final W<C> wrn1() {\n" +
+			   "    final C c = new C();\n" +
+			   "    final Object o = new Object();\n" +
+			   "    // --- giving the type-parameter yields a warning\n" +
+			   "    // --- comparing that to the error of method err1() it does not make much sense\n" +
+			   "    return inspect(new W<C>(c, o)); // - WARNING: Redundant specification of type arguments <F.C> F.java\n" +
+			   "  }\n" +
+			   "\n" +
+			   "  public static final W<C> ok1() {\n" +
+			   "    final C c = new C();\n" +
+			   "    // --- no extra vararg-paramaeter\n" +
+			   "    return inspect(new W<>(c)); // - OK\n" +
+			   "  }\n" +
+			   "\n" +
+			   "  public static final W<C> ok2() {\n" +
+			   "    final C c = new C();\n" +
+			   "    final Object o = new Object();\n" +
+			   "    // --- no check-method\n" +
+			   "    return new W<>(c, o); // - OK\n" +
+			   "  }\n" +
+			   "\n" +
+			   "  public static final W<C> ok3() {\n" +
+			   "    final C c = new C();\n" +
+			   "    // --- no check-method\n" +
+			   "    return new W<>(c); // - OK\n" +
+			   "  }\n" +
+			   "\n" +
+			   "  public static final W<C> ok4() {\n" +
+			   "    final C c = new C();\n" +
+			   "    final Object o = new Object();\n" +
+			   "    // --- this also compiles (my solution for now)\n" +
+			   "    final W<C> w = new W<>(c, o);\n" +
+			   "    return inspect(w);\n" +
+			   "  }\n" +
+			   "}\n",
+		   },
+		   "----------\n" + 
+			"1. ERROR in X.java (at line 34)\n" + 
+			"	return inspect(new W<C>(c, o)); // - WARNING: Redundant specification of type arguments <F.C> F.java\n" + 
+			"	                   ^\n" + 
+			"Redundant specification of type arguments <X.C>\n" + 
+			"----------\n", 
+			null, false, customOptions);
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=449619,  [1.8][compiler] Qualified <> allocation fails to compile.   
+public void test449619() {
+	String source = "public class X {\n" +
+			   "	public class Y<T> {\n" +
+			   "	}\n" +
+			   "	static void foo(Y<String> ys) {\n" +
+			   "	}\n" +
+			   "	public static void main(String[] args) {\n" +
+			   "		foo(new X().new Y<>());\n" +
+			   "	}\n" +
+			   "}\n";
+	if (this.complianceLevel >= ClassFileConstants.JDK1_8)
+		this.runConformTest(
+		   new String[] {
+			   "X.java",
+			   source,
+		   },
+		   "");
+	else 
+		this.runNegativeTest(
+		   new String[] {
+			   "X.java",
+			   source,
+		   },
+		   "----------\n" + 
+			"1. ERROR in X.java (at line 7)\n" + 
+			"	foo(new X().new Y<>());\n" + 
+			"	^^^\n" + 
+			"The method foo(X.Y<String>) in the type X is not applicable for the arguments (X.Y<Object>)\n" + 
+			"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=429733, [1.8][bytecode] Bad type on operand stack
+public void test429733() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"	public static void main(String[] args) {\n" +
+			"		test(new Some<>(1.1d));\n" +
+			"	}\n" +
+			"	static <S> void test(Option<S> value) {\n" +
+			"	}\n" +
+			"	static interface Option<T> {\n" +
+			"	}\n" +
+			"	static class Some<T> implements Option<T> {\n" +
+			"		Some(T value) {\n" +
+			"         System.out.println(value);\n" +
+			"		}\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"1.1");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=429733, [1.8][bytecode] Bad type on operand stack
+public void test429733a() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"	public static void main(String[] args) {\n" +
+			"		test(new Some<Double>(1.1d));\n" +
+			"	}\n" +
+			"	static <S> void test(Option<S> value) {\n" +
+			"	}\n" +
+			"	static interface Option<T> {\n" +
+			"	}\n" +
+			"	static class Some<T> implements Option<T> {\n" +
+			"		Some(T value) {\n" +
+			"         System.out.println(value);\n" +
+			"		}\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"1.1");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=375394
+public void test375394a() {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"    B<C, ? extends C<C>, ? extends C<C>> b = new B<>();\n" +
+			"}\n" +
+			"class B <T, U extends C<T>, V extends U>{}\n" +
+			"class C<T> {}\n",
+		},
+		"----------\n" + 
+		"1. WARNING in X.java (at line 2)\n" + 
+		"	B<C, ? extends C<C>, ? extends C<C>> b = new B<>();\n" + 
+		"	  ^\n" + 
+		"C is a raw type. References to generic type C<T> should be parameterized\n" + 
+		"----------\n" + 
+		"2. WARNING in X.java (at line 2)\n" + 
+		"	B<C, ? extends C<C>, ? extends C<C>> b = new B<>();\n" + 
+		"	                 ^\n" + 
+		"C is a raw type. References to generic type C<T> should be parameterized\n" + 
+		"----------\n" + 
+		"3. WARNING in X.java (at line 2)\n" + 
+		"	B<C, ? extends C<C>, ? extends C<C>> b = new B<>();\n" + 
+		"	                                 ^\n" + 
+		"C is a raw type. References to generic type C<T> should be parameterized\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=427728, [1.8] Type Inference rejects calls requiring boxing/unboxing  
+public void test427728b() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"import java.util.Collections;\n" +
+			"import java.util.LinkedHashMap;\n" +
+			"import java.util.Map;\n" +
+			"public class X {\n" +
+			"	public static void main(String[] args) {\n" +
+			"		   Map<X, Integer> map = new LinkedHashMap<>();\n" +
+			"		   map.put(null, X.getInt());\n" +
+			"		   map.put(null, X.getint());\n" +
+			"		}\n" +
+			"		private static <T> int getInt() {\n" +
+			"		   return 0;\n" +
+			"		}\n" +
+			"		private static int getint() {\n" +
+			"			   return 0;\n" +
+			"		}\n" +
+			"}\n"
+		},
+		"");
 }
 public static Class testClass() {
 	return GenericsRegressionTest_1_7.class;

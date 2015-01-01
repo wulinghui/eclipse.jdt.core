@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -19,6 +19,7 @@
  *								bug 400421 - [compiler] Null analysis for fields does not take @com.google.inject.Inject into account
  *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
  *								Bug 416176 - [1.8][compiler][null] null type annotations cause grief on type variables
+ *								Bug 435805 - [1.8][compiler][null] Java 8 compiler does not recognize declaration style null annotations
  *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
  *                          Bug 415399 - [1.8][compiler] Type annotations on constructor results dropped by the code generator
  *******************************************************************************/
@@ -142,10 +143,10 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 		}
 
 		// nullity and mark as assigned
-		if (classScope.compilerOptions().sourceLevel < ClassFileConstants.JDK1_8)
-			analyseArguments(flowInfo, this.arguments, this.binding);
-		else
+		if (classScope.environment().usesNullTypeAnnotations())
 			analyseArguments18(flowInfo, this.arguments, this.binding);
+		else
+			analyseArguments(flowInfo, this.arguments, this.binding);
 
 		// propagate to constructor call
 		if (this.constructorCall != null) {
@@ -270,6 +271,15 @@ public void generateCode(ClassScope classScope, ClassFile classFile) {
 	}
 	boolean restart = false;
 	boolean abort = false;
+	CompilationResult unitResult = null;
+	int problemCount = 0;
+	if (classScope != null) {
+		TypeDeclaration referenceContext = classScope.referenceContext;
+		if (referenceContext != null) {
+			unitResult = referenceContext.compilationResult();
+			problemCount = unitResult.problemCount;
+		}
+	}
 	do {
 		try {
 			problemResetPC = classFile.contentsOffset;
@@ -281,11 +291,19 @@ public void generateCode(ClassScope classScope, ClassFile classFile) {
 				classFile.contentsOffset = problemResetPC;
 				classFile.methodCount--;
 				classFile.codeStream.resetInWideMode(); // request wide mode
+				// reset the problem count to prevent reporting the same warning twice
+				if (unitResult != null) {
+					unitResult.problemCount = problemCount;
+				}
 				restart = true;
 			} else if (e.compilationResult == CodeStream.RESTART_CODE_GEN_FOR_UNUSED_LOCALS_MODE) {
 				classFile.contentsOffset = problemResetPC;
 				classFile.methodCount--;
 				classFile.codeStream.resetForCodeGenUnusedLocals();
+				// reset the problem count to prevent reporting the same warning twice
+				if (unitResult != null) {
+					unitResult.problemCount = problemCount;
+				}
 				restart = true;
 			} else {
 				restart = false;

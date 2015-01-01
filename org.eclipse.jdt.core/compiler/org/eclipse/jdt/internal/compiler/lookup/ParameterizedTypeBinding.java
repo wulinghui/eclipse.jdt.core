@@ -36,6 +36,7 @@
  *								Bug 438179 - [1.8][null] 'Contradictory null annotations' error on type variable with explicit null-annotation.
  *								Bug 441693 - [1.8][null] Bogus warning for type argument annotated with @NonNull
  *								Bug 446434 - [1.8][null] Enable interned captures also when analysing null type annotations
+ *								Bug 435805 - [1.8][compiler][null] Java 8 compiler does not recognize declaration style null annotations
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -128,9 +129,9 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 
 	/**
 	 * Perform capture conversion for a parameterized type with wildcard arguments
-	 * @see org.eclipse.jdt.internal.compiler.lookup.TypeBinding#capture(Scope,int)
+	 * @see org.eclipse.jdt.internal.compiler.lookup.TypeBinding#capture(Scope,int, int)
 	 */
-	public ParameterizedTypeBinding capture(Scope scope, int position) {
+	public ParameterizedTypeBinding capture(Scope scope, int start, int end) {
 		if ((this.tagBits & TagBits.HasDirectWildcard) == 0)
 			return this;
 
@@ -154,9 +155,9 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 				if (wildcard.boundKind == Wildcard.SUPER && wildcard.bound.id == TypeIds.T_JavaLangObject)
 					capturedArguments[i] = wildcard.bound;
 				else if (needUniqueCapture)
-					capturedArguments[i] = this.environment.createCapturedWildcard(wildcard, contextType, position, cud, compilationUnitScope.nextCaptureID());
+					capturedArguments[i] = this.environment.createCapturedWildcard(wildcard, contextType, start, end, cud, compilationUnitScope.nextCaptureID());
 				else 
-					capturedArguments[i] = new CaptureBinding(wildcard, contextType, position, compilationUnitScope.nextCaptureID());	
+					capturedArguments[i] = new CaptureBinding(wildcard, contextType, start, end, cud, compilationUnitScope.nextCaptureID());	
 			} else {
 				capturedArguments[i] = argument;
 			}
@@ -680,13 +681,12 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 		    if (length == 0) return Binding.NO_METHODS;
 
 		    parameterizedMethods = new MethodBinding[length];
-		    CompilerOptions options = this.environment.globalOptions;
-			boolean useNullTypeAnnotations = options.isAnnotationBasedNullAnalysisEnabled && options.sourceLevel >= ClassFileConstants.JDK1_8;
+			boolean useNullTypeAnnotations = this.environment.usesNullTypeAnnotations();
 		    for (int i = 0; i < length; i++) {
 		    	// substitute methods, so as to get updated declaring class at least
 	            parameterizedMethods[i] = createParameterizedMethod(originalMethods[i]);
 	            if (useNullTypeAnnotations)
-	            	parameterizedMethods[i] = NullAnnotationMatching.checkForContraditions(parameterizedMethods[i], null, null);
+	            	parameterizedMethods[i] = NullAnnotationMatching.checkForContradictions(parameterizedMethods[i], null, null);
 		    }
 		    if (this.methods == null) {
 				MethodBinding[] temp = new MethodBinding[length];
@@ -962,13 +962,12 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 		    MethodBinding[] originalMethods = this.type.methods();
 		    int length = originalMethods.length;
 		    MethodBinding[] parameterizedMethods = new MethodBinding[length];
-		    CompilerOptions options = this.environment.globalOptions;
-			boolean useNullTypeAnnotations = options.isAnnotationBasedNullAnalysisEnabled && options.sourceLevel >= ClassFileConstants.JDK1_8;
+			boolean useNullTypeAnnotations = this.environment.usesNullTypeAnnotations();
 		    for (int i = 0; i < length; i++) {
 		    	// substitute all methods, so as to get updated declaring class at least
 	            parameterizedMethods[i] = createParameterizedMethod(originalMethods[i]);
 	            if (useNullTypeAnnotations)
-	            	parameterizedMethods[i] = NullAnnotationMatching.checkForContraditions(parameterizedMethods[i], null, null);
+	            	parameterizedMethods[i] = NullAnnotationMatching.checkForContradictions(parameterizedMethods[i], null, null);
 		    }
 
 		    this.methods = parameterizedMethods;
@@ -1392,10 +1391,10 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 		return this.fields;
 	}
 	public MethodBinding getSingleAbstractMethod(final Scope scope, boolean replaceWildcards) {
-		return getSingleAbstractMethod(scope, replaceWildcards, -1 /* do not capture */);
+		return getSingleAbstractMethod(scope, replaceWildcards, -1, -1 /* do not capture */);
 	}	
-	public MethodBinding getSingleAbstractMethod(final Scope scope, boolean replaceWildcards, int capturePosition) {
-		int index = replaceWildcards ? capturePosition < 0 ? 0 : 1 : 2; // capturePosition >= 0 IFF replaceWildcard == true
+	public MethodBinding getSingleAbstractMethod(final Scope scope, boolean replaceWildcards, int start, int end) {
+		int index = replaceWildcards ? end < 0 ? 0 : 1 : 2; // capturePosition >= 0 IFF replaceWildcard == true
 		if (this.singleAbstractMethod != null) {
 			if (this.singleAbstractMethod[index] != null)
 				return this.singleAbstractMethod[index];
@@ -1418,11 +1417,11 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 		} else if (types == null) {
 			types = NO_TYPES;
 		}
-		if (capturePosition >= 0) { 
+		if (end >= 0) { 
 			// caller is going to require the sam's parameters to be treated as argument expressions, post substitution capture will lose identity, where substitution results in fan out
 			// capture first and then substitute.
 			for (int i = 0, length = types.length; i < length; i++) {
-				types[i] = types[i].capture(scope, 0);
+				types[i] = types[i].capture(scope, start, end);
 			}
 		}
 		declaringType = scope.environment().createParameterizedType(genericType, types, genericType.enclosingType());
@@ -1486,7 +1485,7 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 							try {
 								ReferenceBinding[] refs = new ReferenceBinding[glb.length];
 								System.arraycopy(glb, 0, refs, 0, glb.length); // TODO: if an array type plus more types get here, we get ArrayStoreException!
-								types[i] = new IntersectionCastTypeBinding(refs, this.environment);
+								types[i] = this.environment.createIntersectionType18(refs);
 							} catch (ArrayStoreException ase) {
 								scope.problemReporter().genericInferenceError("Cannot compute glb of "+Arrays.toString(glb), null); //$NON-NLS-1$
 								return null;

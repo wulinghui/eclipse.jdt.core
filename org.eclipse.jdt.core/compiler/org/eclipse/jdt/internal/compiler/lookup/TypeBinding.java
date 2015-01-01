@@ -183,7 +183,7 @@ public boolean canBeInstantiated() {
 /**
  * Perform capture conversion on a given type (only effective on parameterized type with wildcards)
  */
-public TypeBinding capture(Scope scope, int position) {
+public TypeBinding capture(Scope scope, int start, int end) {
 	return this;
 }
 
@@ -441,6 +441,16 @@ public TypeBinding findSuperTypeOriginatingFrom(TypeBinding otherType) {
 					}
 				}
 			}
+			break;
+		case Binding.INTERSECTION_TYPE18:
+			IntersectionTypeBinding18 itb18 = (IntersectionTypeBinding18) this;
+			ReferenceBinding[] intersectingTypes = itb18.getIntersectingTypes();
+			for (int i = 0, length = intersectingTypes.length; i < length; i++) {
+				TypeBinding superType = intersectingTypes[i].findSuperTypeOriginatingFrom(otherType);
+				if (superType != null)
+					return superType;
+			}
+			break;
 	}
 	return null;
 }
@@ -534,14 +544,6 @@ public final boolean isBaseType() {
 	return (this.tagBits & TagBits.IsBaseType) != 0;
 }
 
-public boolean isPertinentToApplicability(TypeVariableBinding typeVariable, MethodBinding method) {
-	return true;
-}
-
-public boolean isPertinentToApplicability(TypeBinding argument, MethodBinding method) {
-	return true;
-}
-
 /* Answer true if the receiver is a base type other than void or null
  */
 public final boolean isPrimitiveType() {
@@ -611,6 +613,31 @@ public boolean isCompatibleWith(TypeBinding right) {
 }
 // version that allows to capture a type bound using 'scope':
 public abstract boolean isCompatibleWith(TypeBinding right, /*@Nullable*/ Scope scope);
+
+public boolean isPotentiallyCompatibleWith(TypeBinding right, /*@Nullable*/ Scope scope) {
+	return isCompatibleWith(right, scope);
+}
+
+/* Answer true if the receiver type can be assigned to the argument type (right) with boxing/unboxing applied.
+ */
+public boolean isBoxingCompatibleWith(TypeBinding right, /*@NonNull */ Scope scope) {
+	
+	if (right == null)
+		return false;
+
+	if (TypeBinding.equalsEquals(this, right))
+		return true;
+	
+	if (this.isCompatibleWith(right, scope))
+		return true;
+	
+	if (this.isBaseType() != right.isBaseType()) {
+		TypeBinding convertedType = scope.environment().computeBoxingType(this);
+		if (TypeBinding.equalsEquals(convertedType, right) || convertedType.isCompatibleWith(right, scope))
+			return true;
+	}
+	return false;
+}
 
 public boolean isEnum() {
 	return false;
@@ -709,7 +736,7 @@ public boolean acceptsNonNullDefault() {
 	return false;
 }
 
-public boolean isIntersectionCastType() {
+public boolean isIntersectionType18() {
 	return false;
 }
 
@@ -1231,6 +1258,12 @@ public boolean isTypeArgumentContainedBy(TypeBinding otherType) {
 			TypeBinding otherBound = otherWildcard.bound;
 			switch (otherWildcard.boundKind) {
 				case Wildcard.EXTENDS:
+					if (otherBound instanceof IntersectionTypeBinding18) {
+						TypeBinding [] intersectingTypes = ((IntersectionTypeBinding18) otherBound).intersectingTypes;
+						for (int i = 0, length = intersectingTypes.length; i < length; i++)
+							if (TypeBinding.equalsEquals(intersectingTypes[i], this))
+								return true;
+					}
 					if (TypeBinding.equalsEquals(otherBound, this))
 						return true; // ? extends T  <=  ? extends ? extends T
 					if (upperBound == null)
@@ -1243,6 +1276,12 @@ public boolean isTypeArgumentContainedBy(TypeBinding otherType) {
 					return upperBound.isCompatibleWith(otherBound);
 
 				case Wildcard.SUPER:
+					if (otherBound instanceof IntersectionTypeBinding18) {
+						TypeBinding [] intersectingTypes = ((IntersectionTypeBinding18) otherBound).intersectingTypes;
+						for (int i = 0, length = intersectingTypes.length; i < length; i++)
+							if (TypeBinding.equalsEquals(intersectingTypes[i], this))
+								return true;
+					}
 					if (TypeBinding.equalsEquals(otherBound, this))
 						return true; // ? super T  <=  ? super ? super T
 					if (lowerBound == null)
@@ -1501,6 +1540,11 @@ public void setTypeAnnotations(AnnotationBinding[] annotations, boolean evalNull
 	}
 }
 
+// return a name that can be passed to Signature.createTypeSignature
+public char [] signableName() {
+	return readableName();
+}
+
 /**
  * Answer the receiver classfile signature.
  * Arrays & base types do not distinguish between signature() & constantPoolName().
@@ -1628,5 +1672,9 @@ public boolean enterRecursiveFunction() {
  */
 public void exitRecursiveFunction() {
 	// empty, subclasses to override
+}
+
+public boolean isFunctionalType() {
+	return false;
 }
 }

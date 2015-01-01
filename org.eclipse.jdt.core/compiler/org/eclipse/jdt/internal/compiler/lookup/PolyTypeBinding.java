@@ -38,18 +38,18 @@ public class PolyTypeBinding extends TypeBinding {
 	}
 	
 	@Override
-	public boolean isPertinentToApplicability(TypeBinding targetType, MethodBinding method) {
-		return this.expression.isPertinentToApplicability(targetType, method);
+	public boolean isPotentiallyCompatibleWith(TypeBinding targetType, Scope scope) {
+		return this.expression.isPotentiallyCompatibleWith(targetType, scope);
 	}
-	
-	@Override
-	public boolean isPertinentToApplicability(TypeVariableBinding typeVariable, MethodBinding method) {
-		return this.expression.isPertinentToApplicability(typeVariable, method);
-	}
-	
+
 	@Override
 	public boolean isPolyType() {
 		return true;
+	}
+	
+	@Override
+	public boolean isFunctionalType() {
+		return this.expression.isFunctionalType();
 	}
 
 	public char[] qualifiedSourceName() {

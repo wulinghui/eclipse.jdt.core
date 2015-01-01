@@ -65,7 +65,15 @@ public class AnnotatableTypeSystem extends TypeSystem {
 	   type later.
 	*/
 	public ArrayBinding getArrayType(TypeBinding leafType, int dimensions, AnnotationBinding [] annotations) {
-		
+		if (leafType instanceof ArrayBinding) { // substitution attempts can cause this, don't create array of arrays.
+			dimensions += leafType.dimensions();
+			AnnotationBinding[] leafAnnotations = leafType.getTypeAnnotations();
+			leafType = leafType.leafComponentType();
+			AnnotationBinding [] allAnnotations = new AnnotationBinding[leafAnnotations.length + annotations.length + 1];
+			System.arraycopy(annotations, 0, allAnnotations, 0, annotations.length);
+			System.arraycopy(leafAnnotations, 0, allAnnotations, annotations.length + 1 /* leave a null */, leafAnnotations.length);
+			annotations = allAnnotations;
+		}
 		ArrayBinding nakedType = null;
 		TypeBinding[] derivedTypes = getDerivedTypes(leafType);
 		for (int i = 0, length = derivedTypes.length; i < length; i++) {
@@ -221,7 +229,7 @@ public class AnnotatableTypeSystem extends TypeSystem {
 			case Binding.TYPE_PARAMETER:
 			case Binding.WILDCARD_TYPE:
 			case Binding.INTERSECTION_TYPE:
-			case Binding.INTERSECTION_CAST_TYPE:
+			case Binding.INTERSECTION_TYPE18:
 				/* Taking the binding of QTR as an example, there could be different annotatable components, but we come in a with a single binding, e.g: 
 				   @T Z;                                      type => Z  annotations => [[@T]]
 				   @T Y.@T Z                                  type => Z  annotations => [[@T][@T]]
@@ -306,7 +314,7 @@ public class AnnotatableTypeSystem extends TypeSystem {
 						case Binding.ARRAY_TYPE:
 						case Binding.RAW_TYPE:
 						case Binding.WILDCARD_TYPE:
-						case Binding.INTERSECTION_CAST_TYPE:
+						case Binding.INTERSECTION_TYPE18:
 						case Binding.INTERSECTION_TYPE:
 							continue;
 					}

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -19,6 +19,7 @@
  *								bug 388281 - [compiler][null] inheritance of null annotations as an option
  *								bug 381443 - [compiler][null] Allow parameter widening from @NonNull to unannotated
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								Bug 435805 - [1.8][compiler][null] Java 8 compiler does not recognize declaration style null annotations
  *     Jesper Steen Moller - Contributions for
  *								bug 404146 - [1.7][compiler] nested try-catch-finally-blocks leads to unrunnable Java byte code
  *								bug 407297 - [1.8][compiler] Control generation of parameter names by option
@@ -50,6 +51,7 @@ public class CompilerOptions {
 	public static final String OPTION_SourceFileAttribute = "org.eclipse.jdt.core.compiler.debug.sourceFile"; //$NON-NLS-1$
 	public static final String OPTION_PreserveUnusedLocal = "org.eclipse.jdt.core.compiler.codegen.unusedLocal"; //$NON-NLS-1$
 	public static final String OPTION_MethodParametersAttribute = "org.eclipse.jdt.core.compiler.codegen.methodParameters"; //$NON-NLS-1$
+	public static final String OPTION_LambdaGenericSignature = "org.eclipse.jdt.core.compiler.codegen.lambda.genericSignature"; //$NON-NLS-1$
 	public static final String OPTION_DocCommentSupport= "org.eclipse.jdt.core.compiler.doc.comment.support"; //$NON-NLS-1$
 	public static final String OPTION_ReportMethodWithConstructorName = "org.eclipse.jdt.core.compiler.problem.methodWithConstructorName"; //$NON-NLS-1$
 	public static final String OPTION_ReportOverridingPackageDefaultMethod = "org.eclipse.jdt.core.compiler.problem.overridingPackageDefaultMethod"; //$NON-NLS-1$
@@ -59,6 +61,7 @@ public class CompilerOptions {
 	public static final String OPTION_ReportHiddenCatchBlock = "org.eclipse.jdt.core.compiler.problem.hiddenCatchBlock"; //$NON-NLS-1$
 	public static final String OPTION_ReportUnusedLocal = "org.eclipse.jdt.core.compiler.problem.unusedLocal"; //$NON-NLS-1$
 	public static final String OPTION_ReportUnusedParameter = "org.eclipse.jdt.core.compiler.problem.unusedParameter"; //$NON-NLS-1$
+	public static final String OPTION_ReportUnusedExceptionParameter = "org.eclipse.jdt.core.compiler.problem.unusedExceptionParameter"; //$NON-NLS-1$
 	public static final String OPTION_ReportUnusedParameterWhenImplementingAbstract = "org.eclipse.jdt.core.compiler.problem.unusedParameterWhenImplementingAbstract"; //$NON-NLS-1$
 	public static final String OPTION_ReportUnusedParameterWhenOverridingConcrete = "org.eclipse.jdt.core.compiler.problem.unusedParameterWhenOverridingConcrete"; //$NON-NLS-1$
 	public static final String OPTION_ReportUnusedParameterIncludeDocCommentReference = "org.eclipse.jdt.core.compiler.problem.unusedParameterIncludeDocCommentReference"; //$NON-NLS-1$
@@ -146,7 +149,6 @@ public class CompilerOptions {
 	// OPTION_Store_Annotations: undocumented option for testing purposes
 	public static final String OPTION_Store_Annotations = "org.eclipse.jdt.core.compiler.storeAnnotations"; //$NON-NLS-1$
 	public static final String OPTION_EmulateJavacBug8031744 = "org.eclipse.jdt.core.compiler.emulateJavacBug8031744"; //$NON-NLS-1$
-	public static final String OPTION_PostResolutionRawTypeCompatibilityCheck = "org.eclipse.jdt.core.compiler.postResolutionRawTypeCompatibilityCheck"; //$NON-NLS-1$
 	public static final String OPTION_ReportRedundantSuperinterface =  "org.eclipse.jdt.core.compiler.problem.redundantSuperinterface"; //$NON-NLS-1$
 	public static final String OPTION_ReportComparingIdentical =  "org.eclipse.jdt.core.compiler.problem.comparingIdentical"; //$NON-NLS-1$
 	public static final String OPTION_ReportMissingSynchronizedOnInheritedMethod =  "org.eclipse.jdt.core.compiler.problem.missingSynchronizedOnInheritedMethod"; //$NON-NLS-1$
@@ -294,6 +296,7 @@ public class CompilerOptions {
 	public static final int MissingDefaultCase = IrritantSet.GROUP2 | ASTNode.Bit16;
 	public static final int UnusedTypeParameter = IrritantSet.GROUP2 | ASTNode.Bit17;
 	public static final int NonnullParameterAnnotationDropped = IrritantSet.GROUP2 | ASTNode.Bit18;
+	public static final int UnusedExceptionParameter = IrritantSet.GROUP2 | ASTNode.Bit19;
 
 	// Severity level for handlers
 	/** 
@@ -314,7 +317,9 @@ public class CompilerOptions {
 	/** Classfile debug information, may contain source file name, line numbers, local variable tables, etc... */
 	public int produceDebugAttributes; 
 	/** Classfile method patameters information as per JEP 118... */
-	public boolean produceMethodParameters; 
+	public boolean produceMethodParameters;
+	/** Indicates whether generic signature should be generated for lambda expressions */
+	public boolean generateGenericSignatureForLambdaExpressions;
 	/** Compliance level for the compiler, refers to a JDK version, e.g. {@link ClassFileConstants#JDK1_4} */
 	public long complianceLevel;
 	/** Original compliance level for the compiler, refers to a JDK version, e.g. {@link ClassFileConstants#JDK1_4},
@@ -409,8 +414,6 @@ public class CompilerOptions {
 	public boolean processAnnotations;
 	/** Store annotations */
 	public boolean storeAnnotations;
-	/** extra check for raw type compatibility post overload resolution */
-	public boolean postResolutionRawTypeCompatibilityCheck = true;
 	/** Specify if need to report missing override annotation for a method implementing an interface method (java 1.6 and above)*/
 	public boolean reportMissingOverrideAnnotationForInterfaceMethodImplementation;
 	/** Indicate if annotation processing generates classfiles */
@@ -458,6 +461,9 @@ public class CompilerOptions {
 
 	public boolean complainOnUninternedIdentityComparison;
 	public boolean emulateJavacBug8031744 = true;
+
+	/** Not directly configurable, derived from other options by LookupEnvironment.usesNullTypeAnnotations() */
+	public Boolean useNullTypeAnnotations = null;
 
 	// keep in sync with warningTokenToIrritant and warningTokenFromIrritant
 	public final static String[] warningTokens = {
@@ -534,6 +540,8 @@ public class CompilerOptions {
 				return OPTION_ReportUnusedLocal;
 			case UnusedArgument :
 				return OPTION_ReportUnusedParameter;
+			case UnusedExceptionParameter :
+				return OPTION_ReportUnusedExceptionParameter;
 			case NoImplicitStringConversion :
 				return OPTION_ReportNoImplicitStringConversion;
 			case AccessEmulation :
@@ -836,6 +844,7 @@ public class CompilerOptions {
 			OPTION_ReportUnusedLocal,
 			OPTION_ReportUnusedObjectAllocation,
 			OPTION_ReportUnusedParameter,
+			OPTION_ReportUnusedExceptionParameter,
 			OPTION_ReportUnusedParameterIncludeDocCommentReference,
 			OPTION_ReportUnusedParameterWhenImplementingAbstract,
 			OPTION_ReportUnusedParameterWhenOverridingConcrete,
@@ -909,6 +918,7 @@ public class CompilerOptions {
 			case RedundantSuperinterface :
 			case UnusedLocalVariable :
 			case UnusedArgument :
+			case UnusedExceptionParameter :
 			case UnusedImport :
 			case UnusedPrivateMember :
 			case UnusedDeclaredThrownException :
@@ -1039,6 +1049,7 @@ public class CompilerOptions {
 		optionsMap.put(OPTION_LineNumberAttribute, (this.produceDebugAttributes & ClassFileConstants.ATTR_LINES) != 0 ? GENERATE : DO_NOT_GENERATE);
 		optionsMap.put(OPTION_SourceFileAttribute, (this.produceDebugAttributes & ClassFileConstants.ATTR_SOURCE) != 0 ? GENERATE : DO_NOT_GENERATE);
 		optionsMap.put(OPTION_MethodParametersAttribute, this.produceMethodParameters ? GENERATE : DO_NOT_GENERATE);
+		optionsMap.put(OPTION_LambdaGenericSignature, this.generateGenericSignatureForLambdaExpressions ? GENERATE : DO_NOT_GENERATE);
 		optionsMap.put(OPTION_PreserveUnusedLocal, this.preserveAllLocalVariables ? PRESERVE : OPTIMIZE_OUT);
 		optionsMap.put(OPTION_DocCommentSupport, this.docCommentSupport ? ENABLED : DISABLED);
 		optionsMap.put(OPTION_ReportMethodWithConstructorName, getSeverityString(MethodWithConstructorName));
@@ -1049,6 +1060,7 @@ public class CompilerOptions {
 		optionsMap.put(OPTION_ReportHiddenCatchBlock, getSeverityString(MaskedCatchBlock));
 		optionsMap.put(OPTION_ReportUnusedLocal, getSeverityString(UnusedLocalVariable));
 		optionsMap.put(OPTION_ReportUnusedParameter, getSeverityString(UnusedArgument));
+		optionsMap.put(OPTION_ReportUnusedExceptionParameter, getSeverityString(UnusedExceptionParameter));
 		optionsMap.put(OPTION_ReportUnusedImport, getSeverityString(UnusedImport));
 		optionsMap.put(OPTION_ReportSyntheticAccessEmulation, getSeverityString(AccessEmulation));
 		optionsMap.put(OPTION_ReportNoEffectAssignment, getSeverityString(NoEffectAssignment));
@@ -1136,7 +1148,6 @@ public class CompilerOptions {
 		optionsMap.put(OPTION_Process_Annotations, this.processAnnotations ? ENABLED : DISABLED);
 		optionsMap.put(OPTION_Store_Annotations, this.storeAnnotations ? ENABLED : DISABLED);
 		optionsMap.put(OPTION_EmulateJavacBug8031744, this.emulateJavacBug8031744 ? ENABLED : DISABLED);
-		optionsMap.put(OPTION_PostResolutionRawTypeCompatibilityCheck, this.postResolutionRawTypeCompatibilityCheck ? ENABLED : DISABLED);
 		optionsMap.put(OPTION_ReportRedundantSuperinterface, getSeverityString(RedundantSuperinterface));
 		optionsMap.put(OPTION_ReportComparingIdentical, getSeverityString(ComparingIdentical));
 		optionsMap.put(OPTION_ReportMissingSynchronizedOnInheritedMethod, getSeverityString(MissingSynchronizedModifierInInheritedMethod));
@@ -1534,6 +1545,13 @@ public class CompilerOptions {
 				this.produceMethodParameters = false;
 			}
 		}
+		if ((optionValue = optionsMap.get(OPTION_LambdaGenericSignature)) != null) {
+			if (GENERATE.equals(optionValue)) {
+				this.generateGenericSignatureForLambdaExpressions = true;
+			} else if (DO_NOT_GENERATE.equals(optionValue)) {
+				this.generateGenericSignatureForLambdaExpressions = false;
+			}
+		}
 		if ((optionValue = optionsMap.get(OPTION_SuppressWarnings)) != null) {
 			if (ENABLED.equals(optionValue)) {
 				this.suppressWarnings = true;
@@ -1575,6 +1593,7 @@ public class CompilerOptions {
 		if ((optionValue = optionsMap.get(OPTION_ReportHiddenCatchBlock)) != null) updateSeverity(MaskedCatchBlock, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportUnusedLocal)) != null) updateSeverity(UnusedLocalVariable, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportUnusedParameter)) != null) updateSeverity(UnusedArgument, optionValue);
+		if ((optionValue = optionsMap.get(OPTION_ReportUnusedExceptionParameter)) != null) updateSeverity(UnusedExceptionParameter, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportUnusedImport)) != null) updateSeverity(UnusedImport, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportUnusedPrivateMember)) != null) updateSeverity(UnusedPrivateMember, optionValue);
 		if ((optionValue = optionsMap.get(OPTION_ReportUnusedDeclaredThrownException)) != null) updateSeverity(UnusedDeclaredThrownException, optionValue);
@@ -1812,13 +1831,6 @@ public class CompilerOptions {
 				this.emulateJavacBug8031744 = false;
 			}
 		}
-		if ((optionValue = optionsMap.get(OPTION_PostResolutionRawTypeCompatibilityCheck)) != null) {
-			if (ENABLED.equals(optionValue)) {
-				this.postResolutionRawTypeCompatibilityCheck = true;
-			} else if (DISABLED.equals(optionValue)) {
-				this.postResolutionRawTypeCompatibilityCheck = false;
-			}
-		}
 		if ((optionValue = optionsMap.get(OPTION_ReportUninternedIdentityComparison)) != null) {
 			if (ENABLED.equals(optionValue)) {
 				this.complainOnUninternedIdentityComparison = true;
@@ -1833,6 +1845,7 @@ public class CompilerOptions {
 		buf.append("\n\t- line number debug attributes: ").append((this.produceDebugAttributes & ClassFileConstants.ATTR_LINES) != 0 ? "ON" : " OFF"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		buf.append("\n\t- source debug attributes: ").append((this.produceDebugAttributes & ClassFileConstants.ATTR_SOURCE) != 0 ? "ON" : " OFF"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		buf.append("\n\t- MethodParameters attributes: ").append(this.produceMethodParameters ? GENERATE : DO_NOT_GENERATE); //$NON-NLS-1$
+		buf.append("\n\t- Generic signature for lambda expressions: ").append(this.generateGenericSignatureForLambdaExpressions ? GENERATE : DO_NOT_GENERATE); //$NON-NLS-1$
 		buf.append("\n\t- preserve all local variables: ").append(this.preserveAllLocalVariables ? "ON" : " OFF"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		buf.append("\n\t- method with constructor name: ").append(getSeverityString(MethodWithConstructorName)); //$NON-NLS-1$
 		buf.append("\n\t- overridden package default method: ").append(getSeverityString(OverriddenPackageDefaultMethod)); //$NON-NLS-1$
@@ -1840,6 +1853,7 @@ public class CompilerOptions {
 		buf.append("\n\t- masked catch block: ").append(getSeverityString(MaskedCatchBlock)); //$NON-NLS-1$
 		buf.append("\n\t- unused local variable: ").append(getSeverityString(UnusedLocalVariable)); //$NON-NLS-1$
 		buf.append("\n\t- unused parameter: ").append(getSeverityString(UnusedArgument)); //$NON-NLS-1$
+		buf.append("\n\t- unused exception parameter: ").append(getSeverityString(UnusedExceptionParameter)); //$NON-NLS-1$
 		buf.append("\n\t- unused import: ").append(getSeverityString(UnusedImport)); //$NON-NLS-1$
 		buf.append("\n\t- synthetic access emulation: ").append(getSeverityString(AccessEmulation)); //$NON-NLS-1$
 		buf.append("\n\t- assignment with no effect: ").append(getSeverityString(NoEffectAssignment)); //$NON-NLS-1$
