@@ -436,6 +436,14 @@ public void setExternalAnnotationProvider(String externalAnnotationDir) {
 	}
 }
 
+/** If a provider for external annotations has been registered try to retrieve an annotation walker for type parameters of the current type. */
+public ITypeAnnotationWalker getAnnotationsForTypeParameters(LookupEnvironment environment) {
+	if (this.annotationProvider != null) {
+		return this.annotationProvider.forTypeParameters(environment);
+	}
+	return ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER;
+}
+
 /** If a provider for external annotations has been registered try to retrieve an annotation walker for the given method. */
 public ITypeAnnotationWalker getAnnotationsForMethod(IBinaryMethod method, char[] methodSignature, LookupEnvironment environment) {
 	if (this.annotationProvider != null) {

@@ -1,4 +1,5 @@
-class <T:R:>java/util/function/Function
+class java/util/function/Function
+ <T:R:>
 
 compose
  <V:Ljava/lang/Object;>(Ljava/util/function/Function<-TV;+TT;>;)Ljava/util/function/Function<TV;TR;>;

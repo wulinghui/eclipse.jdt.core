@@ -417,6 +417,9 @@ void cachePartsFrom(IBinaryType binaryType, boolean needFieldsAndMethods) {
 			// ClassSignature = ParameterPart(optional) super_TypeSignature interface_signature
 			wrapper = new SignatureWrapper(typeSignature);
 			if (wrapper.signature[wrapper.start] == Util.C_GENERIC_START) {
+				if (walker == ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER && binaryType instanceof ClassFileReader) {// TODO: avoid cast? add method to IBinaryType?
+					walker = ((ClassFileReader)binaryType).getAnnotationsForTypeParameters(this.environment);
+				}
 				// ParameterPart = '<' ParameterSignature(s) '>'
 				wrapper.start++; // skip '<'
 				this.typeVariables = createTypeVariables(wrapper, true, missingTypeNames, walker, true/*class*/);
@@ -1251,6 +1254,7 @@ private void initializeTypeVariable(TypeVariableBinding variable, TypeVariableBi
 	short rank = 0;
 	if (wrapper.signature[wrapper.start] == Util.C_COLON) {
 		type = this.environment.getResolvedType(TypeConstants.JAVA_LANG_OBJECT, null);
+		rank++;
 	} else {
 		TypeBinding typeFromTypeSignature = this.environment.getTypeFromTypeSignature(wrapper, existingVariables, this, missingTypeNames, walker.toTypeBound(rank++));
 		if (typeFromTypeSignature instanceof ReferenceBinding) {

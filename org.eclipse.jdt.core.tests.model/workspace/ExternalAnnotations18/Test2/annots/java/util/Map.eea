@@ -1,4 +1,5 @@
-class <K:V:>java/util/Map
+class java/util/Map
+ <K:V:>
 
 get
  (Ljava/lang/Object;)TV;

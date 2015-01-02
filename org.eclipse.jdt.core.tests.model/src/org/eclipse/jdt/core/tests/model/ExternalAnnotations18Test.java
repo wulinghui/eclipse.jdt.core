@@ -65,7 +65,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 // All specified tests which do not belong to the class are skipped...
 	static {
 		// Names of tests to run: can be "testBugXXXX" or "BugXXXX")
-//		TESTS_PREFIX = "testLibs1";
+//		TESTS_PREFIX = "testLibsWithTypeParameters";
 //		TESTS_NAMES = new String[] {"test3"};
 //		TESTS_NUMBERS = new int[] { 23, 28, 38 };
 //		TESTS_RANGE = new int[] { 21, 38 };
@@ -390,7 +390,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 			}, "1.8", null);
 		new File(this.project.getProject().getLocation().toString()+"/annots/libs/").mkdirs();
 		Util.createFile(this.project.getProject().getLocation().toString()+"/annots/libs/Lib1.eea", 
-				"interface Lib1\n" + // test accepting simple name 
+				"interface libs/Lib1\n" +
 				"\n" + 
 				"one\n" + 
 				" Ljava/lang/String;\n" + 
@@ -421,6 +421,66 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		assertProblems(problems, new String[] {
 			"Pb(953) Null type mismatch (type annotations): required '@NonNull String' but this expression has type '@Nullable String'",
 		}, new int[] { 8 });
+	}
+
+	public void testLibsWithTypeParameters() throws Exception {
+		myCreateJavaProject("TestLibs");
+		addLibraryWithExternalAnnotations(this.project, "lib1.jar", "annots", new String[] {
+				"/UnannotatedLib/libs/Lib1.java",
+				"package libs;\n" + 
+				"\n" +
+				"public interface Lib1<U,V,W extends U> {\n" + 
+				"	U getU();\n" + 
+				"	V getV();\n" +
+				"	W getW();\n" +
+				"	<X,Y extends CharSequence> Y fun(X x);\n" + 
+				"}\n"
+			}, "1.8", null);
+		new File(this.project.getProject().getLocation().toString()+"/annots/libs/").mkdirs();
+		Util.createFile(this.project.getProject().getLocation().toString()+"/annots/libs/Lib1.eea", 
+				"interface libs/Lib1\n" +
+				" <U:Ljava/lang/Object;V:Ljava/lang/Object;W:TU;>\n" +
+				" <0U:Ljava/lang/Object;1V:Ljava/lang/Object;W:T1U;>\n" +
+				"\n" +
+				"fun\n" +
+				" <X:Ljava/lang/Object;Y::Ljava/lang/CharSequence;>(TX;)TY;\n" +
+				" <1X:Ljava/lang/Object;Y::L1java/lang/CharSequence;>(TX;)TY;\n" +
+				"\n");
+		IPackageFragment fragment = this.project.getPackageFragmentRoots()[0].createPackageFragment("tests", true, null);
+		ICompilationUnit unit = fragment.createCompilationUnit("Test1.java", 
+				"package tests;\n" + 
+				"import org.eclipse.jdt.annotation.*;\n" + 
+				"\n" + 
+				"import libs.Lib1;\n" + 
+				"\n" + 
+				"public class Test1 {\n" + 
+				"	@NonNull String test0(Lib1<@Nullable String,@NonNull String,@NonNull String> l) {\n" + 
+				"		return l.getU();\n" + // mismatch: U is nullable 
+				"	}\n" +
+				"	@NonNull String test1(Lib1<@Nullable String,@NonNull String,@NonNull String> l) {\n" + 
+				"		return l.getV();\n" + // OK: V is nonnull
+				"	}\n" +
+				"	@NonNull String test2(Lib1<@Nullable String,@NonNull String,@NonNull String> l) {\n" + 
+				"		return l.getW();\n" + // OK: V is nonnull
+				"	}\n" +
+				"	Lib1<@NonNull String, @NonNull String, @NonNull String> f1;\n" + // mismatch at U
+				"	Lib1<@Nullable String, String, @NonNull String> f2;\n" + // mismatch at V
+				"	Lib1<@Nullable String, @NonNull String, @Nullable String> f3;\n" + // mismatch at W
+				"	@Nullable String test3(Lib1<@Nullable String,@NonNull String,@NonNull String> l) {\n" +
+				"		return l.<@Nullable String,@Nullable String>fun(\"\");\n" + // mismatches at X and Y
+				"	}\n" +
+				"}\n",
+				true, new NullProgressMonitor()).getWorkingCopy(new NullProgressMonitor());
+		CompilationUnit reconciled = unit.reconcile(AST.JLS8, true, null, new NullProgressMonitor());
+		IProblem[] problems = reconciled.getProblems();
+		assertProblems(problems, new String[] {
+			"Pb(953) Null type mismatch (type annotations): required '@NonNull String' but this expression has type '@Nullable String'",
+			"Pb(964) Null constraint mismatch: The type '@NonNull String' is not a valid substitute for the type parameter '@Nullable U extends Object'",
+			"Pb(964) Null constraint mismatch: The type 'String' is not a valid substitute for the type parameter '@NonNull V extends Object'",
+			"Pb(964) Null constraint mismatch: The type '@Nullable String' is not a valid substitute for the type parameter '@NonNull W extends @NonNull U extends Object'", // FIXME(stephan): @NonNull before W is bogus, see https://bugs.eclipse.org/456532
+			"Pb(964) Null constraint mismatch: The type '@Nullable String' is not a valid substitute for the type parameter '@NonNull X extends Object'",
+			"Pb(964) Null constraint mismatch: The type '@Nullable String' is not a valid substitute for the type parameter '@NonNull Y extends @NonNull CharSequence'", // FIXME(see above)
+		}, new int[] { 8, 16, 17, 18, 20, 20 });
 	}
 
 	/** Project with real JRE8. */
