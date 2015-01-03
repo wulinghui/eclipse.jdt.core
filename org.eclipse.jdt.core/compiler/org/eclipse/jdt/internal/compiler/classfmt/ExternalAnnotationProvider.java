@@ -437,8 +437,11 @@ public class ExternalAnnotationProvider {
 		@Override
 		public ITypeAnnotationWalker toMethodReturn() {
 			int close = CharOperation.indexOf(')', this.source);
-			if (close != -1)
-				return new MethodAnnotationWalker(this.source, close+1, this.environment);
+			if (close != -1) {
+				// optimization, see toMethodParameter.
+				this.pos = close+1;
+				return this;
+			}
 			return ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER;
 		}
 
@@ -447,12 +450,17 @@ public class ExternalAnnotationProvider {
 			if (index == 0) {
 				int start = CharOperation.indexOf('(', this.source) + 1;
 				this.prevParamStart = start;
-				return new MethodAnnotationWalker(this.source, start, this.environment);
+				// optimization: normally we should create a new walker with pos=start,
+				// but since we know the order how BTB/LE call us, we can safely use one walker for all parameters:
+				this.pos = start;
+				return this;
 			}
-			int end = typeEnd(this.prevParamStart);
+			int end = typeEnd(this.prevParamStart); // leverage the fact that all parameters are evaluated in order
 			end++;
 		    this.prevParamStart = end;
-		    return new MethodAnnotationWalker(this.source, end, this.environment);
+		    // optimization, see above.
+		    this.pos = end;
+		    return this;
 		}
 
 		@Override
