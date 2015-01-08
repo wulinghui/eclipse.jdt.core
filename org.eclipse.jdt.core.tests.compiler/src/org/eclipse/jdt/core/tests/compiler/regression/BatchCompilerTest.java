@@ -14101,7 +14101,8 @@ public void test440477() throws IOException {
 	new File(annots_java_util).mkdirs();
 	Util.createFile(
 			annots_java_util + File.separator + "Map.eea", 
-			"class <K:V:>java/util/Map\n" + 
+			"class java/util/Map\n" +
+			" <K:V:>\n" + 
 			"\n" + 
 			"get\n" + 
 			" (Ljava/lang/Object;)TV;\n" + 
