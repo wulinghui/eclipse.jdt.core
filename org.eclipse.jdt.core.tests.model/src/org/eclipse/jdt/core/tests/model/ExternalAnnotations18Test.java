@@ -29,6 +29,7 @@ import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jdt.core.IClasspathAttribute;
+import org.eclipse.jdt.core.IClasspathContainer;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaModelMarker;
@@ -46,12 +47,44 @@ import org.osgi.framework.Bundle;
 
 public class ExternalAnnotations18Test extends ModifyingResourceTests {
 
-	private static final String TESTWORK_VAR_NAME = "TESTWORK";
+	/** Bridge to hook the host JRE into the registered ContainerInitializer. */
+	static class TestContainerInitializer implements ContainerInitializer.ITestInitializer {
+
+		/** Use this container name in test projects. */
+		private static final String TEST_CONTAINER_NAME = "org.eclipse.jdt.core.tests.model.TEST_CONTAINER";
+		
+		static class TestContainer implements IClasspathContainer {
+			IPath path;
+			IClasspathEntry[] entries;
+			TestContainer(IPath path, IClasspathEntry[] entries){
+				this.path = path;
+				this.entries = entries;
+			}
+			public IPath getPath() { return this.path; }
+			public IClasspathEntry[] getClasspathEntries() { return this.entries;	}
+			public String getDescription() { return this.path.toString(); 	}
+			public int getKind() { return 0; }
+		}
+
+		public void initialize(IPath containerPath, IJavaProject project) throws CoreException {
+			String[] jars = Util.getJavaClassLibs();
+			IClasspathEntry[] entries = new IClasspathEntry[jars.length];
+			for (int i = 0; i < jars.length; i++)
+				entries[i] = JavaCore.newLibraryEntry(new Path(jars[i]), null, null);
+			JavaCore.setClasspathContainer(
+					new Path(TEST_CONTAINER_NAME),
+					new IJavaProject[]{ project },
+					new IClasspathContainer[] { new TestContainer(new Path(TEST_CONTAINER_NAME), entries) },
+					null);
+		}
+		public boolean allowFailureContainer() {
+			return false;
+		}
+	}
 
 	private IJavaProject project;
 	private IPackageFragmentRoot root;
 	private String ANNOTATION_LIB;
-	private IPath TEST_WORKSPACE;
 
 	private static final String MY_MAP_CONTENT = 
 			"package libs;\n" + 
@@ -89,9 +122,13 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		File bundleFile = FileLocator.getBundleFile(bundles[0]);
 		this.ANNOTATION_LIB = bundleFile.isDirectory() ? bundleFile.getPath()+"/bin" : bundleFile.getPath();
 
-		Bundle bundle = org.eclipse.jdt.core.tests.Activator.getTestBundle();
-		bundleFile = FileLocator.getBundleFile(bundle);
-		this.TEST_WORKSPACE = new Path(bundleFile.getPath()).append("workspace"); 
+		// set up class path container bridging to the host JRE:
+		ContainerInitializer.setInitializer(new TestContainerInitializer());
+	}
+
+	public void tearDownSuite() throws Exception {
+		super.tearDownSuite();
+		ContainerInitializer.setInitializer(null);
 	}
 	
 	public String getSourceWorkspacePath() {
@@ -528,7 +565,8 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 	 * .classpath uses var TESTWORK for path to external annotations.
 	 */
 	public void test3() throws Exception {
-		JavaCore.setClasspathVariable(TESTWORK_VAR_NAME, this.TEST_WORKSPACE, null);
+		final String TESTWORK_VAR_NAME = "TESTWORK";
+		JavaCore.setClasspathVariable(TESTWORK_VAR_NAME, new Path(getSourceWorkspacePath()), null);
 		Hashtable options = JavaCore.getOptions();
 		try {
 			setupJavaProject("Test3");
