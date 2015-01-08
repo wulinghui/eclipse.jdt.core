@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2015 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -101,7 +101,7 @@ private ClasspathLocation mapToClassPathLocation( JavaModelManager manager, Pack
 	try {
 		if (root.isArchive()) {
 			ClasspathEntry rawClasspathEntry = (ClasspathEntry) root.getRawClasspathEntry();
-			cp = new ClasspathJar(manager.getZipFile(path), rawClasspathEntry.getAccessRuleSet(), rawClasspathEntry.getExternalAnnotationPath());
+			cp = new ClasspathJar(manager.getZipFile(path), rawClasspathEntry.getAccessRuleSet(), ClasspathEntry.getExternalAnnotationPath(rawClasspathEntry, ((IJavaProject)root.getParent()).getProject()));
 		} else {
 			Object target = JavaModel.getTarget(path, true);
 			if (target != null) 

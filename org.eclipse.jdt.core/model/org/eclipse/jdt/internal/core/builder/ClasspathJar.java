@@ -13,16 +13,9 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.core.builder;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-
 import org.eclipse.core.resources.IFile;
-import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.*;
+
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
 import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
@@ -31,6 +24,10 @@ import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
 import org.eclipse.jdt.internal.compiler.util.SimpleSet;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
 import org.eclipse.jdt.internal.core.util.Util;
+
+import java.io.*;
+import java.util.*;
+import java.util.zip.*;
 
 @SuppressWarnings("rawtypes")
 public class ClasspathJar extends ClasspathLocation {

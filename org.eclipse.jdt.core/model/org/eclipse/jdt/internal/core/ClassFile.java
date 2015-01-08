@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2015 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -349,7 +349,14 @@ private IBinaryType getJarBinaryTypeInfo(PackageFragment pkg, boolean fullyIniti
 		if (ze != null) {
 			byte contents[] = org.eclipse.jdt.internal.compiler.util.Util.getZipEntryByteContent(ze, zip);
 			String fileName = root.getHandleIdentifier() + IDependent.JAR_FILE_ENTRY_SEPARATOR + entryName;
-			return new ClassFileReader(contents, fileName.toCharArray(), fullyInitialize, root.getExternalAnnotationPath());
+			IPath externalAnnotationPath = null;
+			if (root.getKind() == IPackageFragmentRoot.K_BINARY) {
+				JavaProject javaProject = (JavaProject) getAncestor(IJavaElement.JAVA_PROJECT);
+				IClasspathEntry entry = javaProject.getClasspathEntryFor(getPath());
+				if (entry != null)
+					externalAnnotationPath = ClasspathEntry.getExternalAnnotationPath(entry, javaProject.getProject());
+			} 
+			return new ClassFileReader(contents, fileName.toCharArray(), fullyInitialize, externalAnnotationPath);
 		}
 	} finally {
 		JavaModelManager.getJavaModelManager().closeZipFile(zip);

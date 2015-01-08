@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2014 GK Software AG, and others.
+ * Copyright (c) 2014, 2015 GK Software AG, and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -40,6 +40,7 @@ import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.tests.util.Util;
+import org.eclipse.jdt.internal.core.ClasspathAttribute;
 import org.osgi.framework.Bundle;
 
 public class ExternalAnnotations18Test extends ModifyingResourceTests {
@@ -180,13 +181,13 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 	{
 		createLibrary(javaProject, jarName, null, pathAndContents, null, compliance, options);
 		String jarPath = '/' + javaProject.getProject().getName() + '/' + jarName;
+		IClasspathAttribute[] extraAttributes = new IClasspathAttribute[] { new ClasspathAttribute(IClasspathAttribute.EXTERNAL_ANNOTATION_PATH, externalAnnotationPath) };
 		IClasspathEntry entry = JavaCore.newLibraryEntry(
 				new Path(jarPath),
 				null/*src attach*/,
 				null/*src attach root*/,
-				new Path(externalAnnotationPath),
 				null/*access rules*/,
-				null/*extraAttributes*/,
+				extraAttributes,
 				false/*exported*/);
 		addClasspathEntry(this.project, entry);
 	}
