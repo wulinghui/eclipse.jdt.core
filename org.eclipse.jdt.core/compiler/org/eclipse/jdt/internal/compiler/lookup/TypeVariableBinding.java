@@ -30,6 +30,8 @@
  *								Bug 440759 - [1.8][null] @NonNullByDefault should never affect wildcards and uses of a type variable
  *								Bug 441693 - [1.8][null] Bogus warning for type argument annotated with @NonNull
  *								Bug 456497 - [1.8][null] during inference nullness from target type is lost against weaker hint from applicability analysis
+ *								Bug 456459 - Discrepancy between Eclipse compiler and javac - Enums, interfaces, and generics
+ *								Bug 456487 - [1.8][null] @Nullable type variant of @NonNull-constrained type parameter causes grief
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -153,7 +155,8 @@ public class TypeVariableBinding extends ReferenceBinding {
 											return TypeConstants.MISMATCH;
 										}
 									} else {
-										if (!wildcardBound.isTypeVariable() && !substitutedSuperType.isTypeVariable()) {
+										if (denotesRelevantSuperClass(wildcardBound) && denotesRelevantSuperClass(substitutedSuperType)) {
+											// non-object real superclass should have produced a valid 'match' above
 											return TypeConstants.MISMATCH;
 										}
 									}
@@ -229,6 +232,13 @@ public class TypeVariableBinding extends ReferenceBinding {
 	    	}
 	    }
 	    return unchecked ? TypeConstants.UNCHECKED : TypeConstants.OK;
+	}
+
+	boolean denotesRelevantSuperClass(TypeBinding type) {
+		if (!type.isTypeVariable() && !type.isInterface() && type.id != TypeIds.T_JavaLangObject)
+			return true;
+		ReferenceBinding aSuperClass = type.superclass();
+		return aSuperClass != null && aSuperClass.id != TypeIds.T_JavaLangObject && !aSuperClass.isTypeVariable();
 	}
 
 	public int boundsCount() {
@@ -717,12 +727,10 @@ public class TypeVariableBinding extends ReferenceBinding {
 	
 	public void setTypeAnnotations(AnnotationBinding[] annotations, boolean evalNullAnnotations) {
 		if (getClass() == TypeVariableBinding.class) {
-			// TVB only: if the declaration already carries type annotations,
-			// clone the unannotated binding first to ensure TypeSystem.getUnnanotatedType() will see it at position 0:
-			TypeBinding unannotated = clone(null);
-			this.environment.getUnannotatedType(unannotated); // register unannotated
-			this.id = unannotated.id; // transfer fresh id
-			this.environment.typeSystem.cacheDerivedType(this, unannotated, this); // register this
+			// TVB only: if the declaration itself carries type annotations,
+			// make sure TypeSystem will still have an unannotated variant at position 0, to answer getUnannotated()
+			// (in this case the unannotated type is never explicit in source code, that's why we need this charade).
+			this.environment.typeSystem.forceRegisterAsDerived(this);
 		} else {
 			this.environment.getUnannotatedType(this); // exposes original TVB/capture to type system for id stamping purposes.
 		}
