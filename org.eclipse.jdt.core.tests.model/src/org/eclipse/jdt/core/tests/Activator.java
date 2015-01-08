@@ -13,6 +13,7 @@ package org.eclipse.jdt.core.tests;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Plugin;
 import org.eclipse.core.runtime.Status;
+import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
 
@@ -27,6 +28,7 @@ public class Activator extends Plugin {
 
 	static org.osgi.service.packageadmin.PackageAdmin packageAdmin = null;
 
+	static Bundle testBundle;
 
 	public void start(BundleContext context) throws Exception {
 		
@@ -35,6 +37,8 @@ public class Activator extends Plugin {
 			packageAdmin = (org.osgi.service.packageadmin.PackageAdmin)context.getService(ref);
 		else
 			getLog().log(new Status(IStatus.ERROR, PLUGIN_ID, "Failed to load PackageAdmin service. Will not be able to access bundles org.eclipse.jdt.annotation."));
+		
+		testBundle = context.getBundle();
 	}
 
 	public void stop(BundleContext context) throws Exception {
@@ -43,6 +47,10 @@ public class Activator extends Plugin {
 
 	public static org.osgi.service.packageadmin.PackageAdmin getPackageAdmin() {
 		return packageAdmin;
+	}
+
+	public static Bundle getTestBundle() {
+		return testBundle;
 	}
 	
 }

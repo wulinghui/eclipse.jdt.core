@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2015 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,9 +10,7 @@
  *     Theodora Yeung (tyeung@bea.com) - ensure that JarPackageFragmentRoot make it into cache
  *                                                           before its contents
  *                                                           (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=102422)
- *     Stephan Herrmann - Contribution for
- *								Bug 346010 - [model] strange initialization dependency in OptionTests
- *								Bug 440477 - [null] Infrastructure for feeding external annotations into compilation
+ *     Stephan Herrmann - Contribution for Bug 346010 - [model] strange initialization dependency in OptionTests
  *     Terry Parker <tparker@google.com> - DeltaProcessor misses state changes in archive files, see https://bugs.eclipse.org/bugs/show_bug.cgi?id=357425
  *     Thirumala Reddy Mutchukota <thirumala@google.com> - Contribution to bug: https://bugs.eclipse.org/bugs/show_bug.cgi?id=411423
  *     Terry Parker <tparker@google.com> - [performance] Low hit rates in JavaModel caches - https://bugs.eclipse.org/421165
@@ -2522,7 +2520,6 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 						resolvedPath,
 						getResolvedVariablePath(entry.getSourceAttachmentPath(), usePreviousSession),
 						getResolvedVariablePath(entry.getSourceAttachmentRootPath(), usePreviousSession),
-//TODO:var resolving?	getResolvedVariablePath(entry.getAnnotationPath(), usePreviousSession),
 						entry.getAccessRules(),
 						entry.getExtraAttributes(),
 						entry.isExported());
@@ -2533,7 +2530,6 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 							resolvedPath,
 							getResolvedVariablePath(entry.getSourceAttachmentPath(), usePreviousSession),
 							getResolvedVariablePath(entry.getSourceAttachmentRootPath(), usePreviousSession),
-//TODO:var resolving?		getResolvedVariablePath(entry.getAnnotationPath(), usePreviousSession),
 							entry.getAccessRules(),
 							entry.getExtraAttributes(),
 							entry.isExported());

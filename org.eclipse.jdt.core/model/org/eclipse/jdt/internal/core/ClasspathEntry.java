@@ -1262,12 +1262,17 @@ public class ClasspathEntry implements IClasspathEntry {
 			IClasspathAttribute attribute = extraAttributes[i];
 			if (IClasspathAttribute.EXTERNAL_ANNOTATION_PATH.equals(attribute.getName())) {
 				IPath annotationPath = new Path(attribute.getValue());
-				if (!annotationPath.isAbsolute() && project != null) {
-					if (!(annotationPath.segmentCount() > 0 && annotationPath.segment(0).equals(ClasspathEntry.DOT_DOT))) {
-						annotationPath = project.getLocation().append(annotationPath);
+				if (!annotationPath.isAbsolute()) {
+					IPath resolved = JavaCore.getResolvedVariablePath(annotationPath);
+					if (resolved != null)
+						return resolved;
+
+					if (project != null) {
+						if (!(annotationPath.segmentCount() > 0 && annotationPath.segment(0).equals(ClasspathEntry.DOT_DOT))) {
+							annotationPath = project.getLocation().append(annotationPath);
+						}
 					}
 				}
-				// FIXME(stephan): should this also handle resolving of variables?
 				return annotationPath;
 			}
 		}

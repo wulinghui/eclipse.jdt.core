@@ -25,6 +25,7 @@ import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IncrementalProjectBuilder;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.FileLocator;
+import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jdt.core.IClasspathAttribute;
@@ -45,9 +46,12 @@ import org.osgi.framework.Bundle;
 
 public class ExternalAnnotations18Test extends ModifyingResourceTests {
 
+	private static final String TESTWORK_VAR_NAME = "TESTWORK";
+
 	private IJavaProject project;
 	private IPackageFragmentRoot root;
 	private String ANNOTATION_LIB;
+	private IPath TEST_WORKSPACE;
 
 	private static final String MY_MAP_CONTENT = 
 			"package libs;\n" + 
@@ -84,6 +88,10 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		Bundle[] bundles = org.eclipse.jdt.core.tests.Activator.getPackageAdmin().getBundles("org.eclipse.jdt.annotation", "[2.0.0,3.0.0)");
 		File bundleFile = FileLocator.getBundleFile(bundles[0]);
 		this.ANNOTATION_LIB = bundleFile.isDirectory() ? bundleFile.getPath()+"/bin" : bundleFile.getPath();
+
+		Bundle bundle = org.eclipse.jdt.core.tests.Activator.getTestBundle();
+		bundleFile = FileLocator.getBundleFile(bundle);
+		this.TEST_WORKSPACE = new Path(bundleFile.getPath()).append("workspace"); 
 	}
 	
 	public String getSourceWorkspacePath() {
@@ -239,6 +247,23 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		this.project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
 		IMarker[] markers = this.project.getProject().findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, false, IResource.DEPTH_INFINITE);
 		assertNoMarkers(markers);
+	}
+
+	/** Perform full build, annotations are found relative to a variable. */
+	public void test1FullBuildWithVariable() throws Exception {
+		setupJavaProject("Test1");
+		JavaCore.setClasspathVariable("MY_PRJ_ROOT", this.project.getProject().getLocation(), null);
+		try {
+			addLibraryWithExternalAnnotations(this.project, "lib1.jar", "MY_PRJ_ROOT/annots", new String[] {
+					"/UnannotatedLib/libs/MyMap.java",
+					MY_MAP_CONTENT
+				}, "1.8", null);
+			this.project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
+			IMarker[] markers = this.project.getProject().findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, false, IResource.DEPTH_INFINITE);
+			assertNoMarkers(markers);
+		} finally {
+			JavaCore.removeClasspathVariable("MY_PRJ_ROOT", null);
+		}
 	}
 
 	/** Reconcile an individual CU. */
@@ -500,8 +525,10 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 
 	/** Project with real JRE8.
 	 * More interesting work with generics
+	 * .classpath uses var TESTWORK for path to external annotations.
 	 */
 	public void test3() throws Exception {
+		JavaCore.setClasspathVariable(TESTWORK_VAR_NAME, this.TEST_WORKSPACE, null);
 		Hashtable options = JavaCore.getOptions();
 		try {
 			setupJavaProject("Test3");
@@ -511,6 +538,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		} finally {
 			// project using a full JRE container initializes global options to 1.8 -- must reset now:
 			JavaCore.setOptions(options);
+			JavaCore.removeClasspathVariable(TESTWORK_VAR_NAME, null);
 		}
 	}
 
