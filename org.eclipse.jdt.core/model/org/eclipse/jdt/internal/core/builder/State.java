@@ -465,7 +465,7 @@ void write(DataOutputStream out) throws IOException {
 				out.writeUTF(jar.resource.getFullPath().toString());
 			}
 			writeRestriction(jar.accessRuleSet, out);
-			out.writeUTF(jar.externalAnnotationDir != null ? jar.externalAnnotationDir : ""); //$NON-NLS-1$
+			out.writeUTF(jar.externalAnnotationPath != null ? jar.externalAnnotationPath : ""); //$NON-NLS-1$
 		}
 	}
 

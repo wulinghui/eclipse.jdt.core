@@ -10,10 +10,8 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.classfmt;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
 import java.util.HashMap;
@@ -36,21 +34,26 @@ public class ExternalAnnotationProvider {
 
 	public static final String ANNOTATION_FILE_SUFFIX = ".eea"; //$NON-NLS-1$ // FIXME(SH): define file extension
 
-	private File annotationSource;
+	private String typeName;
 	private Map<String,String> methodAnnotationSources;
 	private Map<String,String> fieldAnnotationSources;
 	private String typeParameterAnnotationSource;
 	
-	public ExternalAnnotationProvider(String baseDir, String typeName) throws IOException {
-		this.annotationSource = new File(baseDir+File.separatorChar+typeName+ANNOTATION_FILE_SUFFIX);
-		if (!this.annotationSource.exists()) throw new FileNotFoundException(this.annotationSource.getAbsolutePath());
+	/**
+	 * Create and initialize.
+	 * @param input open input stream to read the annotations from, will be closed by the constructor.
+	 * @param typeName slash-separated qualified name of a type
+	 * @throws IOException various issues when accessing the annotation file
+	 */
+	public ExternalAnnotationProvider(InputStream input, String typeName) throws IOException {
+		this.typeName = typeName;
 		this.methodAnnotationSources = new HashMap<String, String>();
 		this.fieldAnnotationSources = new HashMap<String, String>();
-		initialize(typeName);
+		initialize(input);
 	}
-	
-	private void initialize(String typeName) throws IOException {
-		LineNumberReader reader = new LineNumberReader(new InputStreamReader(new FileInputStream(this.annotationSource)));
+
+	private void initialize(InputStream input) throws IOException {
+		LineNumberReader reader = new LineNumberReader(new InputStreamReader(input));
 		try {
 			String line = reader.readLine().trim();
 			if (line.startsWith(CLASS_PREFIX)) {
@@ -60,8 +63,8 @@ public class ExternalAnnotationProvider {
 			} else {
 				throw new IOException("missing class header in annotation file"); //$NON-NLS-1$
 			}
-			if (!line.equals(typeName)) {
-				throw new IOException("mismatching class name in annotation file, expected "+typeName+", but header said "+line); //$NON-NLS-1$ //$NON-NLS-2$
+			if (!line.equals(this.typeName)) {
+				throw new IOException("mismatching class name in annotation file, expected "+this.typeName+", but header said "+line); //$NON-NLS-1$ //$NON-NLS-2$
 			}
 			if ((line = reader.readLine()) == null) {
 				return;
@@ -131,7 +134,7 @@ public class ExternalAnnotationProvider {
 
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		sb.append("External Annotations from "+this.annotationSource.getAbsolutePath()).append('\n'); //$NON-NLS-1$
+		sb.append("External Annotations for ").append(this.typeName).append('\n'); //$NON-NLS-1$
 		sb.append("Methods:\n"); //$NON-NLS-1$
 		for (Entry<String,String> e : this.methodAnnotationSources.entrySet())
 			sb.append('\t').append(e.getKey()).append('\n');
