@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2014 GK Software AG.
+ * Copyright (c) 2014, 2015 GK Software AG.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,6 +9,9 @@
  *     Stephan Herrmann - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.classfmt;
+
+import static org.eclipse.jdt.core.util.ExternalAnnotationUtil.NONNULL;
+import static org.eclipse.jdt.core.util.ExternalAnnotationUtil.NULLABLE;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,11 +31,14 @@ import org.eclipse.jdt.internal.compiler.util.Util;
 
 public class ExternalAnnotationProvider {
 
-	private static final String CLASS_PREFIX = "class "; //$NON-NLS-1$
-	private static final String INTERFACE_PREFIX = "interface "; //$NON-NLS-1$
+	public static final String ANNOTION_FILE_EXTENSION= "eea"; //$NON-NLS-1$
+	public static final String CLASS_PREFIX = "class "; //$NON-NLS-1$
+	public static final String INTERFACE_PREFIX = "interface "; //$NON-NLS-1$
+
+	static final String ANNOTATION_FILE_SUFFIX = ".eea"; //$NON-NLS-1$
+
 	private static final String TYPE_PARAMETER_PREFIX = " <"; //$NON-NLS-1$
 
-	public static final String ANNOTATION_FILE_SUFFIX = ".eea"; //$NON-NLS-1$ // FIXME(SH): define file extension
 
 	private String typeName;
 	private Map<String,String> methodAnnotationSources;
@@ -151,16 +157,16 @@ public class ExternalAnnotationProvider {
 		}
 	}
 
-	SingleMarkerAnnotation NULLABLE, NONNULL;
+	SingleMarkerAnnotation NULLABLE_ANNOTATION, NONNULL_ANNOTATION;
 
 	void initAnnotations(final LookupEnvironment environment) {
-		if (this.NULLABLE == null) {
-			this.NULLABLE = new SingleMarkerAnnotation() {
+		if (this.NULLABLE_ANNOTATION == null) {
+			this.NULLABLE_ANNOTATION = new SingleMarkerAnnotation() {
 				@Override public char[] getTypeName() { return getBinaryTypeName(environment.getNullableAnnotationName()); }
 			};
 		}
-		if (this.NONNULL == null) {
-			this.NONNULL = new SingleMarkerAnnotation() {
+		if (this.NONNULL_ANNOTATION == null) {
+			this.NONNULL_ANNOTATION = new SingleMarkerAnnotation() {
 				@Override public char[] getTypeName() { return getBinaryTypeName(environment.getNonNullAnnotationName()); }
 			};
 		}
@@ -253,7 +259,7 @@ public class ExternalAnnotationProvider {
 			if (this.source[this.pos] == '[') {
 				int newPos = this.pos+1;
 				switch (this.source[newPos]) {
-					case '0': case '1': newPos++; break;
+					case NULLABLE: case NONNULL: newPos++; break;
 				}
 				return new MethodAnnotationWalker(this.source, newPos, this.environment);
 			}
@@ -273,10 +279,10 @@ public class ExternalAnnotationProvider {
 					case 'L':
 					case '[':
 						switch (this.source[this.pos+1]) {
-							case '0':
-								return new IBinaryAnnotation[]{ ExternalAnnotationProvider.this.NULLABLE };
-							case '1':
-								return new IBinaryAnnotation[]{ ExternalAnnotationProvider.this.NONNULL };
+							case NULLABLE:
+								return new IBinaryAnnotation[]{ ExternalAnnotationProvider.this.NULLABLE_ANNOTATION };
+							case NONNULL:
+								return new IBinaryAnnotation[]{ ExternalAnnotationProvider.this.NONNULL_ANNOTATION };
 						}
 				}				
 			}
@@ -390,10 +396,10 @@ public class ExternalAnnotationProvider {
 		public IBinaryAnnotation[] getAnnotationsAtCursor(int currentTypeId) {
 			if (this.pos != -1 && this.pos < this.source.length-1) {
 				switch (this.source[this.pos]) {
-					case '0':
-						return new IBinaryAnnotation[]{ ExternalAnnotationProvider.this.NULLABLE };
-					case '1':
-						return new IBinaryAnnotation[]{ ExternalAnnotationProvider.this.NONNULL };
+					case NULLABLE:
+						return new IBinaryAnnotation[]{ ExternalAnnotationProvider.this.NULLABLE_ANNOTATION };
+					case NONNULL:
+						return new IBinaryAnnotation[]{ ExternalAnnotationProvider.this.NONNULL_ANNOTATION };
 				}				
 			}
 			return super.getAnnotationsAtCursor(currentTypeId);
@@ -413,7 +419,7 @@ public class ExternalAnnotationProvider {
 			while (this.source[start] == '[') {
 				start++;
 				char an = this.source[start];
-				if (an == '0' || an == '1')
+				if (an == NULLABLE || an == NONNULL)
 					start++;
 			}
 			int end = wrapperWithStart(start).computeEnd();
