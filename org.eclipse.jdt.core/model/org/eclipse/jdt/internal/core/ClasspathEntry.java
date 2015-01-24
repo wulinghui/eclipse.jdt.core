@@ -1256,24 +1256,57 @@ public class ClasspathEntry implements IClasspathEntry {
 		return this.sourceAttachmentRootPath;
 	}
 
-	public static IPath getExternalAnnotationPath(IClasspathEntry entry, IProject project) {
+	/**
+	 * Internal API: answer the path for external annotations (for null analysis) associated with
+	 * the given classpath entry.
+	 * Four shapes of paths are supported:
+	 * <ol>
+	 * <li>relative, variable (VAR/relpath): resolve classpath variable VAR and append relpath</li>
+	 * <li>relative, project (relpath): interpret relpath as a relative path within the given project</li>
+	 * <li>absolute, workspace (/Proj/relpath): an absolute path in the workspace</li>
+	 * <li>absolute, filesystem (/abspath): an absolute path in the filesystem</li>
+	 * </ol>
+	 * In case of ambiguity, workspace lookup has higher priority than filesystem lookup
+	 * (in fact filesystem paths are never validated).
+	 * 
+	 * @param entry classpath entry to work on
+	 * @param project project whose classpath we are analysing
+	 * @param resolve if true, any workspace-relative paths will be resolved to filesystem paths.
+	 * @return a path (in the workspace or filesystem-absolute) or null
+	 */
+	public static IPath getExternalAnnotationPath(IClasspathEntry entry, IProject project, boolean resolve) {
 		IClasspathAttribute[] extraAttributes = entry.getExtraAttributes();
 		for (int i = 0, length = extraAttributes.length; i < length; i++) {
 			IClasspathAttribute attribute = extraAttributes[i];
 			if (IClasspathAttribute.EXTERNAL_ANNOTATION_PATH.equals(attribute.getName())) {
 				IPath annotationPath = new Path(attribute.getValue());
-				if (!annotationPath.isAbsolute()) {
+
+				if (annotationPath.isAbsolute()) {
+					if (!resolve)
+						return annotationPath;
+
+					if (annotationPath.segmentCount() > 1) {
+						// try Workspace-absolute:
+						IProject targetProject = project.getWorkspace().getRoot().getProject(annotationPath.segment(0));
+						if (targetProject.exists())
+							return targetProject.getLocation().append(annotationPath.removeFirstSegments(1));
+					}
+					// absolute, not in workspace, must be Filesystem-absolute:
+					return annotationPath;
+				} else {
+					// try Variable (always resolved):
 					IPath resolved = JavaCore.getResolvedVariablePath(annotationPath);
 					if (resolved != null)
 						return resolved;
 
+					// Project-relative:
 					if (project != null) {
-						if (!(annotationPath.segmentCount() > 0 && annotationPath.segment(0).equals(ClasspathEntry.DOT_DOT))) {
-							annotationPath = project.getLocation().append(annotationPath);
-						}
+						if (resolve)
+							return project.getLocation().append(annotationPath);
+						else
+							return new Path(project.getName()).append(annotationPath).makeAbsolute();
 					}
 				}
-				return annotationPath;
 			}
 		}
 		return null;

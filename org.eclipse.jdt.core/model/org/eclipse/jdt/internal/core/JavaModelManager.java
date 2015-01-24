@@ -3896,6 +3896,10 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		return null;
 	}
 
+	void removeFromJarTypeCache(BinaryType type) {
+		this.cache.removeFromJarTypeCache(type);
+	}
+
 	public void removePerProjectInfo(JavaProject javaProject, boolean removeExtJarInfo) {
 		synchronized(this.perProjectInfos) { // use the perProjectInfo collection as its own lock
 			IProject project = javaProject.getProject();

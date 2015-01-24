@@ -168,8 +168,11 @@ public NameEnvironmentAnswer findClass(String binaryFileName, String qualifiedPa
 		ClassFileReader reader = ClassFileReader.read(this.zipFile, qualifiedBinaryFileName);
 		if (reader != null) {
 			String fileNameWithoutExtension = qualifiedBinaryFileName.substring(0, qualifiedBinaryFileName.length() - SuffixConstants.SUFFIX_CLASS.length);
-			if (this.externalAnnotationPath != null)
-				this.annotationZipFile = reader.setExternalAnnotationProvider(this.externalAnnotationPath, fileNameWithoutExtension, this.annotationZipFile);
+			if (this.externalAnnotationPath != null) {
+				ZipFile[] zipFileInOut = new ZipFile[] { this.annotationZipFile };
+				reader.setExternalAnnotationProvider(this.externalAnnotationPath, fileNameWithoutExtension, zipFileInOut, null);
+				this.annotationZipFile = zipFileInOut[0];
+			}
 			if (this.accessRuleSet == null)
 				return new NameEnvironmentAnswer(reader, null);
 			return new NameEnvironmentAnswer(reader, this.accessRuleSet.getViolatedRestriction(fileNameWithoutExtension.toCharArray()));

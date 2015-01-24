@@ -24,9 +24,7 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Status;
-import org.eclipse.jdt.core.IClasspathAttribute;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
@@ -37,6 +35,7 @@ import org.eclipse.jdt.core.dom.IMethodBinding;
 import org.eclipse.jdt.core.dom.ITypeBinding;
 import org.eclipse.jdt.internal.compiler.classfmt.ExternalAnnotationProvider;
 import org.eclipse.jdt.internal.compiler.lookup.SignatureWrapper;
+import org.eclipse.jdt.internal.core.ClasspathEntry;
 
 /**
  * Utilities for accessing and manipulating text files that externally define annotations for a given Java type.
@@ -124,6 +123,7 @@ public class ExternalAnnotationUtil {
 
 	/**
 	 * Answer the external annotation file corresponding to the given type as seen from the given project.
+	 * Note that manipulation of external annotations is only supported for annotation files in the workspace.
 	 * @param project current project that references the given type from a jar file.
 	 * @param type the type for which external annotations are sought
 	 * @param monitor progress monitor to be passed through into file operations
@@ -135,23 +135,21 @@ public class ExternalAnnotationUtil {
 	 */
 	public static IFile getAnnotationFile(IJavaProject project, ITypeBinding type, IProgressMonitor monitor) throws CoreException {
 	
-		IType targetType= project.findType(type.getErasure().getQualifiedName());
-		String binaryTypeName= targetType.getFullyQualifiedName('.').replace('.', '/');
+		IType targetType = project.findType(type.getErasure().getQualifiedName());
+		if (!targetType.exists())
+			return null;
+
+		String binaryTypeName = targetType.getFullyQualifiedName('.').replace('.', '/');
 		
-		IPackageFragmentRoot root= (IPackageFragmentRoot) targetType.getAncestor(IJavaElement.PACKAGE_FRAGMENT_ROOT);
-		IClasspathEntry entry= root.getResolvedClasspathEntry();
-		IPath annotationPath= null;
-		for (IClasspathAttribute attribute : entry.getExtraAttributes()) {
-			if (attribute.getName().equals(IClasspathAttribute.EXTERNAL_ANNOTATION_PATH)) {
-				annotationPath= new Path(attribute.getValue()).append(binaryTypeName).addFileExtension(ExternalAnnotationProvider.ANNOTION_FILE_EXTENSION);
-				break;
-			}
-		}
+		IPackageFragmentRoot root = (IPackageFragmentRoot) targetType.getAncestor(IJavaElement.PACKAGE_FRAGMENT_ROOT);
+		IClasspathEntry entry = root.getResolvedClasspathEntry();
+		IPath annotationPath = ClasspathEntry.getExternalAnnotationPath(entry, project.getProject(), false);
 	
-		if (annotationPath == null || binaryTypeName == null) 
+		if (annotationPath == null) 
 			return null;
 	
-		return project.getProject().getFile(annotationPath);
+		annotationPath = annotationPath.append(binaryTypeName).addFileExtension(ExternalAnnotationProvider.ANNOTION_FILE_EXTENSION);
+		return project.getProject().getWorkspace().getRoot().getFile(annotationPath);
 	}
 
 	/**

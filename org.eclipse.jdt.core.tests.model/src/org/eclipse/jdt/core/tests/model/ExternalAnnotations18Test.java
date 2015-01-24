@@ -224,7 +224,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 			String compliance,
 			Map options) throws CoreException, IOException
 	{
-		createLibrary(javaProject, jarName, null, pathAndContents, null, compliance, options);
+		createLibrary(javaProject, jarName, "src.zip", pathAndContents, null, compliance, options);
 		String jarPath = '/' + javaProject.getProject().getName() + '/' + jarName;
 		IClasspathAttribute[] extraAttributes = new IClasspathAttribute[] { new ClasspathAttribute(IClasspathAttribute.EXTERNAL_ANNOTATION_PATH, externalAnnotationPath) };
 		IClasspathEntry entry = JavaCore.newLibraryEntry(
@@ -235,6 +235,12 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				extraAttributes,
 				false/*exported*/);
 		addClasspathEntry(this.project, entry);
+	}
+
+	protected void createFileInProject(String projectRelativeFolder, String fileName, String content) throws CoreException {
+		String folderPath = this.project.getProject().getName()+'/'+projectRelativeFolder;
+		createFolder(folderPath);
+		createFile(folderPath+'/'+fileName, content);
 	}
 
 	private void assertNoMarkers(IMarker[] markers) throws CoreException {
@@ -333,8 +339,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"	<T extends Collection<?>> T constrainedTypeParameter(T in);\n" + 
 				"}\n"
 			}, "1.8", null);
-		new File(this.project.getProject().getLocation().toString()+"/annots/libs/").mkdirs();
-		Util.createFile(this.project.getProject().getLocation().toString()+"/annots/libs/Lib1.eea", 
+		createFileInProject("annots/libs", "Lib1.eea",
 				"interface libs/Lib1\n" + 
 				"\n" + 
 				"unconstrainedTypeArguments1\n" + 
@@ -395,8 +400,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"	String[][] constraintDeep(String[][] in);\n" + 
 				"}\n"
 			}, "1.8", null);
-		new File(this.project.getProject().getLocation().toString()+"/annots/libs/").mkdirs();
-		Util.createFile(this.project.getProject().getLocation().toString()+"/annots/libs/Lib1.eea", 
+		createFileInProject("annots/libs", "Lib1.eea", 
 				"interface libs/Lib1\n" + 
 				"\n" + 
 				"constraintArrayTop\n" + 
@@ -451,8 +455,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"	String none = null;\n" + 
 				"}\n"
 			}, "1.8", null);
-		new File(this.project.getProject().getLocation().toString()+"/annots/libs/").mkdirs();
-		Util.createFile(this.project.getProject().getLocation().toString()+"/annots/libs/Lib1.eea", 
+		createFileInProject("annots/libs", "Lib1.eea", 
 				"interface libs/Lib1\n" +
 				"\n" + 
 				"one\n" + 
@@ -512,6 +515,59 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"\n"
 			},
 			this.project.getProject().getLocation().toString()+"/annots.zip");
+	    this.project.getProject().refreshLocal(IResource.DEPTH_INFINITE, null);
+
+		IPackageFragment fragment = this.project.getPackageFragmentRoots()[0].createPackageFragment("tests", true, null);
+		ICompilationUnit unit = fragment.createCompilationUnit("Test1.java", 
+				"package tests;\n" + 
+				"import org.eclipse.jdt.annotation.*;\n" + 
+				"\n" + 
+				"import libs.Lib1;\n" + 
+				"\n" + 
+				"public class Test1 {\n" + 
+				"	@NonNull String test0() {\n" + 
+				"		return Lib1.none;\n" + 
+				"	}\n" +
+				"	@NonNull String test1() {\n" + 
+				"		return Lib1.one;\n" + 
+				"	}\n" +
+				"}\n",
+				true, new NullProgressMonitor()).getWorkingCopy(new NullProgressMonitor());
+		CompilationUnit reconciled = unit.reconcile(AST.JLS8, true, null, new NullProgressMonitor());
+		IProblem[] problems = reconciled.getProblems();
+		assertProblems(problems, new String[] {
+			"Pb(953) Null type mismatch (type annotations): required '@NonNull String' but this expression has type '@Nullable String'",
+		}, new int[] { 8 });
+	}
+
+	public void testLibsWithFieldsExternalZipped() throws Exception {
+		myCreateJavaProject("TestLibs");
+		String zipPath = Util.getOutputDirectory() + '/' + "annots.zip";
+		addLibraryWithExternalAnnotations(this.project, "lib1.jar", zipPath, new String[] {
+				"/UnannotatedLib/libs/Lib1.java",
+				"package libs;\n" + 
+				"\n" +
+				"public interface Lib1 {\n" + 
+				"	String one = \"1\";\n" + 
+				"	String none = null;\n" + 
+				"}\n"
+			}, "1.8", null);
+		Util.createSourceZip(
+			new String[] {
+				"libs/Lib1.eea", 
+				"interface libs/Lib1\n" +
+				"\n" + 
+				"one\n" + 
+				" Ljava/lang/String;\n" + 
+				" L1java/lang/String;\n" + 
+				"\n" + 
+				"none\n" + 
+				" Ljava/lang/String;\n" +
+				" L0java/lang/String;\n" +
+				"\n"
+			},
+			zipPath);
+
 		IPackageFragment fragment = this.project.getPackageFragmentRoots()[0].createPackageFragment("tests", true, null);
 		ICompilationUnit unit = fragment.createCompilationUnit("Test1.java", 
 				"package tests;\n" + 
@@ -548,8 +604,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"	<X,Y extends CharSequence> Y fun(X x);\n" + 
 				"}\n"
 			}, "1.8", null);
-		new File(this.project.getProject().getLocation().toString()+"/annots/libs/").mkdirs();
-		Util.createFile(this.project.getProject().getLocation().toString()+"/annots/libs/Lib1.eea", 
+		createFileInProject("annots/libs", "Lib1.eea", 
 				"interface libs/Lib1\n" +
 				" <U:Ljava/lang/Object;V:Ljava/lang/Object;W:TU;>\n" +
 				" <0U:Ljava/lang/Object;1V:Ljava/lang/Object;W:T1U;>\n" +

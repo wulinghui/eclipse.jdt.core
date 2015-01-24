@@ -406,46 +406,51 @@ public ClassFileReader(byte[] classFileBytes, char[] fileName, boolean fullyInit
 	}
 }
 
+/** Auxiliary interface for {@link #setExternalAnnotationProvider(String,String,ZipFile[],ZipFileProducer)}. */
+public interface ZipFileProducer { ZipFile produce(); }
+
 /**
- * Create and remember a provider for external annotations using the given source,
+ * Create and remember a provider for external annotations using the given basePath,
  * which is either a directory holding .eea text files, or a zip file of entries of the same format.
- * @param basePath path of either directory or zip file
+ * @param basePath resolved filesystem path of either directory or zip file
  * @param qualifiedBinaryTypeName slash-separated type name
- * @param zipFile an existing zip file for the same basePath, or null
- * @return the zipFile if one has been found, or null if basePath points to a directory;
- *    clients may cache this zipFile for subsequent calls.
+ * @param zipFileInOut Input: an existing zip file for the same basePath, or null. 
+ * 		Output: will be filled with a fresh new ZipFile when appropriate, to let clients cache it, if desired.
+ * @param producer an optional helper to produce the zipFile when needed.
+ * @return true if external annotations could be found for the given basePath and type name.
  */
-public ZipFile setExternalAnnotationProvider(String basePath, String qualifiedBinaryTypeName, ZipFile zipFile) {
+public boolean setExternalAnnotationProvider(String basePath, String qualifiedBinaryTypeName, ZipFile[] zipFileInOut, ZipFileProducer producer) {
 	String qualifiedBinaryFileName = qualifiedBinaryTypeName + ExternalAnnotationProvider.ANNOTATION_FILE_SUFFIX;
 	try {
+		ZipFile zipFile = zipFileInOut[0];
 		if (zipFile == null) {
 			File annotationBase = new File(basePath);
 			if (annotationBase.isDirectory()) {
-				setExternalAnnotationProvider(new FileInputStream(basePath+'/'+qualifiedBinaryFileName));
-				return null;
+				try {
+					setExternalAnnotationProvider(new FileInputStream(annotationBase.getAbsolutePath()+'/'+qualifiedBinaryFileName));
+				} catch (FileNotFoundException e) {
+					return false; // expected, no need to report an error here
+				}
+				return true;
 			}
-			zipFile = new ZipFile(annotationBase);
+			zipFileInOut[0] = zipFile = (producer != null ? producer.produce() : new ZipFile(annotationBase));
+			if (zipFile == null)
+				return false;
 		}
 		ZipEntry entry = zipFile.getEntry(qualifiedBinaryFileName);
 		if (entry != null)
-			setExternalAnnotationProvider(zipFile.getInputStream(entry));
+			return setExternalAnnotationProvider(zipFile.getInputStream(entry));
 	} catch (ZipException e) {
-		// treat as missing
+		// treat as missing, FIXME: error reporting
 	} catch (IOException e) {
-		// treat as missing
+		// treat as missing, FIXME: error reporting
 	}
-	return zipFile;
+	return false;
 }
 
-void setExternalAnnotationProvider(InputStream inputStream) {
-	try {
-		this.annotationProvider = new ExternalAnnotationProvider(inputStream, String.valueOf(getName()));
-	} catch (FileNotFoundException e) {
-		// silent
-	} catch (IOException e) {
-		// TODO Auto-generated catch block
-		e.printStackTrace();
-	}
+boolean setExternalAnnotationProvider(InputStream inputStream) throws IOException {
+	this.annotationProvider = new ExternalAnnotationProvider(inputStream, String.valueOf(getName()));
+	return true;
 }
 
 /** If a provider for external annotations has been registered try to retrieve an annotation walker for type parameters of the current type. */

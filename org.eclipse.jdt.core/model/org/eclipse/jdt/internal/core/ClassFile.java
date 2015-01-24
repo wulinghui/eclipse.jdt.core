@@ -21,7 +21,12 @@ import java.util.zip.ZipFile;
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
+import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IResourceChangeEvent;
+import org.eclipse.core.resources.IResourceChangeListener;
+import org.eclipse.core.resources.IWorkspace;
+import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -47,6 +52,7 @@ public class ClassFile extends Openable implements IClassFile, SuffixConstants {
 	protected String name;
 	protected BinaryType binaryType = null;
 
+	private boolean hasExternalAnnotations = false;
 /*
  * Creates a handle to a class file.
  */
@@ -351,17 +357,15 @@ private IBinaryType getJarBinaryTypeInfo(PackageFragment pkg, boolean fullyIniti
 			byte contents[] = org.eclipse.jdt.internal.compiler.util.Util.getZipEntryByteContent(ze, zip);
 			String fileName = root.getHandleIdentifier() + IDependent.JAR_FILE_ENTRY_SEPARATOR + entryName;
 			ClassFileReader reader = new ClassFileReader(contents, fileName.toCharArray(), fullyInitialize);
-			IPath externalAnnotationPath = null;
 			if (root.getKind() == IPackageFragmentRoot.K_BINARY) {
 				JavaProject javaProject = (JavaProject) getAncestor(IJavaElement.JAVA_PROJECT);
 				IClasspathEntry entry = javaProject.getClasspathEntryFor(getPath());
-				if (entry != null)
-					externalAnnotationPath = ClasspathEntry.getExternalAnnotationPath(entry, javaProject.getProject());
-				if (externalAnnotationPath != null) {
-					if ("zip".equalsIgnoreCase(externalAnnotationPath.getFileExtension())) //$NON-NLS-1$
-						annotationZip = JavaModelManager.getJavaModelManager().getZipFile(externalAnnotationPath);
-					String typeName = entryName.substring(0, entryName.length() - SuffixConstants.SUFFIX_CLASS.length);
-					annotationZip = reader.setExternalAnnotationProvider(externalAnnotationPath.toString(), typeName, annotationZip);
+				if (entry != null) {
+					IProject project = javaProject.getProject();
+					IPath externalAnnotationPath = ClasspathEntry.getExternalAnnotationPath(entry, project, false);
+					if (externalAnnotationPath != null)
+						setupExternalAnnotationProvider(project, externalAnnotationPath, annotationZip, reader, 
+								entryName.substring(0, entryName.length() - SuffixConstants.SUFFIX_CLASS.length));
 				}
 			} 
 			return reader;
@@ -371,6 +375,51 @@ private IBinaryType getJarBinaryTypeInfo(PackageFragment pkg, boolean fullyIniti
 		JavaModelManager.getJavaModelManager().closeZipFile(annotationZip);
 	}
 	return null;
+}
+
+private void setupExternalAnnotationProvider(IProject project, final IPath externalAnnotationPath,
+		ZipFile annotationZip, ClassFileReader reader, final String typeName)
+{
+	// try resolve path within the workspace:
+	IWorkspaceRoot root = project.getWorkspace().getRoot();
+	IResource resource = root.getFolder(externalAnnotationPath);
+	if (!resource.exists())
+		resource = root.getFile(externalAnnotationPath);
+	String resolvedPath = resource.exists()
+							? resource.getLocation().toString() // workspace lookup succeeded -> resolve it
+							: externalAnnotationPath.toString(); // not in workspace, use as is
+	ZipFile[] zipFileInOut = new ZipFile[] { annotationZip };
+	if (reader.setExternalAnnotationProvider(resolvedPath, typeName, zipFileInOut, new ClassFileReader.ZipFileProducer() {
+		@Override public ZipFile produce() {
+			try {
+				return JavaModelManager.getJavaModelManager().getZipFile(externalAnnotationPath); // use (absolute, but) unresolved path here
+			} catch (CoreException e) {
+				Util.log(e, "Failed to read annotation file for "+typeName+" from "+externalAnnotationPath.toString()); //$NON-NLS-1$ //$NON-NLS-2$
+				return null;
+			}
+		}}))
+	{
+		annotationZip = zipFileInOut[0];
+		this.hasExternalAnnotations = true;
+	}
+	if (this.hasExternalAnnotations && annotationZip == null) {
+		// additional change listening for individual types only when annotations are in individual files: 
+		final IWorkspace workspace = project.getWorkspace();
+		workspace.addResourceChangeListener(new IResourceChangeListener() {
+			@Override
+			public void resourceChanged(IResourceChangeEvent event) {
+				if (event.getDelta().findMember(externalAnnotationPath) != null) {
+					workspace.removeResourceChangeListener(this);
+					try {
+						ClassFile.this.close();
+					} catch (JavaModelException e) {
+						Util.log(e, "Failed to close ClassFile "+ClassFile.this.name); //$NON-NLS-1$
+					}
+				}
+			}
+		},
+		IResourceChangeEvent.POST_CHANGE);
+	}
 }
 public IBuffer getBuffer() throws JavaModelException {
 	IStatus status = validateClassFile();
@@ -850,5 +899,12 @@ protected IStatus validateExistence(IResource underlyingResource) {
 }
 public ISourceRange getNameRange() {
 	return null;
+}
+@Override
+public void close() throws JavaModelException {
+	super.close();
+	if (this.binaryType != null && this.hasExternalAnnotations)
+		// triggered when external annotations have changed we need to recreate this class file
+		JavaModelManager.getJavaModelManager().removeFromJarTypeCache(this.binaryType);
 }
 }

@@ -262,6 +262,9 @@ protected void removeInfo(JavaElement element) {
 protected void resetJarTypeCache() {
 	this.jarTypeCache = new LRUCache((int) (DEFAULT_OPENABLE_SIZE * getMemoryRatio() * getJarTypeRatio()));
 }
+protected void removeFromJarTypeCache(BinaryType type) {
+	this.jarTypeCache.flush(type);
+}
 public String toString() {
 	return toStringFillingRation(""); //$NON-NLS-1$
 }

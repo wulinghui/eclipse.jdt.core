@@ -104,7 +104,7 @@ private void computeClasspathLocations(
 		ClasspathEntry entry = (ClasspathEntry) classpathEntries[i];
 		IPath path = entry.getPath();
 		Object target = JavaModel.getTarget(path, true);
-		IPath externalAnnotationPath = ClasspathEntry.getExternalAnnotationPath(entry, javaProject.getProject());
+		IPath externalAnnotationPath = ClasspathEntry.getExternalAnnotationPath(entry, javaProject.getProject(), true);
 		if (target == null) continue nextEntry;
 
 		switch(entry.getEntryKind()) {

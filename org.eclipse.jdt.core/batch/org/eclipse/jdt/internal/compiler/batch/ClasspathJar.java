@@ -104,7 +104,9 @@ public NameEnvironmentAnswer findClass(char[] typeName, String qualifiedPackageN
 		if (reader != null) {
 			if (this.annotationPath != null) {
 				String qualifiedClassName = qualifiedBinaryFileName.substring(0, qualifiedBinaryFileName.length()-SuffixConstants.EXTENSION_CLASS.length()-1);
-				this.annotationZipFile = reader.setExternalAnnotationProvider(this.annotationPath, qualifiedClassName, this.annotationZipFile);
+				ZipFile[] zipFileInOut = new ZipFile[] { this.annotationZipFile };
+				reader.setExternalAnnotationProvider(this.annotationPath, qualifiedClassName, zipFileInOut, null);
+				this.annotationZipFile = zipFileInOut[0];
 			}
 			return new NameEnvironmentAnswer(reader, fetchAccessRestriction(qualifiedBinaryFileName));
 		}
