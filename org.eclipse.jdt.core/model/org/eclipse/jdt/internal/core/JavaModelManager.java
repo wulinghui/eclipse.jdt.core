@@ -10,7 +10,9 @@
  *     Theodora Yeung (tyeung@bea.com) - ensure that JarPackageFragmentRoot make it into cache
  *                                                           before its contents
  *                                                           (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=102422)
- *     Stephan Herrmann - Contribution for Bug 346010 - [model] strange initialization dependency in OptionTests
+ *     Stephan Herrmann - Contributions for
+ *								Bug 346010 - [model] strange initialization dependency in OptionTests
+ *								Bug 440477 - [null] Infrastructure for feeding external annotations into compilation
  *     Terry Parker <tparker@google.com> - DeltaProcessor misses state changes in archive files, see https://bugs.eclipse.org/bugs/show_bug.cgi?id=357425
  *     Thirumala Reddy Mutchukota <thirumala@google.com> - Contribution to bug: https://bugs.eclipse.org/bugs/show_bug.cgi?id=411423
  *     Terry Parker <tparker@google.com> - [performance] Low hit rates in JavaModel caches - https://bugs.eclipse.org/421165
