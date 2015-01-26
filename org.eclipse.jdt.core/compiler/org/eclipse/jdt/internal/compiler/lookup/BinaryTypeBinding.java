@@ -48,6 +48,7 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.NonNullDefaultAwareTypeAnnotationWalker;
 import org.eclipse.jdt.internal.compiler.classfmt.TypeAnnotationWalker;
+import org.eclipse.jdt.internal.compiler.classfmt.ExternalAnnotationProvider.IMethodAnnotationWalker;
 import org.eclipse.jdt.internal.compiler.codegen.ConstantPool;
 import org.eclipse.jdt.internal.compiler.env.*;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
@@ -499,12 +500,26 @@ void cachePartsFrom(IBinaryType binaryType, boolean needFieldsAndMethods) {
 			}
 			if (this.environment.globalOptions.isAnnotationBasedNullAnalysisEnabled) {
 				if (iFields != null) {
-					for (int i = 0; i < iFields.length; i++)
-						scanFieldForNullAnnotation(iFields[i], this.fields[i], this.isEnum());
+					for (int i = 0; i < iFields.length; i++) {
+						if (sourceLevel < ClassFileConstants.JDK1_8 && binaryType instanceof ClassFileReader) {// TODO: avoid cast? add method to IBinaryType?
+							// below 1.8 we still might use an annotation walker to discover external annotations:
+							walker = ((ClassFileReader)binaryType).getAnnotationsForField(iFields[i], this.environment);
+						} else {
+							walker = ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER;
+						}
+						scanFieldForNullAnnotation(iFields[i], this.fields[i], this.isEnum(), walker);
+					}
 				}
 				if (iMethods != null) {
-					for (int i = 0; i < iMethods.length; i++)
-						scanMethodForNullAnnotation(iMethods[i], this.methods[i]);
+					for (int i = 0; i < iMethods.length; i++) {
+						if (sourceLevel < ClassFileConstants.JDK1_8 && binaryType instanceof ClassFileReader) {// TODO: avoid cast? add method to IBinaryType?
+							// below 1.8 we still might use an annotation walker to discover external annotations:
+							walker = ((ClassFileReader)binaryType).getAnnotationsForMethod(iMethods[i], this.environment);
+						} else {
+							walker = ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER;
+						}
+						scanMethodForNullAnnotation(iMethods[i], this.methods[i], walker);
+					}
 				}
 			}
 		}
@@ -553,9 +568,10 @@ private void createFields(IBinaryField[] iFields, IBinaryType binaryType, long s
 				IBinaryField binaryField = iFields[i];
 				char[] fieldSignature = use15specifics ? binaryField.getGenericSignature() : null;
 				ITypeAnnotationWalker walker = getTypeAnnotationWalker(binaryField.getTypeAnnotations());
-				if (walker == ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER && binaryType instanceof ClassFileReader) {// TODO: avoid cast? add method to IBinaryType?
-					char[] desc = fieldSignature != null ? fieldSignature : binaryField.getTypeName();
-					walker = ((ClassFileReader)binaryType).getAnnotationsForField(binaryField, desc, this.environment);
+				if (walker == ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER
+						&& sourceLevel >= ClassFileConstants.JDK1_8
+						&& binaryType instanceof ClassFileReader) {// TODO: avoid cast? add method to IBinaryType?
+					walker = ((ClassFileReader)binaryType).getAnnotationsForField(binaryField, this.environment);
 				}
 				walker = walker.toField();
 				TypeBinding type = fieldSignature == null
@@ -623,8 +639,10 @@ private MethodBinding createMethod(IBinaryMethod method, IBinaryType binaryType,
 	char[] methodSignature = method.getGenericSignature(); // always use generic signature, even in 1.4
 	if (methodSignature == null) { // no generics
 		char[] methodDescriptor = method.getMethodDescriptor();   // of the form (I[Ljava/jang/String;)V
-		if (walker == ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER && binaryType instanceof ClassFileReader) {// TODO: avoid cast? add method to IBinaryType?
-			walker = ((ClassFileReader)binaryType).getAnnotationsForMethod(method, methodDescriptor, this.environment);
+		if (walker == ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER
+				&& sourceLevel >= ClassFileConstants.JDK1_8
+				&& binaryType instanceof ClassFileReader) {// TODO: avoid cast? add method to IBinaryType?
+			walker = ((ClassFileReader)binaryType).getAnnotationsForMethod(method, this.environment);
 		}
 		int numOfParams = 0;
 		char nextChar;
@@ -699,8 +717,10 @@ private MethodBinding createMethod(IBinaryMethod method, IBinaryType binaryType,
 		}
 
 	} else {
-		if (walker == ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER && binaryType instanceof ClassFileReader) {// TODO: avoid cast? add method to IBinaryType?
-			walker = ((ClassFileReader)binaryType).getAnnotationsForMethod(method, methodSignature, this.environment);
+		if (walker == ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER
+				&& sourceLevel >= ClassFileConstants.JDK1_8
+				&& binaryType instanceof ClassFileReader) {// TODO: avoid cast? add method to IBinaryType?
+			walker = ((ClassFileReader)binaryType).getAnnotationsForMethod(method, this.environment);
 		}
 		methodModifiers |= ExtraCompilerModifiers.AccGenericSignature;
 		// MethodTypeSignature = ParameterPart(optional) '(' TypeSignatures ')' return_typeSignature ['^' TypeSignature (optional)]
@@ -1487,7 +1507,7 @@ SimpleLookupTable storedAnnotations(boolean forceInitialize) {
 }
 
 //pre: null annotation analysis is enabled
-private void scanFieldForNullAnnotation(IBinaryField field, FieldBinding fieldBinding, boolean isEnum) {
+private void scanFieldForNullAnnotation(IBinaryField field, FieldBinding fieldBinding, boolean isEnum, ITypeAnnotationWalker externalAnnotationWalker) {
 	if (!isPrototype()) throw new IllegalStateException();
 
 	if (isEnum && (field.getModifiers() & ClassFileConstants.AccEnum) != 0) {
@@ -1516,7 +1536,9 @@ private void scanFieldForNullAnnotation(IBinaryField field, FieldBinding fieldBi
 		return; // null annotations are only applied to reference types
 
 	boolean explicitNullness = false;
-	IBinaryAnnotation[] annotations = field.getAnnotations();
+	IBinaryAnnotation[] annotations = externalAnnotationWalker != ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER
+											? externalAnnotationWalker.getAnnotationsAtCursor(fieldBinding.type.id) 
+											: field.getAnnotations();
 	if (annotations != null) {
 		for (int i = 0; i < annotations.length; i++) {
 			char[] annotationTypeName = annotations[i].getTypeName();
@@ -1540,7 +1562,7 @@ private void scanFieldForNullAnnotation(IBinaryField field, FieldBinding fieldBi
 	}
 }
 
-private void scanMethodForNullAnnotation(IBinaryMethod method, MethodBinding methodBinding) {
+private void scanMethodForNullAnnotation(IBinaryMethod method, MethodBinding methodBinding, ITypeAnnotationWalker externalAnnotationWalker) {
 	if (!isPrototype()) throw new IllegalStateException();
 	char[][] nullableAnnotationName = this.environment.getNullableAnnotationName();
 	char[][] nonNullAnnotationName = this.environment.getNonNullAnnotationName();
@@ -1549,7 +1571,10 @@ private void scanMethodForNullAnnotation(IBinaryMethod method, MethodBinding met
 		return; // not well-configured to use null annotations
 
 	// return:
-	IBinaryAnnotation[] annotations = method.getAnnotations();
+	ITypeAnnotationWalker returnWalker = externalAnnotationWalker.toMethodReturn();
+	IBinaryAnnotation[] annotations = returnWalker != ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER
+								? returnWalker.getAnnotationsAtCursor(methodBinding.returnType.id)
+								: method.getAnnotations();
 	if (annotations != null) {
 		for (int i = 0; i < annotations.length; i++) {
 			char[] annotationTypeName = annotations[i].getTypeName();
@@ -1573,12 +1598,17 @@ private void scanMethodForNullAnnotation(IBinaryMethod method, MethodBinding met
 	// parameters:
 	TypeBinding[] parameters = methodBinding.parameters;
 	int numVisibleParams = parameters.length;
-	int numParamAnnotations = method.getAnnotatedParametersCount();
+	int numParamAnnotations = externalAnnotationWalker instanceof IMethodAnnotationWalker
+							? ((IMethodAnnotationWalker) externalAnnotationWalker).getParameterCount()
+							: method.getAnnotatedParametersCount();
 	if (numParamAnnotations > 0) {
 		for (int j = 0; j < numVisibleParams; j++) {
 			if (numParamAnnotations > 0) {
 				int startIndex = numParamAnnotations - numVisibleParams;
-				IBinaryAnnotation[] paramAnnotations = method.getParameterAnnotations(j+startIndex);
+				ITypeAnnotationWalker parameterWalker = externalAnnotationWalker.toMethodParameter((short) (j+startIndex));
+				IBinaryAnnotation[] paramAnnotations = parameterWalker != ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER
+															? parameterWalker.getAnnotationsAtCursor(parameters[j].id)
+															: method.getParameterAnnotations(j+startIndex);
 				if (paramAnnotations != null) {
 					for (int i = 0; i < paramAnnotations.length; i++) {
 						char[] annotationTypeName = paramAnnotations[i].getTypeName();

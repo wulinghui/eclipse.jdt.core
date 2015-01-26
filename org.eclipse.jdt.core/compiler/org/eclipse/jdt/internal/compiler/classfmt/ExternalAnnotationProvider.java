@@ -406,7 +406,10 @@ public class ExternalAnnotationProvider {
 		}
 	}
 
-	class MethodAnnotationWalker extends MemberAnnotationWalker {
+	public interface IMethodAnnotationWalker extends ITypeAnnotationWalker {
+		int getParameterCount();
+	}
+	class MethodAnnotationWalker extends MemberAnnotationWalker implements IMethodAnnotationWalker {
 
 		int prevParamStart;
 		TypeParamtersAnnotationWalker typeParametersWalker;
@@ -480,7 +483,18 @@ public class ExternalAnnotationProvider {
 		@Override
 		public ITypeAnnotationWalker toField() {
 			throw new UnsupportedOperationException("Methods have no fields"); //$NON-NLS-1$
-		}		
+		}
+
+		@Override
+		public int getParameterCount() {
+			int count = 0;
+			int start = CharOperation.indexOf('(', this.source) + 1;
+			while (start < this.source.length && this.source[start] != ')') {
+				start = typeEnd(start) + 1;
+				count++;
+			}
+			return count;
+		}
 	}
 	
 	class FieldAnnotationWalker extends MemberAnnotationWalker {

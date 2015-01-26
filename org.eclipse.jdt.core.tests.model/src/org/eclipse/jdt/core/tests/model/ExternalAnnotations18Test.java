@@ -82,11 +82,13 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		}
 	}
 
-	private IJavaProject project;
-	private IPackageFragmentRoot root;
-	private String ANNOTATION_LIB;
+	protected IJavaProject project;
+	protected IPackageFragmentRoot root;
+	protected String ANNOTATION_LIB;
+	protected final String compliance;
+	protected final String jclLib;
 
-	private static final String MY_MAP_CONTENT = 
+	protected static final String MY_MAP_CONTENT = 
 			"package libs;\n" + 
 			"\n" + 
 			"public interface MyMap<K,V> {\n" + 
@@ -96,10 +98,16 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 			"}\n";
 
 	public ExternalAnnotations18Test(String name) {
-		super(name);
+		this(name, "1.8", "JCL18_LIB");
 	}
 	
-// Use this static initializer to specify subset for tests
+	protected ExternalAnnotations18Test(String name, String compliance, String jclLib) {
+		super(name);
+		this.compliance = compliance;
+		this.jclLib = jclLib;
+	}
+
+	// Use this static initializer to specify subset for tests
 // All specified tests which do not belong to the class are skipped...
 	static {
 		// Names of tests to run: can be "testBugXXXX" or "BugXXXX")
@@ -112,18 +120,22 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		return buildModelTestSuite(ExternalAnnotations18Test.class, BYTECODE_DECLARATION_ORDER);
 	}
 
-	/**
-	 * @deprecated indirectly uses deprecated class PackageAdmin
-	 */
 	public void setUpSuite() throws Exception {
 		super.setUpSuite();
 		
-		Bundle[] bundles = org.eclipse.jdt.core.tests.Activator.getPackageAdmin().getBundles("org.eclipse.jdt.annotation", "[2.0.0,3.0.0)");
+		Bundle[] bundles = getAnnotationBundles();
 		File bundleFile = FileLocator.getBundleFile(bundles[0]);
 		this.ANNOTATION_LIB = bundleFile.isDirectory() ? bundleFile.getPath()+"/bin" : bundleFile.getPath();
 
 		// set up class path container bridging to the host JRE:
 		ContainerInitializer.setInitializer(new TestContainerInitializer());
+	}
+
+	/**
+	 * @deprecated indirectly uses deprecated class PackageAdmin
+	 */
+	protected Bundle[] getAnnotationBundles() {
+		return org.eclipse.jdt.core.tests.Activator.getPackageAdmin().getBundles("org.eclipse.jdt.annotation", "[2.0.0,3.0.0)");
 	}
 
 	public void tearDownSuite() throws Exception {
@@ -136,8 +148,12 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		return super.getSourceWorkspacePath()+"/ExternalAnnotations18";
 	}
 
+	protected String getSourceWorkspacePathBase() {
+		return super.getSourceWorkspacePath();
+	}
+
 	void setupJavaProject(String name) throws CoreException, IOException {
-		this.project = setUpJavaProject(name, "1.8"); //$NON-NLS-1$
+		this.project = setUpJavaProject(name, this.compliance); //$NON-NLS-1$
 		addLibraryEntry(this.project, this.ANNOTATION_LIB, false);
 		Map options = this.project.getOptions(true);
 		options.put(JavaCore.COMPILER_ANNOTATION_NULL_ANALYSIS, JavaCore.ENABLED);
@@ -160,7 +176,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 	}
 	
 	void myCreateJavaProject(String name) throws CoreException {
-		this.project = createJavaProject(name, new String[]{"src"}, new String[]{"JCL18_LIB"}, null, null, "bin", null, null, null, "1.8");
+		this.project = createJavaProject(name, new String[]{"src"}, new String[]{this.jclLib}, null, null, "bin", null, null, null, this.compliance);
 		addLibraryEntry(this.project, this.ANNOTATION_LIB, false);
 		Map options = this.project.getOptions(true);
 		options.put(JavaCore.COMPILER_ANNOTATION_NULL_ANALYSIS, JavaCore.ENABLED);
@@ -221,10 +237,9 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 			String jarName,
 			String externalAnnotationPath,
 			String[] pathAndContents,
-			String compliance,
 			Map options) throws CoreException, IOException
 	{
-		createLibrary(javaProject, jarName, "src.zip", pathAndContents, null, compliance, options);
+		createLibrary(javaProject, jarName, "src.zip", pathAndContents, null, this.compliance, options);
 		String jarPath = '/' + javaProject.getProject().getName() + '/' + jarName;
 		IClasspathAttribute[] extraAttributes = new IClasspathAttribute[] { new ClasspathAttribute(IClasspathAttribute.EXTERNAL_ANNOTATION_PATH, externalAnnotationPath) };
 		IClasspathEntry entry = JavaCore.newLibraryEntry(
@@ -243,19 +258,19 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		createFile(folderPath+'/'+fileName, content);
 	}
 
-	private void assertNoMarkers(IMarker[] markers) throws CoreException {
+	protected void assertNoMarkers(IMarker[] markers) throws CoreException {
 		for (int i = 0; i < markers.length; i++)
 			System.err.println("Unexpected marker: "+markers[i].getAttributes().entrySet());
 		assertEquals("Number of markers", 0, markers.length);
 	}
 	
-	private void assertNoProblems(IProblem[] problems) throws CoreException {
+	protected void assertNoProblems(IProblem[] problems) throws CoreException {
 		for (int i = 0; i < problems.length; i++)
 			System.err.println("Unexpected marker: "+problems[i]);
 		assertEquals("Number of markers", 0, problems.length);
 	}
 
-	private void assertProblems(IProblem[] problems, String[] messages, int[] lines) throws CoreException {
+	protected void assertProblems(IProblem[] problems, String[] messages, int[] lines) throws CoreException {
 		int nMatch = 0;
 		for (int i = 0; i < problems.length; i++) {
 			for (int j = 0; j < messages.length; j++) {
@@ -286,7 +301,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		addLibraryWithExternalAnnotations(this.project, "lib1.jar", "annots", new String[] {
 				"/UnannotatedLib/libs/MyMap.java",
 				MY_MAP_CONTENT
-			}, "1.8", null);
+			}, null);
 		this.project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
 		IMarker[] markers = this.project.getProject().findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, false, IResource.DEPTH_INFINITE);
 		assertNoMarkers(markers);
@@ -300,7 +315,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 			addLibraryWithExternalAnnotations(this.project, "lib1.jar", "MY_PRJ_ROOT/annots", new String[] {
 					"/UnannotatedLib/libs/MyMap.java",
 					MY_MAP_CONTENT
-				}, "1.8", null);
+				}, null);
 			this.project.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
 			IMarker[] markers = this.project.getProject().findMarkers(IJavaModelMarker.JAVA_MODEL_PROBLEM_MARKER, false, IResource.DEPTH_INFINITE);
 			assertNoMarkers(markers);
@@ -315,7 +330,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		addLibraryWithExternalAnnotations(this.project, "lib1.jar", "annots", new String[] {
 				"/UnannotatedLib/libs/MyMap.java",
 				MY_MAP_CONTENT
-			}, "1.8", null);
+			}, null);
 		IPackageFragment fragment = this.root.getPackageFragment("test1");
 		ICompilationUnit unit = fragment.getCompilationUnit("Test1.java").getWorkingCopy(new NullProgressMonitor());
 		CompilationUnit reconciled = unit.reconcile(AST.JLS8, true, null, new NullProgressMonitor());
@@ -338,7 +353,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"	<T> Iterator<? extends T> constrainedWildcards(Collection<? extends T> in);\n" + 
 				"	<T extends Collection<?>> T constrainedTypeParameter(T in);\n" + 
 				"}\n"
-			}, "1.8", null);
+			}, null);
 		createFileInProject("annots/libs", "Lib1.eea",
 				"interface libs/Lib1\n" + 
 				"\n" + 
@@ -399,7 +414,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"	String[] constraintArrayFull(String[] in);\n" + 
 				"	String[][] constraintDeep(String[][] in);\n" + 
 				"}\n"
-			}, "1.8", null);
+			}, null);
 		createFileInProject("annots/libs", "Lib1.eea", 
 				"interface libs/Lib1\n" + 
 				"\n" + 
@@ -454,7 +469,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"	String one = \"1\";\n" + 
 				"	String none = null;\n" + 
 				"}\n"
-			}, "1.8", null);
+			}, null);
 		createFileInProject("annots/libs", "Lib1.eea", 
 				"interface libs/Lib1\n" +
 				"\n" + 
@@ -499,7 +514,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"	String one = \"1\";\n" + 
 				"	String none = null;\n" + 
 				"}\n"
-			}, "1.8", null);
+			}, null);
 		Util.createSourceZip(
 			new String[] {
 				"libs/Lib1.eea", 
@@ -551,7 +566,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"	String one = \"1\";\n" + 
 				"	String none = null;\n" + 
 				"}\n"
-			}, "1.8", null);
+			}, null);
 		Util.createSourceZip(
 			new String[] {
 				"libs/Lib1.eea", 
@@ -603,7 +618,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"	W getW();\n" +
 				"	<X,Y extends CharSequence> Y fun(X x);\n" + 
 				"}\n"
-			}, "1.8", null);
+			}, null);
 		createFileInProject("annots/libs", "Lib1.eea", 
 				"interface libs/Lib1\n" +
 				" <U:Ljava/lang/Object;V:Ljava/lang/Object;W:TU;>\n" +

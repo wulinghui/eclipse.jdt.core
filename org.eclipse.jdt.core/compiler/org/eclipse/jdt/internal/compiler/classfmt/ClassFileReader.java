@@ -462,16 +462,22 @@ public ITypeAnnotationWalker getAnnotationsForTypeParameters(LookupEnvironment e
 }
 
 /** If a provider for external annotations has been registered try to retrieve an annotation walker for the given method. */
-public ITypeAnnotationWalker getAnnotationsForMethod(IBinaryMethod method, char[] methodSignature, LookupEnvironment environment) {
+public ITypeAnnotationWalker getAnnotationsForMethod(IBinaryMethod method, LookupEnvironment environment) {
 	if (this.annotationProvider != null) {
+		char[] methodSignature = method.getGenericSignature();
+		if (methodSignature == null)
+			methodSignature = method.getMethodDescriptor();
 		return this.annotationProvider.forMethod(method.isConstructor() ? TypeConstants.INIT : method.getSelector(), methodSignature, environment);
 	}
 	return ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER;
 }
 
 /** If a provider for external annotations has been registered try to retrieve an annotation walker for the given field. */
-public ITypeAnnotationWalker getAnnotationsForField(IBinaryField field, char[] fieldSignature, LookupEnvironment environment) {
+public ITypeAnnotationWalker getAnnotationsForField(IBinaryField field, LookupEnvironment environment) {
 	if (this.annotationProvider != null) {
+		char[] fieldSignature = field.getGenericSignature();
+		if (fieldSignature == null)
+			fieldSignature = field.getTypeName(); 
 		return this.annotationProvider.forField(field.getName(), fieldSignature, environment);
 	}
 	return ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER;
