@@ -285,7 +285,7 @@ public class ExternalAnnotationUtil {
 			int startOld = wrapperOld.start;
 			if (wrapperNew.signature[startNew] == ')') {
 				if (wrapperOld.signature[startOld] != ')')
-					throw new IllegalAccessError("Structural difference between signatures "+newSignature+" and "+oldSignature);  //$NON-NLS-1$//$NON-NLS-2$
+					throw new IllegalArgumentException("Structural difference between signatures "+newSignature+" and "+oldSignature);  //$NON-NLS-1$//$NON-NLS-2$
 				startNew = ++wrapperNew.start;
 				startOld = ++wrapperOld.start;
 				buf.append(')');
