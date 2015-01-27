@@ -69,7 +69,7 @@ public class ExternalAnnotationProvider {
 			} else {
 				throw new IOException("missing class header in annotation file"); //$NON-NLS-1$
 			}
-			if (!line.equals(this.typeName)) {
+			if (!trimTail(line).equals(this.typeName)) {
 				throw new IOException("mismatching class name in annotation file, expected "+this.typeName+", but header said "+line); //$NON-NLS-1$ //$NON-NLS-2$
 			}
 			if ((line = reader.readLine()) == null) {
@@ -108,14 +108,26 @@ public class ExternalAnnotationProvider {
 					if (errLine == -1) errLine = reader.getLineNumber();
 					throw new IOException("Illegal format for annotation file at line "+errLine); //$NON-NLS-1$
 				}
+				// discard optional meta data (separated by whitespace):
+				annotSig = trimTail(annotSig);
 				if (rawSig.contains("(")) //$NON-NLS-1$
 					this.methodAnnotationSources.put(selector+rawSig, annotSig);
 				else
-					this.fieldAnnotationSources.put(selector+rawSig, annotSig); // FIXME(SH): mark the start of the signature
+					this.fieldAnnotationSources.put(selector+':'+rawSig, annotSig);
 			} while ((line = reader.readLine()) != null);
 		} finally {
 			reader.close();
 		}
+	}
+
+	/** Lines may contain arbitrary trailing data, separated by white space. */
+	protected String trimTail(String line) {
+		int tail = line.indexOf(' ');
+		if (tail == -1)
+			tail = line.indexOf('\t');
+		if (tail != -1) 
+			return line.substring(0, tail);
+		return line;
 	}
 
 	public ITypeAnnotationWalker forTypeParameters(LookupEnvironment environment) {
@@ -132,7 +144,7 @@ public class ExternalAnnotationProvider {
 	}
 
 	public ITypeAnnotationWalker forField(char[] selector, char[] signature, LookupEnvironment environment) {
-		String source = this.fieldAnnotationSources.get(String.valueOf(CharOperation.concat(selector, signature)));
+		String source = this.fieldAnnotationSources.get(String.valueOf(CharOperation.concat(selector, signature, ':')));
 		if (source != null)
 			return new FieldAnnotationWalker(source.toCharArray(), 0, environment);
 		return ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER;
