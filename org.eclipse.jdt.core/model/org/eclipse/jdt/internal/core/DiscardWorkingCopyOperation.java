@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
 
+import org.eclipse.core.resources.IResource;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaElementDelta;
 import org.eclipse.jdt.core.IJavaProject;
@@ -42,7 +43,8 @@ public class DiscardWorkingCopyOperation extends JavaModelOperation {
 				addDelta(delta);
 				removeReconcileDelta(workingCopy);
 			} else {
-				if (workingCopy.getResource().isAccessible()) {
+				IResource resource = workingCopy.getResource();
+				if (resource != null && resource.isAccessible()) {
 					// report a F_PRIMARY_WORKING_COPY change delta for a primary working copy
 					JavaElementDelta delta = new JavaElementDelta(getJavaModel());
 					delta.changed(workingCopy, IJavaElementDelta.F_PRIMARY_WORKING_COPY);

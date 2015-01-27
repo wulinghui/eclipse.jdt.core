@@ -1516,6 +1516,8 @@ public class Util {
 				return (JavaElement) declaringMethod.getTypeParameter(typeVariableName);
 			} else {
 				IType declaringType = (IType) getUnresolvedJavaElement((TypeBinding) declaringElement, workingCopyOwner, bindingsToNodes);
+				if (declaringType == null)
+					return null;
 				return (JavaElement) declaringType.getTypeParameter(typeVariableName);
 			}
 		} else {
