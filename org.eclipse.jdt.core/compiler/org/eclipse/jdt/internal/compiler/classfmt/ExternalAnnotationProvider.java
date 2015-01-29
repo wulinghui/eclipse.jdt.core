@@ -287,6 +287,9 @@ public class ExternalAnnotationProvider {
 					case 'T':
 					case 'L':
 					case '[':
+					case '*':
+					case '+':
+					case '-':
 						switch (this.source[this.pos+1]) {
 							case NULLABLE:
 								return new IBinaryAnnotation[]{ ExternalAnnotationProvider.this.NULLABLE_ANNOTATION };

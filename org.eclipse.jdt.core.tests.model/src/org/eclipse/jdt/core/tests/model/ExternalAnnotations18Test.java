@@ -12,9 +12,6 @@ package org.eclipse.jdt.core.tests.model;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URL;
 import java.util.Hashtable;
 import java.util.Map;
 
@@ -37,7 +34,6 @@ import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.CompilationUnit;
@@ -204,33 +200,6 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		this.root = null;
 		super.tearDown();
 	}
-	
-	// TODO: using this copy from AttachedJavadocTests test also programmatically setting the external annotation location:
-	private void setExternalAnnotationsAttribute(String folderName) throws JavaModelException {
-		IClasspathEntry[] entries = this.project.getRawClasspath();
-		IResource resource = this.project.getProject().findMember("/"+folderName+"/"); //$NON-NLS-1$
-		assertNotNull("annotations folder cannot be null", resource); //$NON-NLS-1$
-		URI locationURI = resource.getLocationURI();
-		assertNotNull("annotations folder cannot be null", locationURI); //$NON-NLS-1$
-		URL annotationsUrl = null;
-		try {
-			annotationsUrl = locationURI.toURL();
-		} catch (MalformedURLException e) {
-			assertTrue("Should not happen", false); //$NON-NLS-1$
-		} catch(IllegalArgumentException e) {
-			assertTrue("Should not happen", false); //$NON-NLS-1$
-		}
-		IClasspathAttribute attribute = JavaCore.newClasspathAttribute(IClasspathAttribute.JAVADOC_LOCATION_ATTRIBUTE_NAME, annotationsUrl.toExternalForm());
-		for (int i = 0, max = entries.length; i < max; i++) {
-			final IClasspathEntry entry = entries[i];
-			if (entry.getEntryKind() == IClasspathEntry.CPE_LIBRARY
-					&& entry.getContentKind() == IPackageFragmentRoot.K_BINARY
-					&& "/AttachedJavadocProject/lib/test6.jar".equals(entry.getPath().toString())) { //$NON-NLS-1$
-				entries[i] = JavaCore.newLibraryEntry(entry.getPath(), entry.getSourceAttachmentPath(), entry.getSourceAttachmentRootPath(), entry.getAccessRules(), new IClasspathAttribute[] { attribute}, entry.isExported());
-			}
-		}
-		this.project.setRawClasspath(entries, null);
-	}
 
 	protected void addLibraryWithExternalAnnotations(
 			IJavaProject javaProject,
@@ -354,22 +323,23 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"	<T extends Collection<?>> T constrainedTypeParameter(T in);\n" + 
 				"}\n"
 			}, null);
+		// annotations on type variables & class type in various positions:
 		createFileInProject("annots/libs", "Lib1.eea",
 				"class libs/Lib1\n" + 
 				"\n" + 
 				"unconstrainedTypeArguments1\n" + 
 				" <T:Ljava/lang/Object;>(Ljava/util/Collection<TT;>;)Ljava/util/Iterator<TT;>;\n" + 
-				" <T:Ljava/lang/Object;>(Ljava/util/Collection<T0T;>;)Ljava/util/Iterator<TT;>;\n" + 
+				" <T:Ljava/lang/Object;>(Ljava/util/Collection<T0T;>;)Ljava/util/Iterator<TT;>;\n" +  // position: type argument
 				"\n" + 
 				"unconstrainedTypeArguments2\n" + 
 				" (Ljava/util/Collection<Ljava/lang/String;>;)Ljava/util/Iterator<Ljava/lang/String;>;\n" + 
-				" (Ljava/util/Collection<Ljava/lang/String;>;)Ljava/util/Iterator<L1java/lang/String;>;\n" + 
+				" (Ljava/util/Collection<Ljava/lang/String;>;)Ljava/util/Iterator<L1java/lang/String;>;\n" + // position: type argument bound (class type)
 				"constrainedWildcards\n" +
 				" <T:Ljava/lang/Object;>(Ljava/util/Collection<+TT;>;)Ljava/util/Iterator<+TT;>;\n" +
-				" <T:Ljava/lang/Object;>(Ljava/util/Collection<+T0T;>;)Ljava/util/Iterator<+T1T;>;\n" +
+				" <T:Ljava/lang/Object;>(Ljava/util/Collection<+T0T;>;)Ljava/util/Iterator<+T1T;>;\n" + // positions: wildcard bound
 				"constrainedTypeParameter\n" +
 				" <T::Ljava/util/Collection<*>;>(TT;)TT;\n" +
-				" <T::Ljava/util/Collection<*>;>(T0T;)T1T;\n");
+				" <T::Ljava/util/Collection<*>;>(T0T;)T1T;\n"); // position: top-level type
 		IPackageFragment fragment = this.project.getPackageFragmentRoots()[0].createPackageFragment("tests", true, null);
 		ICompilationUnit unit = fragment.createCompilationUnit("Test1.java", 
 				"package tests;\n" + 
@@ -398,6 +368,76 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		CompilationUnit reconciled = unit.reconcile(AST.JLS8, true, null, new NullProgressMonitor());
 		IProblem[] problems = reconciled.getProblems();
 		assertNoProblems(problems);
+	}
+
+	public void testLibsWithWildcards() throws Exception {
+		myCreateJavaProject("TestLibs");
+		addLibraryWithExternalAnnotations(this.project, "lib1.jar", "annots", new String[] {
+				"/UnannotatedLib/libs/Lib1.java",
+				"package libs;\n" + 
+				"\n" + 
+				"import java.util.Collection;\n" + 
+				"import java.util.Iterator;\n" + 
+				"\n" + 
+				"public interface Lib1 {\n" + 
+				"	Iterator<?> unconstrainedWildcard1(Collection<?> in);\n" + 
+				"	Iterator<?> unconstrainedWildcard2(Collection<?> in);\n" + 
+				"	Iterator<? extends CharSequence> constrainedWildcard1(Collection<? extends CharSequence> in);\n" + 
+				"	Iterator<? super CharSequence> constrainedWildcard2(Collection<? super CharSequence> in);\n" + 
+				"}\n"
+			}, null);
+		// annotations directly on a wildcard (*, +, -)
+		createFileInProject("annots/libs", "Lib1.eea",
+				"class libs/Lib1\n" + 
+				"\n" + 
+				"unconstrainedWildcard1\n" + 
+				" (Ljava/util/Collection<*>;)Ljava/util/Iterator<*>;\n" + 
+				" (Ljava/util/Collection<*>;)Ljava/util/Iterator<*1>;\n" +
+				"\n" + 
+				"unconstrainedWildcard2\n" + 
+				" (Ljava/util/Collection<*>;)Ljava/util/Iterator<*>;\n" + 
+				" (Ljava/util/Collection<*>;)Ljava/util/Iterator<*0>;\n" + 
+				"\n" + 
+				"constrainedWildcard1\n" + 
+				" (Ljava/util/Collection<+Ljava/lang/CharSequence;>;)Ljava/util/Iterator<+Ljava/lang/CharSequence;>;\n" + 
+				" (Ljava/util/Collection<+Ljava/lang/CharSequence;>;)Ljava/util/Iterator<+0Ljava/lang/CharSequence;>;\n" + 
+				"\n" + 
+				"constrainedWildcard2\n" + 
+				" (Ljava/util/Collection<-Ljava/lang/CharSequence;>;)Ljava/util/Iterator<-Ljava/lang/CharSequence;>;\n" + 
+				" (Ljava/util/Collection<-Ljava/lang/CharSequence;>;)Ljava/util/Iterator<-0Ljava/lang/CharSequence;>;\n" + 
+				"\n" + 
+				"\n");
+		IPackageFragment fragment = this.project.getPackageFragmentRoots()[0].createPackageFragment("tests", true, null);
+		ICompilationUnit unit = fragment.createCompilationUnit("Test1.java", 
+				"package tests;\n" + 
+				"import org.eclipse.jdt.annotation.*;\n" + 
+				"\n" + 
+				"import java.util.Collection;\n" + 
+				"\n" + 
+				"import libs.Lib1;\n" + 
+				"\n" + 
+				"public class Test1 {\n" + 
+				"	@NonNull Object test1(Lib1 lib, Collection<@Nullable String> coll) {\n" + 
+				"		 return lib.unconstrainedWildcard1(coll).next();\n" + // OK
+				"	}\n" + 
+				"	@NonNull Object test2(Lib1 lib, Collection<@Nullable String> coll) {\n" + 
+				"		 return lib.unconstrainedWildcard2(coll).next();\n" + // return is nullable -> error
+				"	}\n" + 
+				"	@NonNull CharSequence test3(Lib1 lib, Collection<@Nullable String> coll) {\n" + 
+				"		 return lib.constrainedWildcard1(coll).next();\n" + // '@Nullable ? extends CharSequence' -> error
+				"	}\n" + 
+				"	@NonNull Object test4(Lib1 lib, Collection<@Nullable CharSequence> coll) {\n" + 
+				"		 return lib.constrainedWildcard2(coll).next();\n" + // return is '@Nullable ? super CharSequence' -> error
+				"	}\n" + 
+				"}\n",
+				true, new NullProgressMonitor()).getWorkingCopy(new NullProgressMonitor());
+		CompilationUnit reconciled = unit.reconcile(AST.JLS8, true, null, new NullProgressMonitor());
+		IProblem[] problems = reconciled.getProblems();
+		assertProblems(problems, new String[] {
+				"Pb(953) Null type mismatch (type annotations): required '@NonNull Object' but this expression has type '@Nullable capture#of ?'",
+				"Pb(953) Null type mismatch (type annotations): required '@NonNull CharSequence' but this expression has type '@Nullable capture#of ? extends CharSequence'",
+				"Pb(953) Null type mismatch (type annotations): required '@NonNull Object' but this expression has type '@Nullable capture#of ? super CharSequence'"
+			}, new int[] { 13, 16, 19 });
 	}
 	
 	public void testLibsWithArrays() throws Exception {
