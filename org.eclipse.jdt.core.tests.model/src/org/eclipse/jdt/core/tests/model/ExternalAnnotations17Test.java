@@ -128,7 +128,7 @@ public class ExternalAnnotations17Test extends ExternalAnnotations18Test {
 				"}\n"
 			}, null);
 		createFileInProject("annots/libs", "Lib1.eea", 
-				"interface libs/Lib1\n" +
+				"class libs/Lib1\n" +
 				"\n" + 
 				"one\n" + 
 				" Ljava/lang/String;\n" + 

@@ -156,7 +156,8 @@ public class ExternalAnnotationUtil {
 	 * Update the given external annotation file with details regarding annotations of one specific method or field.
 	 * If the specified member already has external annotations, old and new annotations will be merged,
 	 * giving priority to the new annotations.
-	 * @param file an file assumed to be in .eea format, created if it doesn't exist.
+	 * @param typeName binary name (slash separated) of the type being annotated
+	 * @param file a file assumed to be in .eea format, will be created if it doesn't exist.
 	 * @param selector selected of the method or field
 	 * @param originalSignature unannotated signature of the member, used for identification
 	 * @param annotatedSignature new signatures whose annotations should be superimposed on the member
@@ -164,16 +165,15 @@ public class ExternalAnnotationUtil {
 	 * @throws CoreException if access to the file fails
 	 * @throws IOException if reading file content fails
 	 */
-	public static void annotateMember(IType type, IFile file, String selector, String originalSignature, 
+	public static void annotateMember(String typeName, IFile file, String selector, String originalSignature, 
 										String annotatedSignature, MergeStrategy mergeStrategy, IProgressMonitor monitor)
 			throws CoreException, IOException
 	{
 		if (!file.exists()) {
 			StringBuffer newContent= new StringBuffer();
 			// header:
-			newContent.append(type.isClass()? ExternalAnnotationProvider.CLASS_PREFIX : ExternalAnnotationProvider.INTERFACE_PREFIX);
-			String binaryTypeName= type.getFullyQualifiedName('.').replace('.', '/');
-			newContent.append(binaryTypeName).append('\n');
+			newContent.append(ExternalAnnotationProvider.CLASS_PREFIX);
+			newContent.append(typeName).append('\n');
 			// new entry:
 			newContent.append(selector).append('\n');
 			newContent.append(' ').append(originalSignature).append('\n');

@@ -33,7 +33,6 @@ public class ExternalAnnotationProvider {
 
 	public static final String ANNOTION_FILE_EXTENSION= "eea"; //$NON-NLS-1$
 	public static final String CLASS_PREFIX = "class "; //$NON-NLS-1$
-	public static final String INTERFACE_PREFIX = "interface "; //$NON-NLS-1$
 
 	static final String ANNOTATION_FILE_SUFFIX = ".eea"; //$NON-NLS-1$
 
@@ -64,8 +63,6 @@ public class ExternalAnnotationProvider {
 			String line = reader.readLine().trim();
 			if (line.startsWith(CLASS_PREFIX)) {
 				line = line.substring(CLASS_PREFIX.length());
-			} else if (line.startsWith(INTERFACE_PREFIX)) {
-				line = line.substring(INTERFACE_PREFIX.length());
 			} else {
 				throw new IOException("missing class header in annotation file"); //$NON-NLS-1$
 			}

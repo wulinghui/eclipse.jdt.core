@@ -355,7 +355,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"}\n"
 			}, null);
 		createFileInProject("annots/libs", "Lib1.eea",
-				"interface libs/Lib1\n" + 
+				"class libs/Lib1\n" + 
 				"\n" + 
 				"unconstrainedTypeArguments1\n" + 
 				" <T:Ljava/lang/Object;>(Ljava/util/Collection<TT;>;)Ljava/util/Iterator<TT;>;\n" + 
@@ -416,7 +416,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"}\n"
 			}, null);
 		createFileInProject("annots/libs", "Lib1.eea", 
-				"interface libs/Lib1\n" + 
+				"class libs/Lib1\n" + 
 				"\n" + 
 				"constraintArrayTop\n" + 
 				" ([Ljava/lang/String;)[Ljava/lang/String;\n" + 
@@ -471,7 +471,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"}\n"
 			}, null);
 		createFileInProject("annots/libs", "Lib1.eea", 
-				"interface libs/Lib1\n" +
+				"class libs/Lib1\n" +
 				"\n" + 
 				"one\n" + 
 				" Ljava/lang/String;\n" + 
@@ -518,7 +518,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		Util.createSourceZip(
 			new String[] {
 				"libs/Lib1.eea", 
-				"interface libs/Lib1\n" +
+				"class libs/Lib1\n" +
 				"\n" + 
 				"one\n" + 
 				" Ljava/lang/String;\n" + 
@@ -570,7 +570,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 		Util.createSourceZip(
 			new String[] {
 				"libs/Lib1.eea", 
-				"interface libs/Lib1\n" +
+				"class libs/Lib1\n" +
 				"\n" + 
 				"one\n" + 
 				" Ljava/lang/String;\n" + 
@@ -620,7 +620,7 @@ public class ExternalAnnotations18Test extends ModifyingResourceTests {
 				"}\n"
 			}, null);
 		createFileInProject("annots/libs", "Lib1.eea", 
-				"interface libs/Lib1\n" +
+				"class libs/Lib1\n" +
 				" <U:Ljava/lang/Object;V:Ljava/lang/Object;W:TU;>\n" +
 				" <0U:Ljava/lang/Object;1V:Ljava/lang/Object;W:T1U;>\n" +
 				"\n" +
