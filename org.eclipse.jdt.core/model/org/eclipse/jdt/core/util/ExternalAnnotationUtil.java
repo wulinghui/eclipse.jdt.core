@@ -20,6 +20,7 @@ import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -123,7 +124,8 @@ public class ExternalAnnotationUtil {
 
 	/**
 	 * Answer the external annotation file corresponding to the given type as seen from the given project.
-	 * Note that manipulation of external annotations is only supported for annotation files in the workspace.
+	 * Note that manipulation of external annotations is only supported for annotation files in the workspace,
+	 * and only in directory layout, not from zip files.
 	 * @param project current project that references the given type from a jar file.
 	 * @param type the type for which external annotations are sought
 	 * @param monitor progress monitor to be passed through into file operations
@@ -141,15 +143,19 @@ public class ExternalAnnotationUtil {
 
 		String binaryTypeName = targetType.getFullyQualifiedName('.').replace('.', '/');
 		
-		IPackageFragmentRoot root = (IPackageFragmentRoot) targetType.getAncestor(IJavaElement.PACKAGE_FRAGMENT_ROOT);
-		IClasspathEntry entry = root.getResolvedClasspathEntry();
+		IPackageFragmentRoot packageRoot = (IPackageFragmentRoot) targetType.getAncestor(IJavaElement.PACKAGE_FRAGMENT_ROOT);
+		IClasspathEntry entry = packageRoot.getResolvedClasspathEntry();
 		IPath annotationPath = ClasspathEntry.getExternalAnnotationPath(entry, project.getProject(), false);
 	
 		if (annotationPath == null) 
 			return null;
+		IWorkspaceRoot workspaceRoot = project.getProject().getWorkspace().getRoot();
+		IFile annotationZip = workspaceRoot.getFile(annotationPath);
+		if (annotationZip.exists())
+			return null;
 	
 		annotationPath = annotationPath.append(binaryTypeName).addFileExtension(ExternalAnnotationProvider.ANNOTION_FILE_EXTENSION);
-		return project.getProject().getWorkspace().getRoot().getFile(annotationPath);
+		return workspaceRoot.getFile(annotationPath);
 	}
 
 	/**
