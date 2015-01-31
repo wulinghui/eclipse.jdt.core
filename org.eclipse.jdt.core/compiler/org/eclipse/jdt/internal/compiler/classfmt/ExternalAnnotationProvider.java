@@ -91,12 +91,14 @@ public class ExternalAnnotationProvider {
 				try {
 					// raw signature:
 					line = reader.readLine();
-					if (line.charAt(0) == ' ')
+					if (line != null && !line.isEmpty() && line.charAt(0) == ' ') // first signature line is mandatory
 						rawSig = line.substring(1);
 					else
 						errLine = reader.getLineNumber();
 					// annotated signature:
 					line = reader.readLine();
+					if (line == null || line.isEmpty())
+						continue; // skip since optional line with annotations is missing
 					if (line.charAt(0) == ' ')
 						annotSig = line.substring(1);
 				} catch (Exception ex) {
