@@ -1105,6 +1105,10 @@ public class ASTParser {
 					NodeSearcher searcher = null;
 					org.eclipse.jdt.internal.compiler.env.ICompilationUnit sourceUnit = null;
 					WorkingCopyOwner wcOwner = this.workingCopyOwner;
+					if (this.typeRoot instanceof ClassFileWorkingCopy) {
+						// special case: class file mimics as compilation unit, but that would use a wrong file name below, so better unwrap now:
+						this.typeRoot = ((ClassFileWorkingCopy) this.typeRoot).classFile;
+					}
 					if (this.typeRoot instanceof ICompilationUnit) {
 							/*
 							 * this.compilationUnitSource is an instance of org.eclipse.jdt.internal.core.CompilationUnit that implements
