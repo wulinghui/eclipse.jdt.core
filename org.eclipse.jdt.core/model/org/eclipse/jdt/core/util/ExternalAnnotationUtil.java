@@ -52,15 +52,24 @@ public class ExternalAnnotationUtil {
 	/** Representation of a 'nonnull' annotation, independent of the concrete annotation name used in Java sources. */
 	public static final char NONNULL = '1';
 
+	/**
+	 * Represents absence of a null annotation. Useful for removing an existing null annotation.
+	 * This character is used only internally, it is not part of the Eclipse External Annotation file format.
+	 */
+	public static final char NO_ANNOTATION = '@';
+
 	/** Strategy for merging a new signature with an existing (possibly annotated) signature. */
 	public static enum MergeStrategy {
-		/** Unconditionally replace the entire signature. */
+		/** Unconditionally replace the signature. */
 		REPLACE_SIGNATURE,
 		/** Override existing annotations, keeping old annotations in locations that are not annotated in the new signature. */
 		OVERWRITE_ANNOTATIONS,
 		/** Only add new annotations, never remove or overwrite existing annotations. */
 		ADD_ANNOTATIONS
 	}
+
+	private static final int POSITION_RETURN_TYPE = -1;
+	private static final int POSITION_FULL_SIGNATURE = -2;
 
 	/**
 	 * Answer the give method's signature in class file format.
@@ -78,6 +87,9 @@ public class ExternalAnnotationUtil {
 
 	/**
 	 * Insert an encoded annotation into the given methodSignature affecting its return type.
+	 * <p>
+	 * This method is suitable for declaration annotations.
+	 * </p>
 	 * @param methodSignature a method signature in class file format
 	 * @param annotation one of {@link #NULLABLE} and {@link #NONNULL}.
 	 * @param mergeStrategy when passing {@link MergeStrategy#ADD_ANNOTATIONS} this method will
@@ -98,7 +110,10 @@ public class ExternalAnnotationUtil {
 	}
 
 	/**
-	 * Insert an encoded annotation into the given methodSignature affecting one of its parameter.
+	 * Insert an encoded annotation into the given methodSignature affecting one of its parameters.
+	 * <p>
+	 * This method is suitable for declaration annotations.
+	 * </p>
 	 * @param methodSignature a method signature in class file format
 	 * @param paramIdx 0-based index of the parameter to which the annotation should be attached
 	 * @param annotation one of {@link #NULLABLE} and {@link #NONNULL}.
@@ -161,20 +176,56 @@ public class ExternalAnnotationUtil {
 	/**
 	 * Update the given external annotation file with details regarding annotations of one specific method or field.
 	 * If the specified member already has external annotations, old and new annotations will be merged,
-	 * giving priority to the new annotations.
+	 * with priorities controlled by the parameter 'mergeStrategy'.
+	 * <p>
+	 * This method is suitable for declaration annotations and type use annotations.
+	 * </p>
 	 * @param typeName binary name (slash separated) of the type being annotated
 	 * @param file a file assumed to be in .eea format, will be created if it doesn't exist.
-	 * @param selector selected of the method or field
+	 * @param selector selector of the method or field
 	 * @param originalSignature unannotated signature of the member, used for identification
 	 * @param annotatedSignature new signatures whose annotations should be superimposed on the member
+	 * @param mergeStrategy controls how old and new signatures should be merged
 	 * @param monitor progress monitor to be passed through into file operations, or null if no reporting is desired
 	 * @throws CoreException if access to the file fails
 	 * @throws IOException if reading file content fails
 	 */
-	public static void annotateMember(String typeName, IFile file, String selector, String originalSignature, 
-										String annotatedSignature, MergeStrategy mergeStrategy, IProgressMonitor monitor)
+	public static void annotateMember(String typeName, IFile file, String selector, String originalSignature, String annotatedSignature,
+										MergeStrategy mergeStrategy, IProgressMonitor monitor)
 			throws CoreException, IOException
 	{
+		annotateMember(typeName, file, selector, originalSignature, annotatedSignature, POSITION_FULL_SIGNATURE, mergeStrategy, monitor);
+	}
+
+	/**
+	 * Update the given external annotation file with details regarding annotations of the return type of a given method.
+	 * If the specified method already has external annotations, old and new annotations will be merged,
+	 * with priorities controlled by the parameter 'mergeStrategy'.
+	 * <p>
+	 * This method is suitable for declaration annotations and type use annotations.
+	 * </p>
+	 * @param typeName binary name (slash separated) of the type being annotated
+	 * @param file a file assumed to be in .eea format, will be created if it doesn't exist.
+	 * @param selector selector of the method
+	 * @param originalSignature unannotated signature of the member, used for identification
+	 * @param annotatedReturnType signature of the new return type whose annotations should be superimposed on the method
+	 * @param mergeStrategy controls how old and new signatures should be merged
+	 * @param monitor progress monitor to be passed through into file operations, or null if no reporting is desired
+	 * @throws CoreException if access to the file fails
+	 * @throws IOException if reading file content fails
+	 */
+	public static void annotateMethodReturnType(String typeName, IFile file, String selector, String originalSignature,
+										String annotatedReturnType, MergeStrategy mergeStrategy, IProgressMonitor monitor)
+			throws CoreException, IOException
+	{
+		annotateMember(typeName, file, selector, originalSignature, annotatedReturnType, POSITION_RETURN_TYPE, mergeStrategy, monitor);
+	}
+
+	static void annotateMember(String typeName, IFile file, String selector, String originalSignature, String annotatedSignature,
+										int updatePosition, MergeStrategy mergeStrategy, IProgressMonitor monitor)
+			throws CoreException, IOException
+	{
+
 		if (!file.exists()) {
 			StringBuffer newContent= new StringBuffer();
 			// header:
@@ -216,11 +267,9 @@ public class ExternalAnnotationUtil {
 						// compare original signatures:
 						relation = line.trim().compareTo(originalSignature);
 						if (relation > 0) { // past the insertion point
-							// add new entry:
-							newContent.append(selector).append('\n');
-							newContent.append(' ').append(originalSignature).append('\n');
-							writeFile(file, newContent, annotatedSignature, pending.toString(), reader, monitor);
-							return;
+							// add new entry (below)
+							line = pending.toString(); // push back
+							break;
 						}
 						newContent.append(pending).append('\n');
 						if (relation < 0)
@@ -228,19 +277,27 @@ public class ExternalAnnotationUtil {
 						if (relation == 0) {
 							// update existing entry:
 							String nextLine = reader.readLine();
+							if (nextLine == null)
+								nextLine = line; // no annotated line yet, use unannotated line instead
 							if (nextLine.startsWith(" ")) { //$NON-NLS-1$
 								switch (mergeStrategy) {
 									case REPLACE_SIGNATURE:
 										break; // unconditionally use annotatedSignature
 									case OVERWRITE_ANNOTATIONS:
 									case ADD_ANNOTATIONS:
-										annotatedSignature = addAnnotationsTo(annotatedSignature, nextLine.trim(), mergeStrategy);
+										if (updatePosition == POSITION_FULL_SIGNATURE) {
+											annotatedSignature = addAnnotationsTo(annotatedSignature, nextLine.trim(), mergeStrategy);
+										} else if (updatePosition == POSITION_RETURN_TYPE) {
+											annotatedSignature = updateMethodReturnType(annotatedSignature, nextLine.trim(), mergeStrategy);
+										} else {
+											// parameter i
+										}
 										break;
 									default:
 										JavaCore.getJavaCore().getLog().log(new Status(IStatus.ERROR, JavaCore.PLUGIN_ID,
 																				"Unexpected value for enum MergeStrategy")); //$NON-NLS-1$
 								}
-								nextLine = null; // discard old annotated signature (may be merged above)
+								nextLine = null; // discard old annotated signature (may have been merged above)
 							}
 							writeFile(file, newContent, annotatedSignature, nextLine, reader, monitor);
 							return;
@@ -250,6 +307,13 @@ public class ExternalAnnotationUtil {
 				// add new entry:
 				newContent.append(selector).append('\n');
 				newContent.append(' ').append(originalSignature).append('\n');
+				if (updatePosition == POSITION_FULL_SIGNATURE) {
+					// annotatedSignature is already complete
+				} else if (updatePosition == POSITION_RETURN_TYPE) {
+					annotatedSignature = updateMethodReturnType(annotatedSignature, originalSignature, mergeStrategy);
+				} else {
+					// parameter i
+				}
 				writeFile(file, newContent, annotatedSignature, line, reader, monitor);
 			} finally {
 				reader.close();
@@ -278,6 +342,7 @@ public class ExternalAnnotationUtil {
 	}
 
 	private static String addAnnotationsTo(String newSignature, String oldSignature, MergeStrategy mergeStategy) {
+		// TODO: consider rewrite using updateType() below
 		StringBuffer buf = new StringBuffer();
 		assert newSignature.charAt(0) == '(' : "signature must start with '('"; //$NON-NLS-1$
 		assert oldSignature.charAt(0) == '(' : "signature must start with '('"; //$NON-NLS-1$
@@ -321,6 +386,109 @@ public class ExternalAnnotationUtil {
 			}
 		}
 		return buf.toString();
+	}
+
+	private static String updateMethodReturnType(String newReturnType, String oldSignature, MergeStrategy mergeStrategy) {
+		StringBuffer buf = new StringBuffer();
+		assert oldSignature.charAt(0) == '(' : "signature must start with '('"; //$NON-NLS-1$
+		int close = oldSignature.indexOf(')');
+		buf.append(oldSignature, 0, close+1);
+		updateType(buf, oldSignature.substring(close+1).toCharArray(), newReturnType.toCharArray(), mergeStrategy);
+		return buf.toString();
+	}
+
+	/**
+	 * Update 'oldType' with annotations from 'newType' guided by 'mergeStrategy'.
+	 * The result is written into 'buf' as we go.
+	 */
+	private static boolean updateType(StringBuffer buf, char[] oldType, char[] newType, MergeStrategy mergeStrategy) {
+		SignatureWrapper oWrap = new SignatureWrapper(oldType, true);
+		SignatureWrapper nWrap = new SignatureWrapper(newType, true);
+		if (match(buf, oWrap, nWrap, 'L', false)
+			|| match(buf, oWrap, nWrap, 'T', false))
+		{
+			mergeAnnotation(buf, oWrap, nWrap, mergeStrategy);
+			buf.append(oWrap.nextName());
+			nWrap.nextName(); // skip
+			if (match(buf, oWrap, nWrap, '<', false)) {
+				do {
+					int oStart = oWrap.start;
+					int nStart = nWrap.start;
+					oWrap.computeEnd();
+					nWrap.computeEnd();
+					if (updateType(buf, oWrap.getFrom(oStart), nWrap.getFrom(nStart), mergeStrategy))
+						mergeAnnotation(buf, oWrap, nWrap, mergeStrategy);
+				} while (!match(buf, oWrap, nWrap, '>', false));
+			}
+			match(buf, oWrap, nWrap, ';', true);
+		} else if (match(buf, oWrap, nWrap, '[', false)) {
+			mergeAnnotation(buf, oWrap, nWrap, mergeStrategy);
+			updateType(buf, oWrap.tail(), nWrap.tail(), mergeStrategy);
+		} else if (match(buf, oWrap, nWrap, '*', false)
+				|| match(buf, oWrap, nWrap, '+', false)
+				|| match(buf, oWrap, nWrap, '-', false))
+		{
+			return true; // annotation allowed after this (not included in oldType / newType)
+		} else {			
+			buf.append(oldType);
+		}
+		return false;
+	}
+	/**
+	 * Does the current char at both given signatures match the 'expected' char?
+	 * If yes, print it into 'buf' and answer true.
+	 * If no, if 'force' raise an exception, else quietly answer false without updating 'buf'.
+	 */
+	private static boolean match(StringBuffer buf, SignatureWrapper sig1, SignatureWrapper sig2, char expected, boolean force) {
+		boolean match1 = sig1.signature[sig1.start] == expected;
+		boolean match2 = sig2.signature[sig2.start] == expected;
+		if (match1 != match2) {
+			throw new IllegalArgumentException("Mismatching type structures" //$NON-NLS-1$
+					+ new String(sig1.signature)+" vs "+new String(sig2.signature)); //$NON-NLS-1$ 
+		}
+		if (match1) {
+			buf.append(expected);
+			sig1.start++;
+			sig2.start++;
+			return true;
+		} else if (force) {
+			throw new IllegalArgumentException("Expected char "+expected+" not found in "+new String(sig1.signature)); //$NON-NLS-1$ //$NON-NLS-2$
+		} else {
+			return false;
+		}
+	}
+
+	/**
+	 * If a current char of 'oldS' and/or 'newS' represents a null annotation, insert it into 'buf' guided by 'mergeStrategy'.
+	 * If the new char is NO_ANNOTATION and strategy is OVERWRITE_ANNOTATIONS, silently skip over any null annotations in 'oldS'. 
+	 */
+	private static void mergeAnnotation(StringBuffer buf, SignatureWrapper oldS, SignatureWrapper newS, MergeStrategy mergeStrategy) {
+		 // if atEnd use a char that's different from NULLABLE, NONNULL and NO_ANNOTATION:
+		char oldAnn = !oldS.atEnd() ? oldS.signature[oldS.start] : '\0';
+		char newAnn = !newS.atEnd() ? newS.signature[newS.start] : '\0';
+		switch (mergeStrategy) {
+			case ADD_ANNOTATIONS:
+				switch (oldAnn) {
+					case NULLABLE: case NONNULL:
+						oldS.start++;
+						buf.append(oldAnn); // old exists, so it remains
+						switch (newAnn) { case NULLABLE: case NONNULL: newS.start++; } // just skip
+						return;
+				}
+				//$FALL-THROUGH$
+			case OVERWRITE_ANNOTATIONS:
+				switch (newAnn) {
+					case NULLABLE: case NONNULL:
+						newS.start++;
+						buf.append(newAnn); // new exists and is not suppressed by "ADD & old exists"
+						switch (oldAnn) { case NULLABLE: case NONNULL: oldS.start++; } // just skip
+						break;
+					case NO_ANNOTATION:
+						newS.start++; // don't insert
+						switch (oldAnn) { case NULLABLE: case NONNULL: oldS.start++; } // just skip // skip
+						break;
+				}
+		}
 	}
 
 	/**
