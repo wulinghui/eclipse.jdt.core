@@ -23,9 +23,6 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
-import org.eclipse.core.resources.IResourceChangeEvent;
-import org.eclipse.core.resources.IResourceChangeListener;
-import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
@@ -36,7 +33,6 @@ import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
-import org.eclipse.jdt.internal.compiler.classfmt.ExternalAnnotationProvider;
 import org.eclipse.jdt.internal.compiler.env.IBinaryType;
 import org.eclipse.jdt.internal.compiler.env.IDependent;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
@@ -52,6 +48,8 @@ public class ClassFile extends Openable implements IClassFile, SuffixConstants {
 
 	protected String name;
 	protected BinaryType binaryType = null;
+
+	private IPath externalAnnotationBase;
 
 /*
  * Creates a handle to a class file.
@@ -405,30 +403,22 @@ private void setupExternalAnnotationProvider(IProject project, final IPath exter
 	if (annotationZip == null) {
 		// Additional change listening for individual types only when annotations are in individual files.
 		// Note that we also listen for classes that don't yet have an annotation file, to detect its creation
-		final IPath workspaceFilePath = externalAnnotationPath
-									.append(new Path(typeName))
-									.addFileExtension(ExternalAnnotationProvider.ANNOTION_FILE_EXTENSION);
-		final IWorkspace workspace = project.getWorkspace();
-		workspace.addResourceChangeListener(new IResourceChangeListener() {
-			@Override
-			public void resourceChanged(IResourceChangeEvent event) {
-				if (event.getDelta().findMember(workspaceFilePath) != null) {
-					workspace.removeResourceChangeListener(this);
-					try {
-						ClassFile.this.closeAndRemoveFromJarTypeCache();
-					} catch (JavaModelException e) {
-						Util.log(e, "Failed to close ClassFile "+ClassFile.this.name); //$NON-NLS-1$
-					}
-				}
-			}
-		},
-		IResourceChangeEvent.POST_CHANGE);
+		this.externalAnnotationBase = externalAnnotationPath; // remember so we can unregister later
+		ExternalAnnotationTracker.registerClassFile(externalAnnotationPath, new Path(typeName), this);
 	}
 }
 void closeAndRemoveFromJarTypeCache() throws JavaModelException {
-	close();
+	super.close();
 	// triggered when external annotations have changed we need to recreate this class file
 	JavaModelManager.getJavaModelManager().removeFromJarTypeCache(this.binaryType);
+}
+@Override
+public void close() throws JavaModelException {
+	if (this.externalAnnotationBase != null) {
+		String entryName = Util.concatWith(((PackageFragment) getParent()).names, this.name, '/');
+		ExternalAnnotationTracker.unregisterClassFile(this.externalAnnotationBase, new Path(entryName));
+	}
+	super.close();
 }
 public IBuffer getBuffer() throws JavaModelException {
 	IStatus status = validateClassFile();

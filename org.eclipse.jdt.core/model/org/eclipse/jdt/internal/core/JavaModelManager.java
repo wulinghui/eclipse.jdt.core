@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2015 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -5011,6 +5011,9 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 					| IResourceChangeEvent.PRE_CLOSE
 					| IResourceChangeEvent.PRE_REFRESH);
 
+			// listen to resource changes affecting external annotations
+			ExternalAnnotationTracker.start(workspace);
+
 			startIndexing();
 
 			// process deltas since last activated in indexer thread so that indexes are up-to-date.
@@ -5066,6 +5069,8 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		IWorkspace workspace = ResourcesPlugin.getWorkspace();
 		workspace.removeResourceChangeListener(this.deltaState);
 		workspace.removeSaveParticipant(JavaCore.PLUGIN_ID);
+
+		ExternalAnnotationTracker.shutdown(workspace);
 
 		// Stop listening to content-type changes
 		Platform.getContentTypeManager().removeContentTypeChangeListener(this);
