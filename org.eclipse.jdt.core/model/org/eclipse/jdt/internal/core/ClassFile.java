@@ -36,6 +36,7 @@ import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
+import org.eclipse.jdt.internal.compiler.classfmt.ExternalAnnotationProvider;
 import org.eclipse.jdt.internal.compiler.env.IBinaryType;
 import org.eclipse.jdt.internal.compiler.env.IDependent;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
@@ -52,7 +53,6 @@ public class ClassFile extends Openable implements IClassFile, SuffixConstants {
 	protected String name;
 	protected BinaryType binaryType = null;
 
-	private boolean hasExternalAnnotations = false;
 /*
  * Creates a handle to a class file.
  */
@@ -389,30 +389,33 @@ private void setupExternalAnnotationProvider(IProject project, final IPath exter
 	String resolvedPath = resource.exists()
 							? resource.getLocation().toString() // workspace lookup succeeded -> resolve it
 							: externalAnnotationPath.toString(); // not in workspace, use as is
-	ZipFile[] zipFileInOut = new ZipFile[] { annotationZip };
-	if (reader.setExternalAnnotationProvider(resolvedPath, typeName, zipFileInOut, new ClassFileReader.ZipFileProducer() {
-		@Override public ZipFile produce() {
-			try {
-				return JavaModelManager.getJavaModelManager().getZipFile(externalAnnotationPath); // use (absolute, but) unresolved path here
-			} catch (CoreException e) {
-				Util.log(e, "Failed to read annotation file for "+typeName+" from "+externalAnnotationPath.toString()); //$NON-NLS-1$ //$NON-NLS-2$
-				return null;
-			}
-		}}))
-	{
-		annotationZip = zipFileInOut[0];
-		this.hasExternalAnnotations = true;
+	try {
+		annotationZip = reader.setExternalAnnotationProvider(resolvedPath, typeName, annotationZip, new ClassFileReader.ZipFileProducer() {
+			@Override public ZipFile produce() throws IOException {
+				try {
+					return JavaModelManager.getJavaModelManager().getZipFile(externalAnnotationPath); // use (absolute, but) unresolved path here
+				} catch (CoreException e) {
+					throw new IOException("Failed to read annotation file for "+typeName+" from "+externalAnnotationPath.toString(), e); //$NON-NLS-1$ //$NON-NLS-2$
+				}
+			}});
+	} catch (IOException e) {
+		Util.log(e);
+		return;
 	}
-	if (this.hasExternalAnnotations && annotationZip == null) {
-		// additional change listening for individual types only when annotations are in individual files: 
+	if (annotationZip == null) {
+		// Additional change listening for individual types only when annotations are in individual files.
+		// Note that we also listen for classes that don't yet have an annotation file, to detect its creation
+		final IPath workspaceFilePath = externalAnnotationPath
+									.append(new Path(typeName))
+									.addFileExtension(ExternalAnnotationProvider.ANNOTION_FILE_EXTENSION);
 		final IWorkspace workspace = project.getWorkspace();
 		workspace.addResourceChangeListener(new IResourceChangeListener() {
 			@Override
 			public void resourceChanged(IResourceChangeEvent event) {
-				if (event.getDelta().findMember(externalAnnotationPath) != null) {
+				if (event.getDelta().findMember(workspaceFilePath) != null) {
 					workspace.removeResourceChangeListener(this);
 					try {
-						ClassFile.this.close();
+						ClassFile.this.closeAndRemoveFromJarTypeCache();
 					} catch (JavaModelException e) {
 						Util.log(e, "Failed to close ClassFile "+ClassFile.this.name); //$NON-NLS-1$
 					}
@@ -421,6 +424,11 @@ private void setupExternalAnnotationProvider(IProject project, final IPath exter
 		},
 		IResourceChangeEvent.POST_CHANGE);
 	}
+}
+void closeAndRemoveFromJarTypeCache() throws JavaModelException {
+	close();
+	// triggered when external annotations have changed we need to recreate this class file
+	JavaModelManager.getJavaModelManager().removeFromJarTypeCache(this.binaryType);
 }
 public IBuffer getBuffer() throws JavaModelException {
 	IStatus status = validateClassFile();
@@ -900,12 +908,5 @@ protected IStatus validateExistence(IResource underlyingResource) {
 }
 public ISourceRange getNameRange() {
 	return null;
-}
-@Override
-public void close() throws JavaModelException {
-	super.close();
-	if (this.binaryType != null && this.hasExternalAnnotations)
-		// triggered when external annotations have changed we need to recreate this class file
-		JavaModelManager.getJavaModelManager().removeFromJarTypeCache(this.binaryType);
 }
 }

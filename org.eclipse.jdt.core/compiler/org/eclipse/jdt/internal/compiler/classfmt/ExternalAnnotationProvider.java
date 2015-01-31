@@ -78,10 +78,11 @@ public class ExternalAnnotationProvider {
 				if (line.startsWith(TYPE_PARAMETER_PREFIX)) {
 					this.typeParameterAnnotationSource = line.substring(TYPE_PARAMETER_PREFIX.length());
 					if ((line = reader.readLine()) == null)
-						return;					
+						return;
 				} 
 			}
 			do {
+				line = line.trim();
 				if (line.isEmpty()) continue;
 				String rawSig = null, annotSig = null;
 				// selector:
