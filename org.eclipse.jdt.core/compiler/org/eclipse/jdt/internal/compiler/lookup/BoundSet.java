@@ -57,12 +57,19 @@ class BoundSet {
 			for (int i = 0; i < curTypeArgs.length; i++) {
 				if (TypeBinding.equalsEquals(curTypeArgs[i], newTypeArgs[i]))
 					continue;
+				// Don't mess with captures
 				if(curTypeArgs[i].isCapture() || newTypeArgs[i].isCapture())
 					return false;
 				if (curTypeArgs[i] instanceof InferenceVariable) {
 					if (!(newTypeArgs[i] instanceof InferenceVariable)) {
-						merged[i] = newTypeArgs[i];
-						wasMerged = true;
+						// Short circuit incorporation
+						// Merge the type parameters, we are going to
+						// end up with this bound during incorporation anyway because of the SAME
+						// bound on the inference variable
+						if(this.sameBounds != null && !this.sameBounds.contains(new TypeBound((InferenceVariable) curTypeArgs[i], newTypeArgs[i], ReductionResult.SAME))) {
+							merged[i] = newTypeArgs[i];
+							wasMerged = true;
+						}
 					} else if (!curTypeArgs[i].equals(newTypeArgs[i])) {
 						return false;
 					}
@@ -72,6 +79,7 @@ class BoundSet {
 							return false;
 						}
 					} else {
+						// We do not have a SAME bounds for this inference variable, do not substitute
 						if(this.sameBounds == null || !this.sameBounds.contains(new TypeBound((InferenceVariable) newTypeArgs[i], curTypeArgs[i], ReductionResult.SAME))) {
 							return false;
 						}
@@ -90,26 +98,19 @@ class BoundSet {
 			switch (bound.relation) {
 				case ReductionResult.SUPERTYPE:
 					if (this.superBounds == null) this.superBounds = new HashSet<>();
-					if(!bound.right.isProperType(true)) {
-					it = this.superBounds.iterator();
-					while(it.hasNext()) {
-						TypeBound b = it.next();
-						if (bound.right.isParameterizedType() && b.right.isParameterizedType() && b.right.original() == bound.right.original()) { //$IDENTITY-COMPARISON$
-							ParameterizedTypeBinding ptbr = (ParameterizedTypeBinding)bound.right;
-							ParameterizedTypeBinding ptbc = (ParameterizedTypeBinding) b.right;
-							//System.out.println("Merging current bound " + b + " with bound " + bound);
-							if (mergeTypeParameters(ptbc, ptbr)) {
-								//System.out.println("Success");
-								//bound.right = ptbc;
-								return true;
+					if (!bound.right.isProperType(true)) {
+						it = this.superBounds.iterator();
+						while (it.hasNext()) {
+							TypeBound b = it.next();
+							if (bound.right.isParameterizedType() && b.right.isParameterizedType()
+									&& b.right.original() == bound.right.original()) { //$IDENTITY-COMPARISON$
+								if (mergeTypeParameters((ParameterizedTypeBinding) b.right, (ParameterizedTypeBinding) bound.right)) {
+									return false;
+								}
 							}
 						}
 					}
-					}
-					boolean added = this.superBounds.add(bound);
-//					if(added)
-//						System.out.println("Added " + bound);
-					return added;
+					return this.superBounds.add(bound);
 				case ReductionResult.SAME:
 					if (this.sameBounds == null) this.sameBounds = new HashSet<>();
 					return this.sameBounds.add(bound);
