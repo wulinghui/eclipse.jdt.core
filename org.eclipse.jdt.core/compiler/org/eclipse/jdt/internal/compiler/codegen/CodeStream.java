@@ -43,6 +43,7 @@ import org.eclipse.jdt.internal.compiler.ast.ArrayAllocationExpression;
 import org.eclipse.jdt.internal.compiler.ast.ExplicitConstructorCall;
 import org.eclipse.jdt.internal.compiler.ast.Expression;
 import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.FunctionalExpression;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.ast.OperatorIds;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
@@ -2528,7 +2529,8 @@ public void generateSyntheticBodyForDeserializeLambda(SyntheticMethodBinding met
 	Map hashcodesToLambdas = new LinkedHashMap();
 	for (int i=0,max=syntheticMethodBindings.length;i<max;i++) {
 		SyntheticMethodBinding syntheticMethodBinding = syntheticMethodBindings[i];
-		if (syntheticMethodBinding.lambda!=null && syntheticMethodBinding.lambda.isSerializable) {
+		if (syntheticMethodBinding.lambda!=null && syntheticMethodBinding.lambda.isSerializable ||
+				syntheticMethodBinding.serializableMethodRef != null) {
 			syntheticsForSerializableLambdas.add(syntheticMethodBinding);
 			// TODO can I use > Java 1.4 features here?
 			Integer hashcode = new Integer(new String(syntheticMethodBinding.selector).hashCode());
@@ -2629,7 +2631,7 @@ public void generateSyntheticBodyForDeserializeLambda(SyntheticMethodBinding met
 		
 		// Compare ImplMethodKind
 		aload_0();
-		LambdaExpression lambdaEx = syntheticMethodBinding.lambda;
+		FunctionalExpression lambdaEx = syntheticMethodBinding.lambda != null ? syntheticMethodBinding.lambda : syntheticMethodBinding.serializableMethodRef;
 		MethodBinding mb = lambdaEx.binding;
 		invoke(Opcodes.OPC_invokevirtual, 1, 1, ConstantPool.JavaLangInvokeSerializedLambdaConstantPoolName, 
 				ConstantPool.GetImplMethodKind, ConstantPool.GetImplMethodKindSignature);
@@ -2694,16 +2696,17 @@ public void generateSyntheticBodyForDeserializeLambda(SyntheticMethodBinding met
 		// Captured arguments
 		StringBuffer sig = new StringBuffer("("); //$NON-NLS-1$
 		index = 0;
-		if (lambdaEx.shouldCaptureInstance) {
-			aload_0();
-			loadInt(index++);
-			invoke(Opcodes.OPC_invokevirtual, 1, 1, ConstantPool.JavaLangInvokeSerializedLambdaConstantPoolName, 
-					ConstantPool.GetCapturedArg, ConstantPool.GetCapturedArgSignature);
-			checkcast(mb.declaringClass);
-			sig.append(mb.declaringClass.signature());
-		}
 		
-		SyntheticArgumentBinding[] outerLocalVariables = lambdaEx.outerLocalVariables;
+		if (lambdaEx instanceof LambdaExpression) {
+			if (((LambdaExpression)lambdaEx).shouldCaptureInstance) {
+				aload_0();
+				loadInt(index++);
+				invoke(Opcodes.OPC_invokevirtual, 1, 1, ConstantPool.JavaLangInvokeSerializedLambdaConstantPoolName, 
+						ConstantPool.GetCapturedArg, ConstantPool.GetCapturedArgSignature);
+				checkcast(mb.declaringClass);
+				sig.append(mb.declaringClass.signature());
+			}
+			SyntheticArgumentBinding[] outerLocalVariables = ((LambdaExpression)lambdaEx).outerLocalVariables;
 		for (int p=0,max=outerLocalVariables.length;p<max;p++) {
 			aload_0();
 			loadInt(index);
@@ -2721,6 +2724,7 @@ public void generateSyntheticBodyForDeserializeLambda(SyntheticMethodBinding met
 			}
 			index++;
 			sig.append(varType.signature());
+		}
 		}
 		sig.append(")"); //$NON-NLS-1$
 		if (lambdaEx.resolvedType instanceof IntersectionTypeBinding18) {

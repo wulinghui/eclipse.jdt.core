@@ -264,7 +264,7 @@ public class ReferenceExpression extends FunctionalExpression implements IPolyEx
 		return (this.binding.isVarargs() || 
 				(isConstructorReference() && this.receiverType.syntheticOuterLocalVariables() != null && currentScope.methodScope().isStatic) ||
 				this.expectedType instanceof IntersectionTypeBinding18 || // marker interfaces require alternate meta factory.
-				this.expectedType.findSuperTypeOriginatingFrom(currentScope.getJavaIoSerializable()) != null || // serialization support.
+				//(this.expectedType.findSuperTypeOriginatingFrom(currentScope.getJavaIoSerializable()) != null) || // serialization support.
 				this.requiresBridges()); // bridges.
 		// To fix: We should opt for direct code generation wherever possible.
 	}
@@ -287,11 +287,14 @@ public class ReferenceExpression extends FunctionalExpression implements IPolyEx
 			if (this.lhs.isSuper() || isMethodReference())
 				this.binding = this.syntheticAccessor;
 		} else { // cf. MessageSend.generateCode()'s call to CodeStream.getConstantPoolDeclaringClass. We have extracted the relevant portions sans side effect here. 
-			if (this.binding != null && isMethodReference()) {
+			if (this.binding != null) {
 				if (TypeBinding.notEquals(this.binding.declaringClass, this.lhs.resolvedType.erasure())) {
 					if (!this.binding.declaringClass.canBeSeenBy(currentScope)) {
 						this.binding = new MethodBinding(this.binding, (ReferenceBinding) this.lhs.resolvedType.erasure());
 					}
+				}
+				if (this.isSerializable) {
+					currentScope.enclosingSourceType().addSyntheticMethod(this);
 				}
 			}
 		}
@@ -709,7 +712,10 @@ public class ReferenceExpression extends FunctionalExpression implements IPolyEx
         
     	if (checkInvocationArguments(scope, null, this.receiverType, this.binding, null, descriptorParameters, false, this))
     		this.bits |= ASTNode.Unchecked;
-
+    	if (this.expectedType != null && 
+				   this.expectedType.findSuperTypeOriginatingFrom(TypeIds.T_JavaIoSerializable, false /*Serializable is not a class*/) != null) {
+			this.isSerializable = true;
+		}
     	if (this.descriptor.returnType.id != TypeIds.T_void) {
     		// from 1.5 source level on, array#clone() returns the array type (but binding still shows Object)
     		TypeBinding returnType = null;

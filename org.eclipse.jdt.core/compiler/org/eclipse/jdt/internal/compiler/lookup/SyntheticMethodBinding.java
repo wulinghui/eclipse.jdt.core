@@ -20,6 +20,7 @@ import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
+import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 
 public class SyntheticMethodBinding extends MethodBinding {
@@ -29,7 +30,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 	public MethodBinding targetMethod;			// method or constructor
 	public TypeBinding targetEnumType; 			// enum type
 	public LambdaExpression lambda;
-	
+	public ReferenceExpression serializableMethodRef;
 	public int purpose;
 
 	// fields used to generate enum constants when too many
@@ -283,7 +284,20 @@ public class SyntheticMethodBinding extends MethodBinding {
 			this.modifiers |= ClassFileConstants.AccStrictfp;
 		}
 	}
-	
+	public SyntheticMethodBinding(ReferenceExpression ref, SourceTypeBinding declaringClass) {
+		this.serializableMethodRef = ref;
+	    this.declaringClass = declaringClass;
+	    this.selector = ref.binding.selector;
+	    this.modifiers = ref.binding.modifiers;
+		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved) | (ref.binding.tagBits & TagBits.HasParameterAnnotations);
+	    this.returnType = ref.binding.returnType;
+	    this.parameters = ref.binding.parameters;
+	    this.thrownExceptions = ref.binding.thrownExceptions;
+	    this.purpose = SyntheticMethodBinding.LambdaMethod;
+		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
+		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
+		this.index = methodId;
+	}
 	/**
 	 * Construct $deserializeLambda$ method
 	 */

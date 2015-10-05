@@ -60,6 +60,7 @@ import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.NormalAnnotation;
 import org.eclipse.jdt.internal.compiler.ast.QualifiedNameReference;
 import org.eclipse.jdt.internal.compiler.ast.Receiver;
+import org.eclipse.jdt.internal.compiler.ast.ReferenceExpression;
 import org.eclipse.jdt.internal.compiler.ast.SingleMemberAnnotation;
 import org.eclipse.jdt.internal.compiler.ast.SingleNameReference;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
@@ -936,8 +937,10 @@ public class ClassFile implements TypeConstants, TypeIds {
 							addSyntheticEnumInitializationMethod(syntheticMethod);
 							break;
 						case SyntheticMethodBinding.LambdaMethod:
-							syntheticMethod.lambda.generateCode(this.referenceBinding.scope, this);
-							continueScanningSynthetics = true; // lambda code generation could schedule additional nested lambdas for code generation.
+							if (syntheticMethod.lambda != null) {
+								syntheticMethod.lambda.generateCode(this.referenceBinding.scope, this);
+								continueScanningSynthetics = true; // lambda code generation could schedule additional nested lambdas for code generation.
+							}
 							break;
 						case SyntheticMethodBinding.ArrayConstructor:
 							addSyntheticArrayConstructor(syntheticMethod);
@@ -2927,12 +2930,13 @@ public class ClassFile implements TypeConstants, TypeIds {
 			FunctionalExpression functional = (FunctionalExpression) functionalExpressionList.get(i);
 			MethodBinding [] bridges = functional.getRequiredBridges();
 			TypeBinding[] markerInterfaces = null;
-			if (functional instanceof LambdaExpression && 
+			if ((functional instanceof LambdaExpression && 
 				   (((markerInterfaces=((LambdaExpression)functional).getMarkerInterfaces()) != null) ||
 				   	((LambdaExpression)functional).isSerializable) ||
-				   	bridges != null) {
+				   	bridges != null)
+					|| functional instanceof ReferenceExpression && functional.isSerializable){
 				
-				LambdaExpression lambdaEx = (LambdaExpression)functional;
+				//LambdaExpression lambdaEx = (LambdaExpression)functional;
 				// may need even more space
 				int extraSpace = 2; // at least 2 more than when the normal metafactory is used, for the bitflags entry
 				if (markerInterfaces != null) {
@@ -2974,7 +2978,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 				this.contents[localContentsOffset++] = (byte) methodTypeIndex;
 
 				int bitflags = 0;
-				if (lambdaEx.isSerializable) {
+				if (functional.isSerializable) {
 					bitflags |= ClassFileConstants.FLAG_SERIALIZABLE;
 				}
 				if (markerInterfaces!=null) {
@@ -5208,6 +5212,11 @@ public class ClassFile implements TypeConstants, TypeIds {
 	public int recordBootstrapMethod(FunctionalExpression expression) {
 		if (this.bootstrapMethods == null) {
 			this.bootstrapMethods = new ArrayList();
+		}
+		for(int i = 0; i < this.bootstrapMethods.size(); i++) {
+			FunctionalExpression fexp = (FunctionalExpression) this.bootstrapMethods.get(i);
+			if (fexp.binding == expression.binding && TypeBinding.equalsEquals(fexp.expectedType(), expression.expectedType()))
+				return expression.bootstrapMethodNumber = i;
 		}
 		this.bootstrapMethods.add(expression);
 		// Record which bootstrap method was assigned to the expression

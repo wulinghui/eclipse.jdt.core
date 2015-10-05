@@ -111,7 +111,7 @@ public class LambdaExpression extends FunctionalExpression implements IPolyExpre
 	boolean voidCompatible = true;
 	boolean valueCompatible = false;
 	boolean returnsValue;
-	public boolean isSerializable;
+	//public boolean isSerializable;
 	private boolean requiresGenericSignature;
 	boolean returnsVoid;
 	public LambdaExpression original = this;
