@@ -48,7 +48,7 @@ $Terminals
 	interface long native new null package private
 	protected public return short static strictfp super switch
 	synchronized this throw throws transient true try void
-	volatile while
+	volatile while module requires exports
 
 	IntegerLiteral
 	LongLiteral
@@ -418,6 +418,40 @@ InternalCompilationUnit ::= $empty
 /.$putCase consumeEmptyInternalCompilationUnit(); $break ./
 /:$readableName CompilationUnit:/
 
+InternalCompilationUnit ::= ModuleDeclaration
+/:$compliance 1.9:/
+/.$putCase consumeInternalCompilationUnit(); $break ./
+ModuleDeclaration ::= ModuleHeader ModuleBody
+/:$compliance 1.9:/
+/.$putCase consumeModuleDeclaration(); $break ./
+ModuleHeader ::= 'module' Name
+/:$compliance 1.9:/
+/.$putCase consumeModuleHeader(); $break ./
+
+ModuleBody ::= '{' ModuleStatementsOpt '}'
+/:$compliance 1.9:/
+/:$no_statements_recovery:/
+ModuleStatementsOpt ::= $empty
+/:$compliance 1.9:/
+/.$putCase consumeEmptyModuleStatementsOpt(); $break ./
+ModuleStatementsOpt ::= ModuleStatementsOpt ModuleStatement
+/:$compliance 1.9:/
+ModuleStatement ::= RequiresStatement
+/:$compliance 1.9:/
+ModuleStatement ::= ExportsStatement
+/:$compliance 1.9:/
+RequiresStatement ::=  SingleRequiresModuleName ';'
+/:$compliance 1.9:/
+/.$putCase consumeRequiresStatement(); $break ./
+SingleRequiresModuleName ::= 'requires' Name
+/:$compliance 1.9:/
+/.$putCase consumeSingleRequiresModuleName(); $break ./
+ExportsStatement ::=  SingleExportsPkgName ';'
+/:$compliance 1.9:/
+/.$putCase consumeExportsStatement(); $break ./
+SingleExportsPkgName ::= 'exports' Name
+/:$compliance 1.9:/
+/.$putCase consumeSingleExportsPkgName(); $break ./
 ReduceImports ::= $empty
 /.$putCase consumeReduceImports(); $break ./
 /:$readableName ReduceImports:/
