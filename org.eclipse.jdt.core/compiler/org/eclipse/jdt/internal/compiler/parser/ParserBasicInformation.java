@@ -14,22 +14,22 @@ package org.eclipse.jdt.internal.compiler.parser;
  about the parser such as the number of rules in the grammar, the starting state, etc...*/
 public interface ParserBasicInformation {
 
-	int ERROR_SYMBOL = 118,
-		MAX_NAME_LENGTH = 41,
-		NUM_STATES = 1091,
+	int ERROR_SYMBOL = 121,
+						MAX_NAME_LENGTH = 41,
+						NUM_STATES = 1102,
 
-		NT_OFFSET = 118,
-		SCOPE_UBOUND = 282,
-		SCOPE_SIZE = 283,
-		LA_STATE_OFFSET = 15802,
-		MAX_LA = 1,
-		NUM_RULES = 796,
-		NUM_TERMINALS = 118,
-		NUM_NON_TERMINALS = 359,
-		NUM_SYMBOLS = 477,
-		START_STATE = 886,
-		EOFT_SYMBOL = 60,
-		EOLT_SYMBOL = 60,
-		ACCEPT_ACTION = 15801,
-		ERROR_ACTION = 15802;
+						NT_OFFSET = 121,
+						SCOPE_UBOUND = 282,
+						SCOPE_SIZE = 283,
+						LA_STATE_OFFSET = 15854,
+						MAX_LA = 1,
+						NUM_RULES = 808,
+						NUM_TERMINALS = 121,
+						NUM_NON_TERMINALS = 368,
+						NUM_SYMBOLS = 489,
+						START_STATE = 931,
+						EOFT_SYMBOL = 60,
+						EOLT_SYMBOL = 60,
+						ACCEPT_ACTION = 15853,
+						ERROR_ACTION = 15854;
 }

@@ -3093,7 +3093,7 @@ private int internalScanIdentifierOrKeyword(int index, int length, char[] data) 
 				default :
 					return TokenNameIdentifier;
 			}
-		case 'e' : //else extends
+		case 'e' : //else extends exports
 			switch (length) {
 				case 4 :
 					if (data[++index] == 'l') {
@@ -3114,14 +3114,16 @@ private int internalScanIdentifierOrKeyword(int index, int length, char[] data) 
 					}
 					return TokenNameIdentifier;
 				case 7 :
-					if ((data[++index] == 'x')
-						&& (data[++index] == 't')
-						&& (data[++index] == 'e')
-						&& (data[++index] == 'n')
-						&& (data[++index] == 'd')
-						&& (data[++index] == 's'))
-						return TokenNameextends;
-					else
+					if ((data[++index] == 'x')) {
+						if ((data[++index] == 't') && (data[++index] == 'e') && (data[++index] == 'n')
+								&& (data[++index] == 'd') && (data[++index] == 's')) {
+							return TokenNameextends;
+						} else if ((data[index] == 'p') && (data[++index] == 'o') && (data[++index] == 'r')
+								&& (data[++index] == 't') && (data[++index] == 's')) {
+							return TokenNameexports;
+						} else
+							return TokenNameIdentifier;
+					} else
 						return TokenNameIdentifier;
 				default :
 					return TokenNameIdentifier;
@@ -3329,15 +3331,28 @@ private int internalScanIdentifierOrKeyword(int index, int length, char[] data) 
 					return TokenNameIdentifier;
 			}
 
-		case 'r' : //return
-			if (length == 6) {
-				if ((data[++index] == 'e')
-					&& (data[++index] == 't')
-					&& (data[++index] == 'u')
-					&& (data[++index] == 'r')
-					&& (data[++index] == 'n')) {
-					return TokenNamereturn;
-				}
+		case 'r' : //return requires
+			switch (length) {
+				case 6:
+					if ((data[++index] == 'e')
+						&& (data[++index] == 't')
+						&& (data[++index] == 'u')
+						&& (data[++index] == 'r')
+						&& (data[++index] == 'n')) {
+						return TokenNamereturn;
+					} else 
+						return TokenNameIdentifier;
+				case 8:
+					if ((data[++index] == 'e')
+						&& (data[++index] == 'q')
+						&& (data[++index] == 'u')
+						&& (data[++index] == 'i')
+						&& (data[++index] == 'r')
+						&& (data[++index] == 'e')
+						&& (data[++index] == 's')) {
+						return TokenNamerequires;
+					} else 
+						return TokenNameIdentifier;
 			}
 			return TokenNameIdentifier;
 
@@ -3498,7 +3513,20 @@ private int internalScanIdentifierOrKeyword(int index, int length, char[] data) 
 				default :
 					return TokenNameIdentifier;
 			}
-
+		case 'm': //module
+			switch (length) {
+				case 6 :
+					if ((data[++index] == 'o')
+						&& (data[++index] == 'd')
+						&& (data[++index] == 'u')
+						&& (data[++index] == 'l')
+						&& (data[++index] == 'e'))
+						return TokenNamemodule;
+					else
+						return TokenNameIdentifier;
+				default :
+					return TokenNameIdentifier;
+			}
 		default :
 			return TokenNameIdentifier;
 	}
@@ -3996,6 +4024,12 @@ public String toStringAction(int act) {
 			return "volatile"; //$NON-NLS-1$
 		case TokenNamewhile :
 			return "while"; //$NON-NLS-1$
+		case TokenNamemodule :
+			return "module"; //$NON-NLS-1$
+		case TokenNamerequires :
+			return "requires"; //$NON-NLS-1$
+		case TokenNameexports :
+			return "exports"; //$NON-NLS-1$
 
 		case TokenNameIntegerLiteral :
 			return "Integer(" + new String(getCurrentTokenSource()) + ")"; //$NON-NLS-1$ //$NON-NLS-2$
@@ -4212,6 +4246,9 @@ public static boolean isKeyword(int token) {
 		case TerminalTokens.TokenNamevoid:
 		case TerminalTokens.TokenNamevolatile:
 		case TerminalTokens.TokenNamewhile:
+		case TerminalTokens.TokenNamemodule:
+		case TerminalTokens.TokenNamerequires:
+		case TerminalTokens.TokenNameexports:
 			return true;
 		default:
 			return false;
