@@ -55,9 +55,8 @@ public class CompilationUnitDeclaration extends ASTNode implements ProblemSeveri
 	public ImportReference currentPackage;
 	public ImportReference[] imports;
 	public TypeDeclaration[] types;
+	public ModuleDeclaration moduleDeclaration;
 	public int[][] comments;
-
-	public ImportReference moduleDeclaration;
 
 	public boolean ignoreFurtherInvestigation = false; // once pointless to investigate due to errors
 	public boolean ignoreMethodBodies = false;

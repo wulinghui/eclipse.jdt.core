@@ -2530,7 +2530,9 @@ final char[] optimizedCurrentTokenSource6() {
 	//newIdentCount++;
 	return table[this.newEntry6 = max] = r; //(r = new char[] {c0, c1, c2, c3, c4, c5});
 }
-
+private boolean isInModuleDeclaration() {
+	return this.activeParser != null ? this.activeParser.isParsingModuleDeclaration() : false;
+}
 private void parseTags() {
 	int position = 0;
 	final int currentStartPosition = this.startPosition;
@@ -3114,17 +3116,18 @@ private int internalScanIdentifierOrKeyword(int index, int length, char[] data) 
 					}
 					return TokenNameIdentifier;
 				case 7 :
-					if ((data[++index] == 'x')) {
-						if ((data[++index] == 't') && (data[++index] == 'e') && (data[++index] == 'n')
-								&& (data[++index] == 'd') && (data[++index] == 's')) {
-							return TokenNameextends;
-						} else if ((data[index] == 'p') && (data[++index] == 'o') && (data[++index] == 'r')
-								&& (data[++index] == 't') && (data[++index] == 's')) {
-							return TokenNameexports;
+						if ((data[++index] == 'x')) {
+							if ((data[++index] == 't') && (data[++index] == 'e') && (data[++index] == 'n')
+									&& (data[++index] == 'd') && (data[++index] == 's')) {
+								return TokenNameextends;
+							} else if (isInModuleDeclaration()
+									&& (data[index] == 'p') && (data[++index] == 'o') && (data[++index] == 'r')
+									&& (data[++index] == 't') && (data[++index] == 's')) {
+								return TokenNameexports;
+							} else
+								return TokenNameIdentifier;
 						} else
 							return TokenNameIdentifier;
-					} else
-						return TokenNameIdentifier;
 				default :
 					return TokenNameIdentifier;
 			}
@@ -3258,6 +3261,22 @@ private int internalScanIdentifierOrKeyword(int index, int length, char[] data) 
 			}
 			return TokenNameIdentifier;
 
+		case 'm': //module
+			switch (length) {
+				case 6 :
+					if (isInModuleDeclaration()
+						&& (data[++index] == 'o')
+						&& (data[++index] == 'd')
+						&& (data[++index] == 'u')
+						&& (data[++index] == 'l')
+						&& (data[++index] == 'e'))
+						return TokenNamemodule;
+					else
+						return TokenNameIdentifier;
+				default :
+					return TokenNameIdentifier;
+			}
+
 		case 'n' : //native new null
 			switch (length) {
 				case 3 :
@@ -3343,7 +3362,8 @@ private int internalScanIdentifierOrKeyword(int index, int length, char[] data) 
 					} else 
 						return TokenNameIdentifier;
 				case 8:
-					if ((data[++index] == 'e')
+					if (isInModuleDeclaration()
+						&& (data[++index] == 'e')
 						&& (data[++index] == 'q')
 						&& (data[++index] == 'u')
 						&& (data[++index] == 'i')
@@ -3423,6 +3443,11 @@ private int internalScanIdentifierOrKeyword(int index, int length, char[] data) 
 
 		case 't' : //try throw throws transient this true
 			switch (length) {
+				case 2:
+					if (isInModuleDeclaration() && data[++index] == 'o')
+						return TokenNameto;
+					else
+						return TokenNameIdentifier;
 				case 3 :
 					if ((data[++index] == 'r') && (data[++index] == 'y'))
 						return TokenNametry;
@@ -3513,20 +3538,7 @@ private int internalScanIdentifierOrKeyword(int index, int length, char[] data) 
 				default :
 					return TokenNameIdentifier;
 			}
-		case 'm': //module
-			switch (length) {
-				case 6 :
-					if ((data[++index] == 'o')
-						&& (data[++index] == 'd')
-						&& (data[++index] == 'u')
-						&& (data[++index] == 'l')
-						&& (data[++index] == 'e'))
-						return TokenNamemodule;
-					else
-						return TokenNameIdentifier;
-				default :
-					return TokenNameIdentifier;
-			}
+
 		default :
 			return TokenNameIdentifier;
 	}

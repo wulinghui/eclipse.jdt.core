@@ -46,7 +46,7 @@ public interface TerminalTokens {
 							TokenNamechar = 101,
 							TokenNameclass = 67,
 							TokenNamecontinue = 74,
-							TokenNameconst = 119,
+							TokenNameconst = 120,
 							TokenNamedefault = 75,
 							TokenNamedo = 76,
 							TokenNamedouble = 102,
@@ -58,7 +58,7 @@ public interface TerminalTokens {
 							TokenNamefinally = 109,
 							TokenNamefloat = 103,
 							TokenNamefor = 77,
-							TokenNamegoto = 120,
+							TokenNamegoto = 121,
 							TokenNameif = 78,
 							TokenNameimplements = 114,
 							TokenNameimport = 104,
@@ -92,6 +92,7 @@ public interface TerminalTokens {
 							TokenNamemodule = 115,
 							TokenNamerequires = 116,
 							TokenNameexports = 117,
+							TokenNameto = 118,
 							TokenNameIntegerLiteral = 44,
 							TokenNameLongLiteral = 45,
 							TokenNameFloatingPointLiteral = 46,
@@ -153,7 +154,7 @@ public interface TerminalTokens {
 							TokenNameBeginTypeArguments = 83,
 							TokenNameElidedSemicolonAndRightBrace = 66,
 							TokenNameAT308 = 28,
-							TokenNameAT308DOTDOTDOT = 118,
+							TokenNameAT308DOTDOTDOT = 119,
 							TokenNameEOF = 60,
-							TokenNameERROR = 121;
+							TokenNameERROR = 122;
 }
