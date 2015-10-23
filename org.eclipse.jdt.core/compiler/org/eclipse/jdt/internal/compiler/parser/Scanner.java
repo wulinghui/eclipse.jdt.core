@@ -3302,7 +3302,7 @@ private int internalScanIdentifierOrKeyword(int index, int length, char[] data) 
 					return TokenNameIdentifier;
 			}
 
-		case 'p' : //package private protected public
+		case 'p' : //package private protected public provides
 			switch (length) {
 				case 6 :
 					if ((data[++index] == 'u')
@@ -3333,6 +3333,18 @@ private int internalScanIdentifierOrKeyword(int index, int length, char[] data) 
 							return TokenNameprivate;
 						} else
 							return TokenNameIdentifier;
+				case 8 :
+					if (isInModuleDeclaration()
+						&& (data[++index] == 'r')
+						&& (data[++index] == 'o')
+						&& (data[++index] == 'v')
+						&& (data[++index] == 'i')
+						&& (data[++index] == 'd')
+						&& (data[++index] == 'e')
+						&& (data[++index] == 's')) {
+						return TokenNameprovides;
+					} else
+						return TokenNameIdentifier;
 				case 9 :
 					if ((data[++index] == 'r')
 						&& (data[++index] == 'o')
@@ -3497,7 +3509,17 @@ private int internalScanIdentifierOrKeyword(int index, int length, char[] data) 
 				default :
 					return TokenNameIdentifier;
 			}
-
+		case 'u' : //uses
+			switch(length) {
+				case 4 :
+					if (isInModuleDeclaration() 
+							&& (data[++index] == 's') && (data[++index] == 'e') && (data[++index] == 's'))
+						return TokenNameuses;
+					else
+						return TokenNameIdentifier;
+				default :
+					return TokenNameIdentifier;
+			}
 		case 'v' : //void volatile
 			switch (length) {
 				case 4 :
@@ -3521,8 +3543,16 @@ private int internalScanIdentifierOrKeyword(int index, int length, char[] data) 
 					return TokenNameIdentifier;
 			}
 
-		case 'w' : //while widefp
+		case 'w' : //while widefp with
 			switch (length) {
+				case 4:
+					if (isInModuleDeclaration()
+						&& (data[++index] == 'i')
+						&& (data[++index] == 't')
+						&& (data[++index] == 'h'))
+						return TokenNamewith;
+					else
+						return TokenNameIdentifier;
 				case 5 :
 					if ((data[++index] == 'h')
 						&& (data[++index] == 'i')

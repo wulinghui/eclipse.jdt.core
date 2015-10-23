@@ -10,8 +10,14 @@ public class ModuleDeclaration extends Statement {
 
 	public ExportReference[] exports;
 	public ModuleReference[] requires;
+	public TypeReference[] uses;
+	public TypeReference[] interfaces;
+	public TypeReference[] implementations;
 	public int exportsCount;
 	public int requiresCount;
+	public int usesCount;
+	public int servicesCount;
+
 	public char[][] moduleName;
 	public long[] sourcePositions;
 
