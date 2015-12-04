@@ -640,6 +640,10 @@ public class ClassScope extends Scope {
 				}
 			}
 		} else {
+			if (sourceType.sourceName == TypeConstants.MODULE_INFO_NAME) {
+				// TBD - allowed only at source level 1.9 or above
+				modifiers = ClassFileConstants.AccModule;
+			} else
 			// detect abnormal cases for classes
 			if (isMemberType) { // includes member types defined inside local types
 				final int UNEXPECTED_MODIFIERS = ~(ClassFileConstants.AccPublic | ClassFileConstants.AccPrivate | ClassFileConstants.AccProtected | ClassFileConstants.AccStatic | ClassFileConstants.AccAbstract | ClassFileConstants.AccFinal | ClassFileConstants.AccStrictfp);

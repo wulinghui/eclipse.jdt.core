@@ -5,6 +5,10 @@
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  * 
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
+ * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Tom Tromey - patch for readTable(String) as described in http://bugs.eclipse.org/bugs/show_bug.cgi?id=32196
@@ -5597,6 +5601,10 @@ protected void consumePackageComment() {
 }
 protected void consumeInternalCompilationUnitWithModuleDeclaration() {
 	this.compilationUnit.moduleDeclaration = (ModuleDeclaration)this.astStack[this.astPtr--];
+	if (this.compilationUnit.isModuleInfo()) {
+		this.compilationUnit.types = new TypeDeclaration[1];
+		this.compilationUnit.createModuleInfoType(this.compilationUnit.moduleDeclaration);
+	}
 	this.astLengthStack[this.astLengthPtr--] = 0;
 }
 protected void consumeRequiresStatement() {
@@ -5642,8 +5650,8 @@ protected void consumeSingleRequiresModuleName() {
 	impt.declarationEnd = impt.declarationSourceEnd;
 	//this.endPosition is just before the ;
 	impt.declarationSourceStart = this.intStack[this.intPtr--];
-	impt.modifiersSourceStart = this.intStack[this.intPtr--];
 	impt.modifiers = this.intStack[this.intPtr--];
+	impt.modifiersSourceStart = this.intStack[this.intPtr--];
 	if (impt.modifiersSourceStart >= 0) {
 		impt.declarationSourceStart = impt.modifiersSourceStart;
 	}

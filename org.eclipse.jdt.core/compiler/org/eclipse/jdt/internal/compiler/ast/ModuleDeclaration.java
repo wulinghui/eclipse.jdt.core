@@ -1,12 +1,14 @@
 package org.eclipse.jdt.internal.compiler.ast;
 
+import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
 import org.eclipse.jdt.internal.compiler.flow.FlowContext;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
+import org.eclipse.jdt.internal.compiler.lookup.CompilationUnitScope;
 
-public class ModuleDeclaration extends Statement {
+public class ModuleDeclaration extends TypeDeclaration {
 
 	public ExportReference[] exports;
 	public ModuleReference[] requires;
@@ -21,13 +23,14 @@ public class ModuleDeclaration extends Statement {
 	public char[][] moduleName;
 	public long[] sourcePositions;
 
-	public int declarationSourceStart;
-	public int declarationSourceEnd;
-	public int bodyStart;
-	public int bodyEnd; // doesn't include the trailing comment if any.
-	public CompilationResult compilationResult;
+//	public int declarationSourceStart;
+//	public int declarationSourceEnd;
+//	public int bodyStart;
+//	public int bodyEnd; // doesn't include the trailing comment if any.
+//	public CompilationResult compilationResult;
 	
 	public ModuleDeclaration(CompilationResult compilationResult, char[][] tokens, long[] positions) {
+		super(compilationResult);
 		this.compilationResult = compilationResult;
 		this.exportsCount = 0;
 		this.requiresCount = 0;
@@ -49,8 +52,8 @@ public class ModuleDeclaration extends Statement {
 
 	@Override
 	public void generateCode(BlockScope currentScope, CodeStream codeStream) {
-		// TODO Auto-generated method stub
-		
+		//
+		super.generateCode(currentScope, codeStream);
 	}
 
 	@Override
@@ -60,8 +63,9 @@ public class ModuleDeclaration extends Statement {
 	}
 
 	@Override
-	public void resolve(BlockScope scope) {
-		// TODO Auto-generated method stub
-		
+	public void resolve(CompilationUnitScope upperScope) {
+		//
+		super.resolve(upperScope);
+		this.binding.compoundName = CharOperation.arrayConcat(this.moduleName, this.name);
 	}
 }
