@@ -44,6 +44,14 @@ public interface IModule {
 		public char[] name();
 		char[] with();
 	}
+	
+	public default void addReads(char[] modName) {
+		// do nothing, would throwing an exception be better?
+	}
+	
+	public default void addExports(IPackageExport[] exports) {
+		// do nothing, would throwing an exception be better?
+	}
 
 	default IModuleEnvironment getLookupEnvironment() {
 		return null;

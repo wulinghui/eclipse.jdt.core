@@ -283,7 +283,7 @@ public class ModuleCompilationTests extends BatchCompilerTest {
 		writeFile(moduleLoc, "module-info.java", 
 						"module mod.two { \n" +
 						"	exports q;\n" +
-						"	requires java.base;\n" +
+						"	requires java.sql;\n" +
 						"}");
 		writeFile(moduleLoc + File.separator + "q", "Y.java", 
 						"package q;\n" +
@@ -535,8 +535,6 @@ public class ModuleCompilationTests extends BatchCompilerTest {
 		writeFile(moduleLoc + File.separator + "r", "Z.java", 
 						"package r;\n" +
 						"public class Z extends Object {\n" +
-						"	p.X x = null;\n" +
-						"	q.Y y = null;\n" +
 						"}");
 
 		StringBuffer buffer = new StringBuffer();
@@ -717,6 +715,7 @@ public class ModuleCompilationTests extends BatchCompilerTest {
 		writeFile(moduleLoc, "module-info.java", 
 						"module mod.two { \n" +
 						"	requires java.base;\n" +
+						"	requires java.sql;\n" +
 						"}");
 		writeFile(moduleLoc + File.separator + "q", "Y.java", 
 						"package q;\n" +

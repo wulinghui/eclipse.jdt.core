@@ -1,6 +1,10 @@
 package org.eclipse.jdt.internal.compiler.batch;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.ExportReference;
@@ -172,6 +176,35 @@ public class SourceModule implements IModule {
 	@Override
 	public IService[] provides() {
 		return this.provides();
+	}
+	public void addReads(char[] modName) {
+		Predicate<char[]> shouldAdd = m -> {
+			return Stream.of(this.requires).map(ref -> ref.name()).noneMatch(n -> CharOperation.equals(modName, n));
+		};
+		if (shouldAdd.test(modName)) {
+			int len = this.requires.length;
+			this.requires = Arrays.copyOf(this.requires, len + 1);
+			ModuleReferenceImpl info = this.requires[len] = new ModuleReferenceImpl();
+			info.name = modName;
+		}		
+	}
+	public void addExports(IPackageExport[] toAdd) {
+		Predicate<char[]> shouldAdd = m -> {
+			return Stream.of(this.exports).map(ref -> ref.pack).noneMatch(n -> CharOperation.equals(m, n));
+		};
+		Collection<PackageExport> merged = Stream.concat(Stream.of(this.exports), Stream.of(toAdd)
+				.filter(e -> shouldAdd.test(e.name()))
+				.map(e -> {
+					PackageExport exp = new PackageExport();
+					exp.pack = e.name();
+					exp.exportedTo = e.exportedTo();
+					return exp;
+				}))
+			.collect(
+				ArrayList::new,
+				ArrayList::add,
+				ArrayList::addAll);
+		this.exports = merged.toArray(new PackageExport[merged.size()]);
 	}
 	public IModuleEnvironment getLookupEnvironment() {
 		return this.root == null ? null : this.root.getLookupEnvironmentFor(this);

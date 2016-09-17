@@ -20,13 +20,13 @@ import java.util.Set;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.env.IModule;
+import org.eclipse.jdt.internal.compiler.env.IModuleAwareNameEnvironment;
 import org.eclipse.jdt.internal.compiler.env.IModuleContext;
 import org.eclipse.jdt.internal.compiler.env.IModuleLocation;
-import org.eclipse.jdt.internal.compiler.env.INameEnvironmentExtension;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 
-public abstract class ModuleEnvironment implements INameEnvironmentExtension {
+public abstract class ModuleEnvironment implements IModuleAwareNameEnvironment {
 	/*
 	 * Keeps track of packages mapped to modules
 	 * Knows how to get modules
@@ -127,6 +127,12 @@ public abstract class ModuleEnvironment implements INameEnvironmentExtension {
 	// TODO: this should be abstract
 	public NameEnvironmentAnswer findType(char[][] compoundTypeName, IModuleContext moduleContext) {
 		return null;
+	}
+	public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, IModuleContext moduleContext) {
+		return null;
+	}
+	public boolean isPackage(char[][] parentPackageName, char[] packageName, IModuleContext moduleContext) {
+		return false;
 	}
 	@Deprecated
 	public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, IModule[] modules) {

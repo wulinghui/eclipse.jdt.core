@@ -16,18 +16,19 @@
 package org.eclipse.jdt.internal.compiler.lookup;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
-import java.util.Set;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
-import org.eclipse.jdt.internal.compiler.ast.ModuleReference;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.IModule.IModuleReference;
 import org.eclipse.jdt.internal.compiler.env.IModule.IPackageExport;
+import org.eclipse.jdt.internal.compiler.env.IModuleContext;
 import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
-import org.eclipse.jdt.internal.compiler.env.TypeLookup;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 
 public class ModuleBinding extends Binding {
@@ -44,16 +45,13 @@ public class ModuleBinding extends Binding {
 	public int tagBits;
 	private ModuleBinding[] requiredModules = null;
 
-	public boolean isBinary = false;
-
 	public static ModuleBinding[] NO_REQUIRES = new ModuleBinding[0];
 	public static IModuleReference[] NO_MODULE_REFS = new IModuleReference[0];
 	public static IPackageExport[] NO_EXPORTS = new IPackageExport[0];
 
-	static ModuleBinding UnNamedModule = new ModuleBinding(); 
-
-	private ModuleBinding() {
+	ModuleBinding(LookupEnvironment env) {
 		this.moduleName = ModuleEnvironment.UNNAMED;
+		this.environment = env;
 	}
 	public ModuleBinding(IModule module, LookupEnvironment environment) {
 		this.moduleName = module.name();
@@ -67,53 +65,31 @@ public class ModuleBinding extends Binding {
 		this.uses = Binding.NO_TYPES;
 		this.services = Binding.NO_TYPES;
 		this.implementations = Binding.NO_TYPES;
-		this.isBinary = true;
 		this.moduleEnviroment = module.getLookupEnvironment();
 	}
 
-	public ModuleBinding(CompilationUnitScope scope) {
-		this.scope = scope;
-		this.environment = scope.environment;
-		this.isBinary = false;
-		this.uses = Binding.NO_TYPES;
-		this.services = Binding.NO_TYPES;
-		this.implementations = Binding.NO_TYPES;
+	private Stream<ModuleBinding> getRequiredModules(boolean implicitOnly) {
+		return Stream.of(this.requires).filter(ref -> implicitOnly ? ref.isPublic() : true)
+			.map(ref -> this.environment.getModule(ref.name()))
+			.filter(mod -> mod != null);
 	}
-
-	public boolean isBinary() {
-		return this.isBinary;
+	public Supplier<Collection<ModuleBinding>> dependencyCollector() {
+		return () -> getRequiredModules(false)
+			.collect(HashSet::new,
+				(set, mod) -> {
+					set.add(mod);
+					set.addAll(mod.implicitDependencyCollector().get());
+				},
+				HashSet::addAll);
 	}
-	private void getImplicitDependencies(ModuleBinding module, Set<ModuleBinding> deps) {
-		if (module == UnNamedModule)
-			return;
-		if (module.isBinary()) {
-			getImplicitDependencies(module.requires, deps);
-		} else {
-			getImplicitDependencies(module.scope.referenceContext.moduleDeclaration.requires, deps);
-		}
-	}
-	private void getImplicitDependencies(IModule.IModuleReference[] reqs, Set<ModuleBinding> deps) {
-		if (reqs != null && reqs.length > 0) {
-			for (IModule.IModuleReference ref : reqs) {
-				ModuleBinding refModule = this.environment.getModule(ref.name());
-				if (refModule != null) {
-					if (deps.add(refModule))
-						getImplicitDependencies(refModule.requires, deps);
-				}
-			}
-		}
-	}
-
-	private void getImplicitDependencies(ModuleReference[] refs, Set<ModuleBinding> deps) {
-		if (refs != null && refs.length > 0) {
-			for (ModuleReference ref : refs) {
-				ModuleBinding refModule = this.environment.getModule(ref.moduleName);
-				if (refModule != null) {
-					if (deps.add(refModule))
-						getImplicitDependencies(refModule, deps);
-				}
-			}
-		}
+	public Supplier<Collection<ModuleBinding>> implicitDependencyCollector() {
+		return () -> getRequiredModules(true)
+			.collect(HashSet::new,
+				(set, mod) -> {
+					if (set.add(mod))
+						set.addAll(mod.implicitDependencyCollector().get());
+				},
+			HashSet::addAll);
 	}
 	/**
 	 * Collect all implicit dependencies offered by this module
@@ -123,13 +99,13 @@ public class ModuleBinding extends Binding {
 	 *  collection of implicit dependencies
 	 */
 	public Collection<ModuleBinding> getImplicitDependencies() {
-		Set<ModuleBinding> dependencies = new HashSet<ModuleBinding>();
-		getImplicitDependencies(this, dependencies);
-		return dependencies;
+		if (this == this.environment.UnNamedModule)
+			return Collections.emptyList();
+		return implicitDependencyCollector().get();
 	}
 
 	/**
-	 * get all the modules required by this module
+	 * Get all the modules required by this module
 	 * All required modules include modules explicitly specified as required in the module declaration
 	 * as well as implicit dependencies - those specified as ' requires public ' by one of the
 	 * dependencies
@@ -138,21 +114,15 @@ public class ModuleBinding extends Binding {
 	 *   An array of all required modules
 	 */
 	public ModuleBinding[] getAllRequiredModules() {
-		if (this == UnNamedModule)
+		if (this == this.environment.UnNamedModule)
 			return NO_REQUIRES;
 		if (this.requiredModules != null)
 			return this.requiredModules;
-		Set<ModuleBinding> allRequires = new HashSet<ModuleBinding>();
-		for (int i = 0; i < this.requires.length; i++) {
-			ModuleBinding mod = this.environment.getModule(this.requires[i].name());
-			if (mod != null) {
-				allRequires.add(mod);
-				allRequires.addAll(mod.getImplicitDependencies());
-			}
-		}
-		if (!CharOperation.equals(this.moduleName, TypeConstants.JAVA_BASE)) {
-			// TODO: Do we need to add java.base here?
-			allRequires.add(this.environment.getModule(JRTUtil.JAVA_BASE_CHAR));
+
+		Collection<ModuleBinding> allRequires = dependencyCollector().get();
+		ModuleBinding javaBase = this.environment.getModule(JRTUtil.JAVA_BASE_CHAR);
+		if (!CharOperation.equals(this.moduleName, TypeConstants.JAVA_BASE) && javaBase != null) {
+			allRequires.add(javaBase);
 		}
 		return this.requiredModules = allRequires.size() > 0 ? allRequires.toArray(new ModuleBinding[allRequires.size()]) : NO_REQUIRES;
 	}
@@ -160,58 +130,53 @@ public class ModuleBinding extends Binding {
 	public char[] name() {
 		return this.moduleName;
 	}
-	public boolean isPackageVisible(PackageBinding pkg, Scope skope) {
-		ModuleBinding other = this.environment.getModule(skope.module());
-		return isPackageExportedTo(pkg, this, other);
-	}
 
 	public boolean isPackageExported(char[] pkgName) {
-		for (IPackageExport export : this.exportedPackages) {
-			if (CharOperation.prefixEquals(pkgName, export.name()))
-				return true;
-		}
-		return false;
+		Predicate<IPackageExport> isExported = e -> CharOperation.equals(e.name(), pkgName);
+		return Stream.of(this.exportedPackages).anyMatch(isExported);
 	}
 	/**
-	 * Check if the specified package is exported to the client module
+	 * Check if the specified package is exported to the client module by this module. True if the package appears
+	 * in the list of exported packages and when the export is targeted, the module appears in the targets of the
+	 * exports statement
 	 * @param pkg - the package whose visibility is to be checked
-	 * @param source - the module which 'contains' the package 
 	 * @param client - the module that wishes to use the package
-	 * @return true if the package is exported to the client module and the client
-	 *  is dependent on the source module either directly or indirectly, false otherwise
+	 * @return true if the package is visible to the client module, false otherwise
 	 */
-	public static boolean isPackageExportedTo(PackageBinding pkg, ModuleBinding source, ModuleBinding client) {
-		if (client == null || client == source) // same or unnamed
+	public boolean isPackageExportedTo(PackageBinding pkg, ModuleBinding client) {
+		Predicate<IPackageExport> isExported = e -> CharOperation.equals(e.name(), pkg.readableName());
+		//.and(e -> e.exportedTo == null);
+		Predicate<IPackageExport> isTargeted = e -> e.exportedTo() != null;
+		Predicate<IPackageExport> isExportedTo = e -> 
+			Stream.of(e.exportedTo()).map(ref -> this.environment.getModule(ref)).filter(m -> m != null).anyMatch(client::equals);
+		return Stream.of(this.exportedPackages).anyMatch(isExported.and(isTargeted.negate().or(isExportedTo)));
+	}
+	/**
+	 * Check if the given package is visible to this module. True when the package is exported by some
+	 * required module to this module. See {@link #isPackageExportedTo(PackageBinding, ModuleBinding)}
+	 * @param pkg
+	 * @return True, if the package is visible to this module, false otherwise
+	 */
+	public boolean canSee(PackageBinding pkg) {
+		if (this == this.environment.UnNamedModule) {
+			//TODO - if the package is part of a named module, then we should check if the module exports the package
 			return true;
-		if (!client.dependsOn(source))
-			return false;
-		for (IPackageExport export : source.exportedPackages) {
-			if (CharOperation.equals(export.name(), pkg.readableName())) {
-				if (export.exportedTo() != null) {
-					for (char[] target : export.exportedTo()) {
-						if (CharOperation.equals(target, client.moduleName))
-							return true;
-					}
-				}
-			}
 		}
-		return false;
+		return Stream.of(getAllRequiredModules()).filter(dep -> dep.isPackageExportedTo(pkg, this)).findFirst().isPresent();
 	}
- 	public boolean dependsOn(ModuleBinding other) {
- 		if (other == this || this == this.environment.UnNamedModule)
+	
+	public boolean dependsOn(ModuleBinding other) {
+ 		if (other == this)
  			return true;
-		for (ModuleBinding ref : getAllRequiredModules()) {
-			if (ref == other)
-				return true;
-		}
-		return false;
+		return Stream.of(getAllRequiredModules()).anyMatch(other::equals);
 	}
- 	public TypeLookup getModuleLookupContext() {
- 		return this.moduleEnviroment.typeLookup();
+ 	public IModuleContext getModuleLookupContext() {
+ 		return this == this.environment.UnNamedModule ? ModuleEnvironment.UNNAMED_MODULE_CONTEXT : () -> Stream.of(this.moduleEnviroment);
  	}
- 	public TypeLookup getDependencyLookupContext() {
+ 	public IModuleContext getDependencyLookupContext() {
  		ModuleBinding[] deps = getAllRequiredModules();
- 		return getModuleLookupContext().chain(Stream.of(deps).map(m -> m.moduleEnviroment.typeLookup())
+ 		return this == this.environment.UnNamedModule ? ModuleEnvironment.UNNAMED_MODULE_CONTEXT : () -> Stream.concat(getModuleLookupContext().getEnvironment(), Stream.of(deps).flatMap(m -> m.getDependencyLookupContext().getEnvironment())).filter(e -> e != null);
+ 		//return getModuleLookupContext().chain(Stream.of(deps).map(m -> m.moduleEnviroment.typeLookup())
 // 				.collect(Collectors.groupingBy(m -> {
 // 			return m.moduleEnviroment;
 // 		}))
@@ -222,7 +187,7 @@ public class ModuleBinding extends Binding {
 // 	 		}
 // 			return env.typeLookup();
  		//})
-		.reduce(TypeLookup::chain).orElse(null));
+//		.reduce(TypeLookup::chain).orElse(null));
  	}
 	@Override
 	public int kind() {

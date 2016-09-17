@@ -14,7 +14,11 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.classfmt;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.env.IModule;
@@ -68,6 +72,35 @@ public class ModuleInfo extends ClassFileStruct implements IModule {
 	public IService[] provides() {
 		return this.provides;
 	}
+	public void addReads(char[] modName) {
+		Predicate<char[]> shouldAdd = m -> {
+			return Stream.of(this.requires).map(ref -> ref.name()).noneMatch(n -> CharOperation.equals(modName, n));
+		};
+		if (shouldAdd.test(modName)) {
+			int len = this.requires.length;
+			this.requires = Arrays.copyOf(this.requires, len);
+			ModuleReferenceInfo info = this.requires[len] = new ModuleReferenceInfo();
+			info.refName = modName;
+		}		
+	}
+	public void addExports(IPackageExport[] toAdd) {
+		Predicate<char[]> shouldAdd = m -> {
+			return Stream.of(this.exports).map(ref -> ref.packageName).noneMatch(n -> CharOperation.equals(m, n));
+		};
+		Collection<PackageExportInfo> merged = Stream.concat(Stream.of(this.exports), Stream.of(toAdd)
+				.filter(e -> shouldAdd.test(e.name()))
+				.map(e -> {
+					PackageExportInfo exp = new PackageExportInfo();
+					exp.packageName = e.name();
+					exp.exportedTo = e.exportedTo();
+					return exp;
+				}))
+			.collect(
+				ArrayList::new,
+				ArrayList::add,
+				ArrayList::addAll);
+		this.exports = merged.toArray(new PackageExportInfo[merged.size()]);
+	}
 	public IModuleEnvironment getLookupEnvironment() {
 		return this.entry.getLookupEnvironmentFor(this);
 	}
@@ -97,45 +130,41 @@ public class ModuleInfo extends ClassFileStruct implements IModule {
 //		module.name = module.utf8At(utf8Offset + 3, module.u2At(utf8Offset + 1)); // returns 'Module' 
 		int moduleOffset = readOffset + 6;
 		int count = module.u2At(moduleOffset);
-		if (count  > 0) {
-			module.requiresCount = count;
-			module.requires = new ModuleReferenceInfo[count];
+		module.requiresCount = count;
+		module.requires = new ModuleReferenceInfo[count];
+		moduleOffset += 2;
+		for (int i = 0; i < count; i++) {
+			utf8Offset = module.constantPoolOffsets[module.u2At(moduleOffset)];
+			char[] requiresNames = module.utf8At(utf8Offset + 3, module.u2At(utf8Offset + 1));
+			module.requires[i] = module.new ModuleReferenceInfo();
+			module.requires[i].refName = requiresNames;
 			moduleOffset += 2;
-			for (int i = 0; i < count; i++) {
-				utf8Offset = module.constantPoolOffsets[module.u2At(moduleOffset)];
-				char[] requiresNames = module.utf8At(utf8Offset + 3, module.u2At(utf8Offset + 1));
-				module.requires[i] = module.new ModuleReferenceInfo();
-				module.requires[i].refName = requiresNames;
-				moduleOffset += 2;
-				int pub = module.u2At(moduleOffset);
-				module.requires[i].isPublic = (ClassFileConstants.ACC_PUBLIC == pub); // Access modifier
-				moduleOffset += 2;
-			}
+			int pub = module.u2At(moduleOffset);
+			module.requires[i].isPublic = (ClassFileConstants.ACC_PUBLIC == pub); // Access modifier
+			moduleOffset += 2;
 		}
 		count = module.u2At(moduleOffset);
-		if (count > 0) {
+		moduleOffset += 2;
+		module.exportsCount = count;
+		module.exports = new PackageExportInfo[count];
+		for (int i = 0; i < count; i++) {
+			utf8Offset = module.constantPoolOffsets[module.u2At(moduleOffset)];
+			char[] exported = module.utf8At(utf8Offset + 3, module.u2At(utf8Offset + 1));
+			CharOperation.replace(exported, '/', '.');
+			PackageExportInfo pack = module.new PackageExportInfo();
+			module.exports[i] = pack;
+			pack.packageName = exported;
 			moduleOffset += 2;
-			module.exportsCount = count;
-			module.exports = new PackageExportInfo[count];
-			for (int i = 0; i < count; i++) {
-				utf8Offset = module.constantPoolOffsets[module.u2At(moduleOffset)];
-				char[] exported = module.utf8At(utf8Offset + 3, module.u2At(utf8Offset + 1));
-				CharOperation.replace(exported, '/', '.');
-				PackageExportInfo pack = module.new PackageExportInfo();
-				module.exports[i] = pack;
-				pack.packageName = exported;
-				moduleOffset += 2;
-				int exportedtoCount = module.u2At(moduleOffset);
-				moduleOffset += 2;
-				if (exportedtoCount > 0) {
-					pack.exportedTo = new char[exportedtoCount][];
-					pack.exportedToCount = exportedtoCount;
-					for(int k = 0; k < exportedtoCount; k++) {
-						utf8Offset = module.constantPoolOffsets[module.u2At(moduleOffset)];
-						char[] exportedToName = module.utf8At(utf8Offset + 3, module.u2At(utf8Offset + 1));
-						pack.exportedTo[k] = exportedToName;
-						moduleOffset += 2;
-					}
+			int exportedtoCount = module.u2At(moduleOffset);
+			moduleOffset += 2;
+			if (exportedtoCount > 0) {
+				pack.exportedTo = new char[exportedtoCount][];
+				pack.exportedToCount = exportedtoCount;
+				for(int k = 0; k < exportedtoCount; k++) {
+					utf8Offset = module.constantPoolOffsets[module.u2At(moduleOffset)];
+					char[] exportedToName = module.utf8At(utf8Offset + 3, module.u2At(utf8Offset + 1));
+					pack.exportedTo[k] = exportedToName;
+					moduleOffset += 2;
 				}
 			}
 		}

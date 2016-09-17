@@ -14,18 +14,12 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.env;
 
-import java.util.stream.Stream;
-
 /**
- * The context in which a module aware environment will perform lookup.
- * Basically a supplier of {@link IModuleEnvironment}s to be included
- * during a lookup operation
+ * A module aware name environment
  *
  */
-public interface IModuleContext {
-	/**
-	 * 
-	 * @return
-	 */
-	public Stream<IModuleEnvironment> getEnvironment();
+public interface IModuleAwareNameEnvironment extends INameEnvironmentExtension {
+	NameEnvironmentAnswer findType(char[][] compoundTypeName, IModuleContext moduleContext);
+	NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, IModuleContext moduleContext);
+	boolean isPackage(char[][] parentPackageName, char[] packageName, IModuleContext moduleContext);
 }

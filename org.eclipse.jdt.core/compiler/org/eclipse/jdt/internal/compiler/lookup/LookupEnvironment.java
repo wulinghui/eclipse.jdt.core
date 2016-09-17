@@ -158,7 +158,7 @@ public ReferenceBinding askForType(char[][] compoundName) {
 //TODO: BETA_JAVA9 - should ideally return ModuleBinding?
 public ModuleBinding getModule(char[] name) {
 	if (name == null || name.length == 0 || CharOperation.equals(name, ModuleEnvironment.UNNAMED))
-		return ModuleBinding.UnNamedModule;
+		return this.UnNamedModule;
 	ModuleBinding module = (ModuleBinding) this.knownModules.get(name);
 	if (module == null) {
 		IModule mod = this.nameEnvironment.getModule(name);
@@ -168,16 +168,19 @@ public ModuleBinding getModule(char[] name) {
 	}
 	return module;
 }
-public ModuleBinding createModuleInfo(CompilationUnitScope scope) {
-	return new ModuleBinding(scope);
-}
 /**
  * Ask the name environment for a type which corresponds to the compoundName.
  * Answer null if the name cannot be found.
  */
 
 public ReferenceBinding askForType(char[][] compoundName, char[] mod) {
-	NameEnvironmentAnswer answer = this.nameEnvironment.findType(compoundName, mod);
+	NameEnvironmentAnswer answer = null;
+	if (this.nameEnvironment instanceof IModuleAwareNameEnvironment) {
+		ModuleBinding module = getModule(mod);
+		answer = ((IModuleAwareNameEnvironment)this.nameEnvironment).findType(compoundName, module.getDependencyLookupContext());
+	} else {
+		answer = this.nameEnvironment.findType(compoundName, mod);
+	}
 	if (answer == null) return null;
 	if (answer.isBinaryType()) {
 		// the type was found as a .class file
@@ -212,7 +215,13 @@ ReferenceBinding askForType(PackageBinding packageBinding, char[] name, char[] m
 	if (packageBinding == null) {
 		packageBinding = this.defaultPackage;
 	}
-	NameEnvironmentAnswer answer = this.nameEnvironment.findType(name, packageBinding.compoundName, mod);
+	NameEnvironmentAnswer answer = null;
+	if (this.nameEnvironment instanceof IModuleAwareNameEnvironment) {
+		ModuleBinding module = getModule(mod);
+		answer = ((IModuleAwareNameEnvironment)this.nameEnvironment).findType(name, packageBinding.compoundName, module.getDependencyLookupContext());
+	} else {
+		answer = this.nameEnvironment.findType(name, packageBinding.compoundName, mod);
+	}
 	if (answer == null)
 		return null;
 
@@ -1294,8 +1303,8 @@ PackageBinding getTopLevelPackage(char[] name, char[] mod) {
 			return null;
 		return packageBinding;
 	}
-
-	if (this.nameEnvironment.isPackage(null, name, mod)) {
+	if (isPackage(null, name, mod)) {
+	//if (this.nameEnvironment.isPackage(null, name, mod)) {
 		this.knownPackages.put(name, packageBinding = new PackageBinding(name, this));
 		return packageBinding;
 	}
@@ -1736,9 +1745,18 @@ boolean isMissingType(char[] typeName) {
 /* Ask the oracle if a package exists named name in the package named compoundName.
 */
 boolean isPackage(char[][] compoundName, char[] name, char[] mod) {
-	if (compoundName == null || compoundName.length == 0)
-		return this.nameEnvironment.isPackage(null, name, mod);
-	return this.nameEnvironment.isPackage(compoundName, name, mod);
+	char[][] pkgName = (compoundName == null || compoundName.length == 0) ? null : compoundName;
+//	if (compoundName == null || compoundName.length == 0)
+//		return this.nameEnvironment.isPackage(null, name, mod);
+//	return this.nameEnvironment.isPackage(compoundName, name, mod);
+	boolean answer = false;
+	if (this.nameEnvironment instanceof IModuleAwareNameEnvironment) {
+		ModuleBinding module = getModule(mod);
+		answer = ((IModuleAwareNameEnvironment)this.nameEnvironment).isPackage(pkgName, name, module.getDependencyLookupContext());
+	} else {
+		answer = this.nameEnvironment.isPackage(pkgName, name, mod);
+	}
+	return answer;
 }
 // The method verifier is lazily initialized to guarantee the receiver, the compiler & the oracle are ready.
 public MethodVerifier methodVerifier() {

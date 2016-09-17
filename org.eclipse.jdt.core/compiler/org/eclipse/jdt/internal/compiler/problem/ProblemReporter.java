@@ -174,6 +174,7 @@ import org.eclipse.jdt.internal.compiler.lookup.ModuleBinding;
 import org.eclipse.jdt.internal.compiler.lookup.PackageBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedGenericMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemMethodBinding;
+import org.eclipse.jdt.internal.compiler.lookup.ProblemPackageBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
@@ -3162,6 +3163,17 @@ public void importProblem(ImportReference importRef, Binding expectedImport) {
 		String[] arguments = new String[]{CharOperation.toString(tokens)};
 		this.handleUntagged(
 		        IProblem.InvalidTypeForStaticImport,
+		        arguments,
+		        arguments,
+		        importRef.sourceStart,
+		        (int) importRef.sourcePositions[tokens.length - 1]);
+		return;
+	}
+	if (expectedImport instanceof ProblemPackageBinding && expectedImport.problemId() == ProblemReasons.NotVisible) {
+		char[][] tokens = importRef.tokens;
+		String[] arguments = new String[]{CharOperation.toString(tokens)};
+		this.handleUntagged(
+		        IProblem.ImportNotFound,
 		        arguments,
 		        arguments,
 		        importRef.sourceStart,

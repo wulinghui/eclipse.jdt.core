@@ -141,8 +141,6 @@ public class FileSystem extends ModuleEnvironment implements SuffixConstants {
 	// Used only in single-module mode when the module descriptor is
 	// provided via command lin.
 	protected IModule module;
-	protected Map<String, IPackageExport[]> addonExports;
-	protected Map<String, String[]> addonReads;
 	Set knownFileNames;
 	protected boolean annotationsFromClasspath; // should annotation files be read from the classpath (vs. explicit separate path)?
 	private static HashMap<File, Classpath> JRT_CLASSPATH_CACHE = null;
@@ -350,7 +348,10 @@ private static String convertPathSeparators(String path) {
 //	return suggestedAnswer;
 //}
 private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeName, boolean asBinaryOnly) {
-	NameEnvironmentAnswer answer = internalFindClass(qualifiedTypeName, typeName, asBinaryOnly, ModuleEnvironment.UNNAMED_MODULE_CONTEXT);
+	return findClass(qualifiedTypeName, typeName, asBinaryOnly, ModuleEnvironment.UNNAMED_MODULE_CONTEXT);
+}
+private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeName, boolean asBinaryOnly, IModuleContext moduleContext) {
+	NameEnvironmentAnswer answer = internalFindClass(qualifiedTypeName, typeName, asBinaryOnly, moduleContext);
 	if (this.annotationsFromClasspath && answer != null && answer.getBinaryType() instanceof ClassFileReader) {
 		for (int i = 0, length = this.classpaths.length; i < length; i++) {
 			Classpath classpathEntry = this.classpaths[i];
@@ -457,6 +458,14 @@ public NameEnvironmentAnswer findType(char[][] compoundName) {
 			new String(CharOperation.concatWith(compoundName, '/')),
 			compoundName[compoundName.length - 1],
 			false);
+	return null;
+}
+public NameEnvironmentAnswer findType(char[][] compoundName, IModuleContext moduleContext) {
+	if (compoundName != null)
+		return findClass(
+			new String(CharOperation.concatWith(compoundName, '/')),
+			compoundName[compoundName.length - 1],
+			false, moduleContext);
 	return null;
 }
 public NameEnvironmentAnswer findType(char[][] compoundName, boolean asBinaryOnly) {
@@ -584,7 +593,7 @@ public boolean isPackage(char[][] compoundName, char[] packageName, IModuleConte
 	if (moduleContext == ModuleEnvironment.UNNAMED_MODULE_CONTEXT) {
 		return Stream.of(this.classpaths).map(p -> p.getLookupEnvironment().packageLookup()).filter(l -> l.isPackage(qualifiedPackageName)).findAny().isPresent();
 	} else {
-		return moduleContext.get().map(e -> e.packageLookup()).filter(l -> l.isPackage(qualifiedPackageName)).findAny().isPresent();
+		return moduleContext.getEnvironment().map(e -> e.packageLookup()).filter(l -> l.isPackage(qualifiedPackageName)).findAny().isPresent();
 	}
 //		for (int i = 0, length = this.classpaths.length; i < length; i++) {
 //			Classpath p = this.classpaths[i];
@@ -605,61 +614,18 @@ public boolean isPackage(char[][] compoundName, char[] packageName, IModuleConte
 //			.anyMatch(lookup -> lookup.isPackage(qualifiedPackageName));
 }
 void addReads(String source, String target) {
-	if (this.addonReads == null) {
-		this.addonReads = new HashMap<>();
-	}
-	String[] existing = this.addonReads.get(source);
-	if (existing == null || existing.length == 0) {
-		existing = new String[1];
-		existing[0] = target;
-		this.addonReads.put(new String(source), existing);
-	} else {
-		String[] updated = new String[existing.length + 1];
-		System.arraycopy(existing, 0, updated, 0, 1);
-		updated[existing.length] = target;
-		this.addonReads.put(source, updated);
+	IModule src = getModule(source.toCharArray());
+	if (src != null) {
+		src.addReads(target.toCharArray());
 	}
 }
 void setAddonExports(Map<String, IPackageExport[]> exports) {
-	this.addonExports = exports;
-}
-@Override
-protected void collectAllVisibleModules(IModule mod, Set<IModule> targets, boolean onlyPublic) {
-	if (mod != null && this.addonReads != null) {
-		String[] reads = this.addonReads.get(new String(mod.name()));
-		if (reads != null) {
-			for (String read : reads) {
-				IModule refModule = getModule(read.toCharArray());
-				if (refModule != null) {
-					targets.add(refModule);
-				}
-			}
+	exports.entrySet().forEach((entry) -> {
+		IModule src = getModule(entry.getKey().toCharArray());
+		if (src != null) {
+			src.addExports(entry.getValue());
 		}
-	}
-	super.collectAllVisibleModules(mod,  targets, onlyPublic);
-}
-@Override
-protected boolean isPackageExportedTo(IModule mod, char[] pack, IModule client) {
-	if (this.addonExports != null) {
-		IPackageExport[] export = this.addonExports.get(new String(mod.name()));
-		if (export != null) {
-			for (IPackageExport iPackageExport : export) {
-				if (CharOperation.equals(iPackageExport.name(), pack)) {
-					char[][] exportedTo = iPackageExport.exportedTo();
-					if (exportedTo == null || exportedTo.length == 0) {
-						// Continue. Spec doesn't say whether exported can't be universal (i.e. without to any specific module)
-					}
-					for (char[] cs : exportedTo) {
-						if (CharOperation.equals(cs, client.name())) {
-							return true;
-						}
-					}
-
-				}
-			}
-		}
-	}
-	return super.isPackageExportedTo(mod, pack, client);
+	});
 }
 @Override
 public IModule getModule(char[] name) {
@@ -696,7 +662,7 @@ private NameEnvironmentAnswer internalFindClass(String qualifiedTypeName, char[]
 //		}
 //		return t.findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName);
 	}
-	return moduleContext.get().map(env -> env.typeLookup())
+	return moduleContext.getEnvironment().map(env -> env.typeLookup())
 				.reduce(TypeLookup::chain)
 				.map(lookup -> lookup.findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly))
 				.orElse(null);

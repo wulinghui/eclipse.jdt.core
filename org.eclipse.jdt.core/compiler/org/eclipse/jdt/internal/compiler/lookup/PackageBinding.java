@@ -267,7 +267,10 @@ void checkIfNullAnnotationPackage() {
 			env.nonnullByDefaultAnnotationPackage = this;
 	}
 }
-
+public boolean canBeSeenBy(char[] clientModule) {
+	ModuleBinding client = this.environment.getModule(clientModule);
+	return client.canSee(this);
+}
 private boolean isPackageOfQualifiedTypeName(char[][] packageName, char[][] typeName) {
 	int length;
 	if (typeName == null || (length = packageName.length) != typeName.length -1)

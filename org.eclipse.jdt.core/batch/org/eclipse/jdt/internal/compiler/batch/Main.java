@@ -3301,13 +3301,13 @@ private void processAddonModuleOptions(FileSystem env) {
 				IPackageExport[] updated = new IPackageExport[existing.length + 1];
 				System.arraycopy(existing, 0, updated, 0, existing.length);
 				updated[existing.length] = export;
-				exports.put(new String(modName), updated);
+				exports.put(modName, updated);
 			}
-			env.setAddonExports(exports);
 		} else {
 			throw new IllegalArgumentException(this.bind("configure.invalidModuleOption", "--add-exports " + option)); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 	}
+	env.setAddonExports(exports);
 	for (String option : this.addonReads) {
 		String[] result = ModuleFinder.extractAddonRead(option);
 		if (result != null && result.length == 2) {
