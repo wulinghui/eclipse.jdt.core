@@ -21,8 +21,8 @@ import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
-import org.eclipse.jdt.internal.compiler.lookup.ModuleEnvironment;
 import org.eclipse.jdt.internal.compiler.parser.Parser;
+import org.eclipse.jdt.internal.core.ModuleInfo;
 import org.eclipse.jdt.internal.core.util.Util;
 
 public class ClasspathMultiDirectory extends ClasspathDirectory {
@@ -80,7 +80,7 @@ public void acceptModuleInfo(ICompilationUnit cu, Parser parser) {
 	CompilationUnitDeclaration unit = parser.parse(cu, compilationResult);
 	// Request could also come in when module-info has changed or removed.
 	if (unit.isModuleInfo() && unit.moduleDeclaration != null) {
-		IModule mod = ModuleEnvironment.createModule(unit.moduleDeclaration);
+		IModule mod = ModuleInfo.createModule(unit.moduleDeclaration);
 		if (mod != null) {
 			this.module = mod;
 			//this.env.acceptModule(mod, this);

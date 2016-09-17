@@ -30,7 +30,7 @@ public class ClasspathSourceJar extends ClasspathJar {
 	public ClasspathSourceJar(File file, boolean closeZipFileAtEnd,
 			AccessRuleSet accessRuleSet, String encoding,
 			String destinationPath) {
-		super(file, closeZipFileAtEnd, accessRuleSet, destinationPath, false);
+		super(file, closeZipFileAtEnd, accessRuleSet, destinationPath);
 		this.encoding = encoding;
 	}
 

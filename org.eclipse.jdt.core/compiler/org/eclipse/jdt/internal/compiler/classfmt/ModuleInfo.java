@@ -18,6 +18,8 @@ import java.util.Arrays;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.env.IModule;
+import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
+import org.eclipse.jdt.internal.compiler.env.IModulePathEntry;
 
 public class ModuleInfo extends ClassFileStruct implements IModule {
 	protected int requiresCount;
@@ -29,6 +31,7 @@ public class ModuleInfo extends ClassFileStruct implements IModule {
 	protected PackageExportInfo[] exports;
 	char[][] uses;
 	IModule.IService[] provides;
+	public IModulePathEntry entry; // The entry that contributes this module to the module path
 
 	public int requiresCount() {
 		return this.requiresCount;
@@ -64,6 +67,9 @@ public class ModuleInfo extends ClassFileStruct implements IModule {
 	@Override
 	public IService[] provides() {
 		return this.provides;
+	}
+	public IModuleEnvironment getLookupEnvironment() {
+		return this.entry.getLookupEnvironmentFor(this);
 	}
 	/**
 	 * @param name char[]

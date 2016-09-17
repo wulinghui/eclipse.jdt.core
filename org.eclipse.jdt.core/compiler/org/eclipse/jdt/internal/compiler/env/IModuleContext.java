@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2016 IBM Corporation.
+ * Copyright (c) 2000, 2016 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,38 +14,15 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.env;
 
+import java.util.function.Supplier;
+import java.util.stream.Stream;
+
 /**
- * Represents Java Module, introduced in JLS 9. A Java module can
- * either be created from the source (module-info.java) or binary.
+ * The context in which a module aware environment will perform lookup.
+ * Basically a supplier of {@link IModuleEnvironment}s to be included
+ * during a lookup operation
+ *
  */
-public interface IModule {
-
-	public char[] name();
-
-	public IModuleReference[] requires();
-
-	public IPackageExport[] exports();
-
-	public char[][] uses();
-
-	public IService[] provides();
-
-	public interface IModuleReference {
-		public char[] name();
-		public boolean isPublic();
-	}
-
-	public interface IPackageExport {
-		public char[] name();
-		public char[][] exportedTo();
-	}
-
-	public interface IService {
-		public char[] name();
-		char[] with();
-	}
-
-	default IModuleEnvironment getLookupEnvironment() {
-		return null;
-	}
+public interface IModuleContext extends Supplier<Stream<IModuleEnvironment>> {
+//
 }

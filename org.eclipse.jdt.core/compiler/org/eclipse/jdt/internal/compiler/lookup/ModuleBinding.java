@@ -18,6 +18,7 @@ package org.eclipse.jdt.internal.compiler.lookup;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.ModuleReference;
@@ -25,6 +26,8 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.IModule.IModuleReference;
 import org.eclipse.jdt.internal.compiler.env.IModule.IPackageExport;
+import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
+import org.eclipse.jdt.internal.compiler.env.TypeLookup;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 
 public class ModuleBinding extends Binding {
@@ -37,6 +40,7 @@ public class ModuleBinding extends Binding {
 	public TypeBinding[] implementations;
 	public CompilationUnitScope scope;
 	public LookupEnvironment environment;
+	public IModuleEnvironment moduleEnviroment;
 	public int tagBits;
 	private ModuleBinding[] requiredModules = null;
 
@@ -64,6 +68,7 @@ public class ModuleBinding extends Binding {
 		this.services = Binding.NO_TYPES;
 		this.implementations = Binding.NO_TYPES;
 		this.isBinary = true;
+		this.moduleEnviroment = module.getLookupEnvironment();
 	}
 
 	public ModuleBinding(CompilationUnitScope scope) {
@@ -193,7 +198,7 @@ public class ModuleBinding extends Binding {
 		return false;
 	}
  	public boolean dependsOn(ModuleBinding other) {
- 		if (other == this)
+ 		if (other == this || this == this.environment.UnNamedModule)
  			return true;
 		for (ModuleBinding ref : getAllRequiredModules()) {
 			if (ref == other)
@@ -201,6 +206,24 @@ public class ModuleBinding extends Binding {
 		}
 		return false;
 	}
+ 	public TypeLookup getModuleLookupContext() {
+ 		return this.moduleEnviroment.typeLookup();
+ 	}
+ 	public TypeLookup getDependencyLookupContext() {
+ 		ModuleBinding[] deps = getAllRequiredModules();
+ 		return getModuleLookupContext().chain(Stream.of(deps).map(m -> m.moduleEnviroment.typeLookup())
+// 				.collect(Collectors.groupingBy(m -> {
+// 			return m.moduleEnviroment;
+// 		}))
+// 		.entrySet().stream().map (e -> {
+// 			IModuleEnvironment env = e.getKey();
+// 			if (root instanceof IMultiModuleEntry) {
+// 	 			return ((IMultiModuleEntry)root).forModules(e.getValue().stream().map(ModuleBinding::name).collect(Collectors.toList()));
+// 	 		}
+// 			return env.typeLookup();
+ 		//})
+		.reduce(TypeLookup::chain).orElse(null));
+ 	}
 	@Override
 	public int kind() {
 		//

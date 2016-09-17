@@ -25,15 +25,19 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import java.util.zip.ZipFile;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
-import org.eclipse.jdt.internal.compiler.env.IModuleLocation;
+import org.eclipse.jdt.internal.compiler.env.IModulePathEntry;
 import org.eclipse.jdt.internal.compiler.env.IModule;
+import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
 import org.eclipse.jdt.internal.compiler.env.IModule.IPackageExport;
+import org.eclipse.jdt.internal.compiler.env.IModuleContext;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
+import org.eclipse.jdt.internal.compiler.env.TypeLookup;
 import org.eclipse.jdt.internal.compiler.lookup.ModuleEnvironment;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
@@ -48,8 +52,10 @@ public class FileSystem extends ModuleEnvironment implements SuffixConstants {
 	 *
 	 * Sub types of classpath are responsible for appropriate behavior based on this.
 	 */
-	public interface Classpath extends IModuleLocation {
+	public interface Classpath extends IModulePathEntry {
 		char[][][] findTypeNames(String qualifiedPackageName, IModule module);
+		public NameEnvironmentAnswer findClass(char[] typeName, String qualifiedPackageName, String qualifiedBinaryFileName);
+		public NameEnvironmentAnswer findClass(char[] typeName, String qualifiedPackageName, String qualifiedBinaryFileName, boolean asBinaryOnly);
 		/**
 		 * Return a list of the jar file names defined in the Class-Path section
 		 * of the jar file manifest if any, null else. Only ClasspathJar (and
@@ -98,7 +104,6 @@ public class FileSystem extends ModuleEnvironment implements SuffixConstants {
 		 */
 		public void acceptModule(IModule module);
 		public String getDestinationPath();
-		public IModule getModule();
 	}
 	public interface ClasspathSectionProblemReporter {
 		void invalidClasspathSection(String jarFilePath);
@@ -227,7 +232,7 @@ public static Classpath getClasspath(String classpathName, String encoding,
 						result = JRT_CLASSPATH_CACHE.get(file);
 					}
 					if (result == null) {
-						result = new ClasspathJar(file, true, accessRuleSet, null, true);
+						result = new ClasspathJRT(file, true, accessRuleSet, null);
 						try {
 							result.initialize();
 						} catch (IOException e) {
@@ -236,7 +241,7 @@ public static Classpath getClasspath(String classpathName, String encoding,
 						JRT_CLASSPATH_CACHE.put(file, result);
 					}
 				} else {
-					result = new ClasspathJar(file, true, accessRuleSet, null, false);
+					result = new ClasspathJar(file, true, accessRuleSet, null);
 				}
 			}
 		}
@@ -310,8 +315,42 @@ private static String convertPathSeparators(String path) {
 		? path.replace('\\', '/')
 		 : path.replace('/', '\\');
 }
-private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeName, boolean asBinaryOnly, IModule[] modules){
-	NameEnvironmentAnswer answer = internalFindClass(qualifiedTypeName, typeName, asBinaryOnly, modules);
+//private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeName, boolean asBinaryOnly) {
+//	String qualifiedBinaryFileName = qualifiedTypeName + SUFFIX_STRING_class;
+//	String qualifiedPackageName =
+//			qualifiedTypeName.length() == typeName.length
+//				? Util.EMPTY_STRING
+//				: qualifiedBinaryFileName.substring(0, qualifiedTypeName.length() - typeName.length - 1);
+//	NameEnvironmentAnswer suggestedAnswer = null;
+//	for (int i = 0, length = this.classpaths.length; i < length; i++) {
+//		NameEnvironmentAnswer  answer = this.classpaths[i].findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly);
+//		if (answer != null) {
+//			if (!answer.ignoreIfBetter()) {
+//				if (answer.isBetter(suggestedAnswer))
+//					return answer;
+//			} else if (answer.isBetter(suggestedAnswer))
+//				// remember suggestion and keep looking
+//				suggestedAnswer = answer;
+//		}
+//	}
+//	if (this.annotationsFromClasspath && suggestedAnswer != null && suggestedAnswer.getBinaryType() instanceof ClassFileReader) {
+//		for (int i = 0, length = this.classpaths.length; i < length; i++) {
+//			Classpath classpathEntry = this.classpaths[i];
+//			if (classpathEntry.hasAnnotationFileFor(qualifiedTypeName)) {
+//				ZipFile zip = classpathEntry instanceof ClasspathJar ? ((ClasspathJar) classpathEntry).zipFile : null;
+//				try {
+//					((ClassFileReader) suggestedAnswer.getBinaryType()).setExternalAnnotationProvider(classpathEntry.getPath(), qualifiedTypeName, zip, null);
+//					break;
+//				} catch (IOException e) {
+//					// ignore broken entry, keep searching
+//				}
+//			}
+//		}
+//	}
+//	return suggestedAnswer;
+//}
+private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeName, boolean asBinaryOnly) {
+	NameEnvironmentAnswer answer = internalFindClass(qualifiedTypeName, typeName, asBinaryOnly, ModuleEnvironment.UNNAMED_MODULE_CONTEXT);
 	if (this.annotationsFromClasspath && answer != null && answer.getBinaryType() instanceof ClassFileReader) {
 		for (int i = 0, length = this.classpaths.length; i < length; i++) {
 			Classpath classpathEntry = this.classpaths[i];
@@ -330,64 +369,110 @@ private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeNam
 }
 private NameEnvironmentAnswer internalFindClass(String qualifiedTypeName, char[] typeName, boolean asBinaryOnly, IModule[] modules){
 	if (this.knownFileNames.contains(qualifiedTypeName)) return null; // looking for a file which we know was provided at the beginning of the compilation
-
+//
 	String qualifiedBinaryFileName = qualifiedTypeName + SUFFIX_STRING_class;
 	String qualifiedPackageName =
 		qualifiedTypeName.length() == typeName.length
 			? Util.EMPTY_STRING
 			: qualifiedBinaryFileName.substring(0, qualifiedTypeName.length() - typeName.length - 1);
-	String qp2 = File.separatorChar == '/' ? qualifiedPackageName : qualifiedPackageName.replace('/', File.separatorChar);
-	NameEnvironmentAnswer suggestedAnswer = null;
-	if (qualifiedPackageName == qp2) {
-		for (int i = 0, length = this.classpaths.length; i < length; i++) {
-			NameEnvironmentAnswer answer = null;
-			for (IModule iModule : modules) {
-				if (!this.classpaths[i].servesModule(iModule)) continue;
-				answer = this.classpaths[i].findClass(new String(typeName), qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly, iModule);
-				if (answer != null) break;
-			}
-			if (answer != null) {
-				if (!answer.ignoreIfBetter()) {
-					if (answer.isBetter(suggestedAnswer))
-						return answer;
-				} else if (answer.isBetter(suggestedAnswer))
-					// remember suggestion and keep looking
-					suggestedAnswer = answer;
-			}
-		}
-	} else {
-		String qb2 = qualifiedBinaryFileName.replace('/', File.separatorChar);
-		for (int i = 0, length = this.classpaths.length; i < length; i++) {
-			Classpath p = this.classpaths[i];
-			NameEnvironmentAnswer answer = null;
-			for (IModule iModule : modules) {
-				if (!p.servesModule(iModule)) continue;
-				answer = (p instanceof ClasspathJar)
-						? p.findClass(new String(typeName), qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly, iModule)
-								: p.findClass(new String(typeName), qp2, qb2, asBinaryOnly, iModule);
-						if (answer != null) break;
-			}
-			if (answer != null) {
-				if (!answer.ignoreIfBetter()) {
-					if (answer.isBetter(suggestedAnswer))
-						return answer;
-				} else if (answer.isBetter(suggestedAnswer))
-					// remember suggestion and keep looking
-					suggestedAnswer = answer;
-			}
-		}
-	}
-	if (suggestedAnswer != null)
-		// no better answer was found
-		return suggestedAnswer;
-	return null;
+//	String qp2 = File.separatorChar == '/' ? qualifiedPackageName : qualifiedPackageName.replace('/', File.separatorChar);
+//	NameEnvironmentAnswer suggestedAnswer = null;
+//	if (qualifiedPackageName == qp2) {
+//		for (int i = 0, length = this.classpaths.length; i < length; i++) {
+//			NameEnvironmentAnswer answer = null;
+//			for (IModule iModule : modules) {
+//				boolean isUnnamed = CharOperation.equals(iModule.name(), ModuleEnvironment.UNNAMED);
+//				if (!isUnnamed && !this.classpaths[i].servesModule(iModule.name())) continue;
+//				answer = isUnnamed ? this.classpaths[i].findClass(new String(typeName), qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly) : this.classpaths[i].findClass(new String(typeName), qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly, iModule.name());
+//				if (answer != null) break;
+//			}
+//			if (answer != null) {
+//				if (!answer.ignoreIfBetter()) {
+//					if (answer.isBetter(suggestedAnswer))
+//						return answer;
+//				} else if (answer.isBetter(suggestedAnswer))
+//					// remember suggestion and keep looking
+//					suggestedAnswer = answer;
+//			}
+//		}
+//	} else {
+//		String qb2 = qualifiedBinaryFileName.replace('/', File.separatorChar);
+//		for (int i = 0, length = this.classpaths.length; i < length; i++) {
+//			Classpath p = this.classpaths[i];
+//			NameEnvironmentAnswer answer = null;
+//			for (IModule iModule : modules) {
+//				boolean isUnnamed = CharOperation.equals(iModule.name(), ModuleEnvironment.UNNAMED);
+//				if (!isUnnamed && !p.servesModule(iModule.name())) continue;
+//				if (isUnnamed) {
+//					answer = (p instanceof ClasspathJar)
+//							? p.findClass(new String(typeName), qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly)
+//									: p.findClass(new String(typeName), qp2, qb2, asBinaryOnly);
+//				} else {
+//					answer = (p instanceof ClasspathJar)
+//							? p.findClass(new String(typeName), qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly)
+//									: p.findClass(new String(typeName), qp2, qb2, asBinaryOnly, iModule.name());
+//				}
+//				if (answer != null) break;
+//			}
+//			if (answer != null) {
+//				if (!answer.ignoreIfBetter()) {
+//					if (answer.isBetter(suggestedAnswer))
+//						return answer;
+//				} else if (answer.isBetter(suggestedAnswer))
+//					// remember suggestion and keep looking
+//					suggestedAnswer = answer;
+//			}
+//		}
+//	}
+//	if (suggestedAnswer != null)
+//		// no better answer was found
+//		return suggestedAnswer;
+//	return null;
+	
+	return Stream.of(modules)
+			.map(m -> {
+				if (m == ModuleEnvironment.UNNAMED_MODULE) {
+					TypeLookup t = null;
+					for (int i = 0, length = this.classpaths.length; i < length; i++) {
+						Classpath p = this.classpaths[i];
+						if (t == null) {
+							t = p::findClass;
+						} else {
+							t = t.chain(p :: findClass);
+						}
+					}
+					return t;
+				}
+				IModuleEnvironment env = m.getLookupEnvironment();
+				return env == null ? null : m.getLookupEnvironment().typeLookup();
+			})
+			.filter(t -> t != null)
+			.reduce(TypeLookup::chain)
+			.map(lookup -> lookup.findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly))
+			.orElse(null);
 }
-public NameEnvironmentAnswer findType(char[][] compoundName, IModule[] modules) {
+public NameEnvironmentAnswer findType(char[][] compoundName) {
 	if (compoundName != null)
 		return findClass(
 			new String(CharOperation.concatWith(compoundName, '/')),
 			compoundName[compoundName.length - 1],
-			false, modules);
+			false);
+	return null;
+}
+public NameEnvironmentAnswer findType(char[][] compoundName, boolean asBinaryOnly) {
+	if (compoundName != null)
+		return findClass(
+			new String(CharOperation.concatWith(compoundName, '/')),
+			compoundName[compoundName.length - 1],
+			asBinaryOnly);
+	return null;
+}
+public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName) {
+	if (typeName != null)
+		return findClass(
+			new String(CharOperation.concatWith(packageName, typeName, '/')),
+			typeName,
+			false);
 	return null;
 }
 public char[][][] findTypeNames(char[][] packageName, IModule[] modules) {
@@ -398,7 +483,7 @@ public char[][][] findTypeNames(char[][] packageName, IModule[] modules) {
 		if (qualifiedPackageName == qualifiedPackageName2) {
 			for (int i = 0, length = this.classpaths.length; i < length; i++) {
 				for (IModule mod : modules) {
-					if (!this.classpaths[i].servesModule(mod)) continue;
+					if (!CharOperation.equals(mod.name(), ModuleEnvironment.UNNAMED) && !this.classpaths[i].servesModule(mod.name())) continue;
 					char[][][] answers = this.classpaths[i].findTypeNames(qualifiedPackageName, mod);
 					if (answers != null) {
 						// concat with previous answers
@@ -417,7 +502,7 @@ public char[][][] findTypeNames(char[][] packageName, IModule[] modules) {
 			for (int i = 0, length = this.classpaths.length; i < length; i++) {
 				Classpath p = this.classpaths[i];
 				for (IModule mod : modules) {
-					if (!p.servesModule(mod)) continue;
+					if (!CharOperation.equals(mod.name(), ModuleEnvironment.UNNAMED) && !p.servesModule(mod.name())) continue;
 					char[][][] answers = (p instanceof ClasspathJar)
 							? p.findTypeNames(qualifiedPackageName, mod)
 							: p.findTypeNames(qualifiedPackageName2, mod);
@@ -438,44 +523,86 @@ public char[][][] findTypeNames(char[][] packageName, IModule[] modules) {
 	}
 	return result;
 }
-public NameEnvironmentAnswer findType(char[][] compoundName, boolean asBinaryOnly, IModule[] modules) {
-	if (compoundName != null)
-		return findClass(
-			new String(CharOperation.concatWith(compoundName, '/')),
-			compoundName[compoundName.length - 1],
-			asBinaryOnly, modules);
-	return null;
-}
-public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, IModule[] modules) {
-	if (typeName != null)
-		return findClass(
-			new String(CharOperation.concatWith(packageName, typeName, '/')),
-			typeName,
-			false,
-			modules);
-	return null;
-}
-public boolean isPackage(char[][] compoundName, char[] packageName, IModule[] modules) {
-	String qualifiedPackageName = new String(CharOperation.concatWith(compoundName, packageName, '/'));
-	String qp2 = File.separatorChar == '/' ? qualifiedPackageName : qualifiedPackageName.replace('/', File.separatorChar);
-	if (qualifiedPackageName == qp2) {
-		for (int i = 0, length = this.classpaths.length; i < length; i++)
-			for (IModule iModule : modules) {
-				if (!this.classpaths[i].servesModule(iModule)) continue;
-				if (this.classpaths[i].isPackage(qualifiedPackageName))
-					return true;
-			}
-	} else {
-		for (int i = 0, length = this.classpaths.length; i < length; i++) {
-			Classpath p = this.classpaths[i];
-			for (IModule iModule : modules) {
-				if (!p.servesModule(iModule)) continue;
-				if ((p instanceof ClasspathJar) ? p.isPackage(qualifiedPackageName) : p.isPackage(qp2))
-					return true;
+//public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, char[] client, boolean searchSecondaryTypes) {
+//	return findType(typeName, packageName, client);
+//}
+//public NameEnvironmentAnswer findType(char[][] compoundName, boolean asBinaryOnly, IModule[] modules) {
+//	if (compoundName != null)
+//		return findClass(
+//			new String(CharOperation.concatWith(compoundName, '/')),
+//			compoundName[compoundName.length - 1],
+//			asBinaryOnly, modules);
+//	return null;
+//}
+//public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, IModule[] modules) {
+//	if (typeName != null)
+//		return findClass(
+//			new String(CharOperation.concatWith(packageName, typeName, '/')),
+//			typeName,
+//			false,
+//			modules);
+//	return null;
+//}
+
+public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, IModuleContext moduleLookupContext) {
+	if (typeName == null)
+		return null;
+		String qualifiedTypeName = new String(CharOperation.concatWith(packageName, typeName, '/'));
+		NameEnvironmentAnswer answer = internalFindClass(qualifiedTypeName, typeName, false, moduleLookupContext);
+		if (this.annotationsFromClasspath && answer != null && answer.getBinaryType() instanceof ClassFileReader) {
+			for (int i = 0, length = this.classpaths.length; i < length; i++) {
+				Classpath classpathEntry = this.classpaths[i];
+				if (classpathEntry.hasAnnotationFileFor(qualifiedTypeName)) {
+					ZipFile zip = classpathEntry instanceof ClasspathJar ? ((ClasspathJar) classpathEntry).zipFile : null;
+					try {
+						((ClassFileReader) answer.getBinaryType()).setExternalAnnotationProvider(classpathEntry.getPath(), qualifiedTypeName, zip, null);
+						break;
+					} catch (IOException e) {
+						// ignore broken entry, keep searching
+					}
+				}
 			}
 		}
+		return answer;
+	
+}
+public boolean isPackage(char[][] compoundName, char[] packageName) {
+	return isPackage(compoundName, packageName, ModuleEnvironment.UNNAMED_MODULE_CONTEXT);
+}
+public boolean isPackage(char[][] compoundName, char[] packageName, IModuleContext moduleContext) {
+	String qualifiedPackageName = new String(CharOperation.concatWith(compoundName, packageName, '/'));
+//	String qp2 = File.separatorChar == '/' ? qualifiedPackageName : qualifiedPackageName.replace('/', File.separatorChar);
+//	if (qualifiedPackageName == qp2) {
+//		for (int i = 0, length = this.classpaths.length; i < length; i++)
+//			for (IModule iModule : modules) {
+//				if (!this.classpaths[i].servesModule(iModule.name())) continue;
+//				IModuleEnvironment env = iModule.getLookupEnvironment();
+//				if (env != null && env.isPackage(qualifiedPackageName))
+//					return true;
+//			}
+//	} else {
+	if (moduleContext == ModuleEnvironment.UNNAMED_MODULE_CONTEXT) {
+		return Stream.of(this.classpaths).map(p -> p.getLookupEnvironment().packageLookup()).filter(l -> l.isPackage(qualifiedPackageName)).findAny().isPresent();
+	} else {
+		return moduleContext.get().map(e -> e.packageLookup()).filter(l -> l.isPackage(qualifiedPackageName)).findAny().isPresent();
 	}
-	return false;
+//		for (int i = 0, length = this.classpaths.length; i < length; i++) {
+//			Classpath p = this.classpaths[i];
+//			for (IModule iModule : modules) {
+//				if (iModule == ModuleEnvironment.UNNAMED_MODULE) {
+//					if (p.getLookupEnvironment().isPackage(qualifiedPackageName))
+//						return true;
+//				} else {
+//					IModuleEnvironment env = p.getLookupEnvironmentFor(iModule);
+//					if (env != null && env.isPackage(qualifiedPackageName))
+//						return true;
+//				}
+//			}
+//		}
+	//}
+//	return false;
+//	return Stream.of(modules).map(m -> m.getLookupEnvironment().packageLookup())
+//			.anyMatch(lookup -> lookup.isPackage(qualifiedPackageName));
 }
 void addReads(String source, String target) {
 	if (this.addonReads == null) {
@@ -541,11 +668,37 @@ public IModule getModule(char[] name) {
 	if (this.module != null && CharOperation.equals(name, this.module.name())) {
 		return this.module;
 	}
-	IModule mod = null;
-	for (int i = 0, l = this.classpaths.length; i < l; i++) {
-		if ((mod = this.classpaths[i].getModule(name)) != null)
-			break;
+	return Stream.of(this.classpaths).map(cp -> cp.getModule(name)).filter(m -> m != null).findAny().orElse(null);
+	
+}
+private NameEnvironmentAnswer internalFindClass(String qualifiedTypeName, char[] typeName, boolean asBinaryOnly, IModuleContext moduleContext) {
+	if (this.knownFileNames.contains(qualifiedTypeName)) return null; // looking for a file which we know was provided at the beginning of the compilation
+
+	String qualifiedBinaryFileName = qualifiedTypeName + SUFFIX_STRING_class;
+	String qualifiedPackageName =
+		qualifiedTypeName.length() == typeName.length
+			? Util.EMPTY_STRING
+			: qualifiedBinaryFileName.substring(0, qualifiedTypeName.length() - typeName.length - 1);
+
+	if (ModuleEnvironment.UNNAMED_MODULE_CONTEXT == moduleContext) {
+		return Stream.of(this.classpaths).map(p -> {
+			return p.getLookupEnvironment().typeLookup();
+			})
+			.reduce(TypeLookup::chain).map(t -> t.findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName)).orElse(null);
+//		TypeLookup t = null;
+//		for (int i = 0, length = this.classpaths.length; i < length; i++) {
+//			Classpath p = this.classpaths[i];
+//			if (t == null) {
+//				t = p::findClass;
+//			} else {
+//				t = t.chain(p :: findClass);
+//			}
+//		}
+//		return t.findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName);
 	}
-	return mod;
+	return moduleContext.get().map(env -> env.typeLookup())
+				.reduce(TypeLookup::chain)
+				.map(lookup -> lookup.findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly))
+				.orElse(null);
 }
 }

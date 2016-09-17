@@ -26,9 +26,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Optional;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.codegen.AnnotationTargetTypeConstants;
 import org.eclipse.jdt.internal.compiler.codegen.AttributeNamesConstants;
@@ -129,7 +130,7 @@ public static ClassFileReader readFromJimage(
 		String filename)
 		throws ClassFormatException, java.io.IOException {
 
-		return readFromJrt(jrt, filename, null);
+		return readFromModules(jrt, filename, Optional.empty());
 	}
 public static ClassFileReader readFromJrt(
 		File jrt,
@@ -139,7 +140,14 @@ public static ClassFileReader readFromJrt(
 		throws ClassFormatException, java.io.IOException {
 		return JRTUtil.getClassfile(jrt, filename, module);
 	}
+public static ClassFileReader readFromModules(
+		File jrt,
+		String filename,
+		Optional<Collection<char[]>> moduleNames)
 
+		throws ClassFormatException, java.io.IOException {
+		return JRTUtil.getClassfile(jrt, filename, moduleNames);
+}
 public static ClassFileReader read(
 	java.util.zip.ZipFile zip,
 	String filename,

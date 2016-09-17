@@ -64,7 +64,7 @@ class NameEnvironmentWithProgress extends FileSystem implements INameEnvironment
 				if (!(this.classpaths[i] instanceof ClasspathDirectory)) continue;
 				ClasspathDirectory classpathDirectory = (ClasspathDirectory) this.classpaths[i];
 				for (IModule iModule : modules) {
-					if (!classpathDirectory.servesModule(iModule)) continue;
+					if (!classpathDirectory.servesModule(iModule.name())) continue;
 					answer = classpathDirectory.findSecondaryInClass(typeName, qualifiedPackageName, qualifiedBinaryFileName);
 					if (answer != null) {
 						if (!answer.ignoreIfBetter()) {
