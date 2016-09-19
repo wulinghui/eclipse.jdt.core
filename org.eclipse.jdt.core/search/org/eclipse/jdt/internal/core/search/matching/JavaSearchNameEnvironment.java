@@ -30,8 +30,8 @@ import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.env.IModule;
+import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
-import org.eclipse.jdt.internal.compiler.lookup.ModuleEnvironment;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
 import org.eclipse.jdt.internal.core.ClasspathEntry;
 import org.eclipse.jdt.internal.core.JavaModel;
@@ -47,7 +47,7 @@ import org.eclipse.jdt.internal.core.util.Util;
  * A name environment based on the classpath of a Java project.
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class JavaSearchNameEnvironment extends ModuleEnvironment implements SuffixConstants {
+public class JavaSearchNameEnvironment implements INameEnvironment, SuffixConstants {
 
 	LinkedHashSet<ClasspathLocation> locationSet;
 
@@ -201,38 +201,31 @@ private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeNam
 	return null;
 }
 
-public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, IModule[] modules) {
+public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName) {
 	if (typeName != null)
 		return findClass(
 			new String(CharOperation.concatWith(packageName, typeName, '/')),
-			typeName, modules);
+			typeName, null);
 	return null;
 }
 
-public NameEnvironmentAnswer findType(char[][] compoundName, IModule[] modules) {
+public NameEnvironmentAnswer findType(char[][] compoundName) {
 	if (compoundName != null)
 		return findClass(
 			new String(CharOperation.concatWith(compoundName, '/')),
-			compoundName[compoundName.length - 1], modules);
+			compoundName[compoundName.length - 1], null);
 	return null;
 }
 
-public boolean isPackage(char[][] compoundName, char[] packageName, IModule[] modules) {
-	return isPackage(new String(CharOperation.concatWith(compoundName, packageName, '/')), modules);
+public boolean isPackage(char[][] compoundName, char[] packageName) {
+	return isPackage(new String(CharOperation.concatWith(compoundName, packageName, '/')));
 }
 
-public boolean isPackage(String qualifiedPackageName, IModule[] modules) {
+public boolean isPackage(String qualifiedPackageName) {
 	Iterator<ClasspathLocation> iter = this.locationSet.iterator();
 	while (iter.hasNext()) {
 		if (iter.next().isPackage(qualifiedPackageName)) return true;
 	}
 	return false;
 }
-
-@Override
-public IModule getModule(char[] name) {
-	// TODO Auto-generated method stub
-	return null;
-}
-
 }

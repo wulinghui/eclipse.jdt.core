@@ -12,8 +12,6 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.core.tests.util.AbstractCompilerTest;
-import org.eclipse.jdt.internal.compiler.env.IModule;
-import org.eclipse.jdt.internal.compiler.env.IModuleLocation;
 import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
@@ -60,7 +58,7 @@ public class PackageBindingTest extends AbstractCompilerTest
 	}
 
 	/**
-	 * This test checks if {@link INameEnvironment#findType(char[], char[][], char[])} is executed.
+	 * This test checks if {@link INameEnvironment#findType(char[], char[][])} is executed.
 	 * INameEnvironment has no option to avoid the search for secondary types, therefore the search for secondary types is executed (when available).
 	 */
 	public void test03() {
@@ -101,49 +99,25 @@ public class PackageBindingTest extends AbstractCompilerTest
 		}
 
 		@Override
-		public NameEnvironmentAnswer findType(char[][] compoundTypeName, char[] client) {
+		public NameEnvironmentAnswer findType(char[][] compoundTypeName) {
 			this.isTypeSearchExecuted = true;
 			return null;
 		}
 
 		@Override
-		public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, char[] client) {
+		public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName) {
 			this.isTypeSearchExecuted = true;
 			return null;
 		}
 
 		@Override
-		public boolean isPackage(char[][] parentPackageName, char[] packageName, char[] client) {
+		public boolean isPackage(char[][] parentPackageName, char[] packageName) {
 			this.isPackageSearchExecuted = true;
 			return this.isPackage;
 		}
 
 		@Override
 		public void cleanup() {
-		}
-
-		@Override
-		public void acceptModule(IModule module, IModuleLocation location) {
-			// TODO Auto-generated method stub
-			
-		}
-
-		@Override
-		public boolean isPackageVisible(char[] pack, char[] source, char[] client) {
-			// TODO Auto-generated method stub
-			return false;
-		}
-
-		@Override
-		public IModule getModule(char[] name) {
-			// TODO Auto-generated method stub
-			return null;
-		}
-
-		@Override
-		public IModule getModule(IModuleLocation location) {
-			// TODO Auto-generated method stub
-			return null;
 		}
 	}
 
@@ -155,12 +129,12 @@ public class PackageBindingTest extends AbstractCompilerTest
 		NameEnvironmentWithProgressDummy() {}
 
 		@Override
-		public NameEnvironmentAnswer findType(char[][] compoundTypeName, char[] client) {
+		public NameEnvironmentAnswer findType(char[][] compoundTypeName) {
 			return null;
 		}
 
 		@Override
-		public boolean isPackage(char[][] parentPackageName, char[] packageName, char[] client) {
+		public boolean isPackage(char[][] parentPackageName, char[] packageName) {
 			return false;
 		}
 
@@ -173,38 +147,14 @@ public class PackageBindingTest extends AbstractCompilerTest
 		}
 
 		@Override
-		public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, char[] client, boolean searchWithSecondaryTypes) {
+		public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, boolean searchWithSecondaryTypes) {
 			this.isTypeSearchExecutedWithSearchWithSecondaryTypes = true;
 			this.isTypeSearchWithSearchWithSecondaryTypes = searchWithSecondaryTypes;
 			return null;
 		}
 
 		@Override
-		public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, char[] client) {
-			// TODO Auto-generated method stub
-			return null;
-		}
-
-		@Override
-		public void acceptModule(IModule module, IModuleLocation location) {
-			// TODO Auto-generated method stub
-			
-		}
-
-		@Override
-		public boolean isPackageVisible(char[] pack, char[] source, char[] client) {
-			// TODO Auto-generated method stub
-			return false;
-		}
-
-		@Override
-		public IModule getModule(char[] name) {
-			// TODO Auto-generated method stub
-			return null;
-		}
-
-		@Override
-		public IModule getModule(IModuleLocation location) {
+		public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName) {
 			// TODO Auto-generated method stub
 			return null;
 		}

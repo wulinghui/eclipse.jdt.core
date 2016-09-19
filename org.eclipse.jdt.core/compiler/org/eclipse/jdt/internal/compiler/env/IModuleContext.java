@@ -24,8 +24,8 @@ import java.util.stream.Stream;
  */
 public interface IModuleContext {
 	/**
+	 * Return the environments that are included in this context
 	 * 
-	 * @return
 	 */
 	public Stream<IModuleEnvironment> getEnvironment();
 }

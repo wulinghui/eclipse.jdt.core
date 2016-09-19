@@ -60,7 +60,6 @@ import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 import org.eclipse.jdt.internal.compiler.util.HashtableOfObject;
 import org.eclipse.jdt.internal.compiler.util.HashtableOfPackage;
-import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
@@ -155,15 +154,16 @@ public LookupEnvironment(ITypeRequestor typeRequestor, CompilerOptions globalOpt
 public ReferenceBinding askForType(char[][] compoundName) {
 	return askForType(compoundName, null);
 }
-//TODO: BETA_JAVA9 - should ideally return ModuleBinding?
 public ModuleBinding getModule(char[] name) {
 	if (name == null || name.length == 0 || CharOperation.equals(name, ModuleEnvironment.UNNAMED))
 		return this.UnNamedModule;
 	ModuleBinding module = (ModuleBinding) this.knownModules.get(name);
 	if (module == null) {
-		IModule mod = this.nameEnvironment.getModule(name);
-		if (mod != null) {
-			this.knownModules.put(name, module = new ModuleBinding(mod, this));
+		if (this.nameEnvironment instanceof IModuleAwareNameEnvironment) {
+			IModule mod = ((IModuleAwareNameEnvironment) this.nameEnvironment).getModule(name);
+			if (mod != null) {
+				this.knownModules.put(name, module = new ModuleBinding(mod, this));
+			}
 		}
 	}
 	return module;
@@ -179,7 +179,7 @@ public ReferenceBinding askForType(char[][] compoundName, char[] mod) {
 		ModuleBinding module = getModule(mod);
 		answer = ((IModuleAwareNameEnvironment)this.nameEnvironment).findType(compoundName, module.getDependencyLookupContext());
 	} else {
-		answer = this.nameEnvironment.findType(compoundName, mod);
+		answer = this.nameEnvironment.findType(compoundName);
 	}
 	if (answer == null) return null;
 	if (answer.isBinaryType()) {
@@ -220,16 +220,16 @@ ReferenceBinding askForType(PackageBinding packageBinding, char[] name, char[] m
 		ModuleBinding module = getModule(mod);
 		answer = ((IModuleAwareNameEnvironment)this.nameEnvironment).findType(name, packageBinding.compoundName, module.getDependencyLookupContext());
 	} else {
-		answer = this.nameEnvironment.findType(name, packageBinding.compoundName, mod);
+		answer = this.nameEnvironment.findType(name, packageBinding.compoundName);
 	}
 	if (answer == null)
 		return null;
 
 	char[] module = answer.moduleName();
-	if (module != null && !CharOperation.equals(module, JRTUtil.JAVA_BASE.toCharArray()) 
-			&& !this.nameEnvironment.isPackageVisible(packageBinding.readableName(), module, mod)) {
-		return null;
-	}
+//	if (module != null && !CharOperation.equals(module, JRTUtil.JAVA_BASE.toCharArray()) 
+//			&& !this.nameEnvironment.isPackageVisible(packageBinding.readableName(), module, mod)) {
+//		return null;
+//	}
 	if (answer.isBinaryType()) {
 		// the type was found as a .class file
 		this.typeRequestor.accept(answer.getBinaryType(), packageBinding, answer.getAccessRestriction());
@@ -262,7 +262,8 @@ ReferenceBinding askForType(PackageBinding packageBinding, char[] name, char[] m
 	return packageBinding.getType0(name);
 }
 public boolean canTypeBeSeen(SourceTypeBinding binding, Scope scope) {
-	return this.nameEnvironment.isPackageVisible(binding.fPackage.readableName(), binding.module == null ? ModuleEnvironment.UNNAMED : binding.module.name(), scope.module());
+	ModuleBinding client = getModule(scope.module());
+	return client.canSee(binding.fPackage);
 }
 
 /* Create the initial type bindings for the compilation unit.
@@ -848,11 +849,11 @@ public PackageBinding createPackage(char[][] compoundName, char[] mod) {
 				//When the nameEnvironment is an instance of INameEnvironmentWithProgress, it can get avoided to search for secondaryTypes (see flag).
 				// This is a performance optimization, because it is very expensive to search for secondary types and it isn't necessary to check when creating a package,
 				// because package name can not collide with a secondary type name.
-				if (((INameEnvironmentExtension)this.nameEnvironment).findType(compoundName[i], parent.compoundName, mod, false) != null) {
+				if (((INameEnvironmentExtension)this.nameEnvironment).findType(compoundName[i], parent.compoundName, false) != null) {
 					return null;
 				}
 			} else {
-				if (this.nameEnvironment.findType(compoundName[i], parent.compoundName, mod) != null) {
+				if (this.nameEnvironment.findType(compoundName[i], parent.compoundName) != null) {
 					return null;
 				}
 			}
@@ -1754,7 +1755,7 @@ boolean isPackage(char[][] compoundName, char[] name, char[] mod) {
 		ModuleBinding module = getModule(mod);
 		answer = ((IModuleAwareNameEnvironment)this.nameEnvironment).isPackage(pkgName, name, module.getDependencyLookupContext());
 	} else {
-		answer = this.nameEnvironment.isPackage(pkgName, name, mod);
+		answer = this.nameEnvironment.isPackage(pkgName, name);
 	}
 	return answer;
 }

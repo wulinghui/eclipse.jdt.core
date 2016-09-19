@@ -75,52 +75,26 @@ public abstract class ModuleEnvironment implements IModuleAwareNameEnvironment {
 		this.modulesCache = new HashMap<>();
 	}
 
-	@Deprecated
-	public NameEnvironmentAnswer findType(char[][] compoundTypeName, char[] client) {
-		NameEnvironmentAnswer answer = findType(compoundTypeName, getVisibleModules(client));
+	private NameEnvironmentAnswer findTypeWorker(char[] typeName, char[][] packageName, boolean searchSecondaryTypes, IModuleContext context) {
+		NameEnvironmentAnswer answer = findType(typeName, packageName, context);
+//		char[] module = null;
+//		if(answer == null || (module = answer.moduleName()) == null || client == null ||
+//				CharOperation.equals(module, JRTUtil.JAVA_BASE_CHAR)) {
+//			return answer;
+//		}
+//		return returnAnswerAfterValidation(packageName, answer, client);
 		return answer;
 	}
 
-	@Deprecated
-	public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, char[] client) {
-		return findTypeWorker(typeName, packageName, client, false);
-	}
-	
-	private NameEnvironmentAnswer findTypeWorker(char[] typeName, char[][] packageName, char[] client, boolean searchSecondaryTypes) {
-		NameEnvironmentAnswer answer = findType(typeName, packageName, getVisibleModules(client), searchSecondaryTypes);
-		char[] module = null;
-		if(answer == null || (module = answer.moduleName()) == null || client == null ||
-				CharOperation.equals(module, JRTUtil.JAVA_BASE_CHAR)) {
-			return answer;
-		}
-		return returnAnswerAfterValidation(packageName, answer, client);
-	}
-
-	@Deprecated
-	public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, char[] client, boolean searchWithSecondaryTypes) {
-		return findTypeWorker(typeName, packageName, client, searchWithSecondaryTypes);
+	//TODO this should be abstract
+	public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, boolean searchWithSecondaryTypes, IModuleContext context) {
+		return findTypeWorker(typeName, packageName, searchWithSecondaryTypes, context);
 	}
 
 	protected NameEnvironmentAnswer returnAnswerAfterValidation(char[][] packageName, NameEnvironmentAnswer answer, char[] client) {
 		if (isPackageVisible(CharOperation.concatWith(packageName, '.'), answer.moduleName(), client)) {
 			return answer;
 		}
-		return null;
-	}
-
-	@Deprecated
-	// default implementation
-	public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, IModule[] modules, boolean searchSecondaryTypes) {
-		return findType(typeName, packageName, modules);
-	}
-
-	@Deprecated
-	public boolean isPackage(char[][] parentPackageName, char[] packageName, char[] client) {
-		return isPackage(parentPackageName, packageName, getVisibleModules(client));
-	}
-	
-	@Deprecated
-	public NameEnvironmentAnswer findType(char[][] compoundTypeName, IModule[] modules) {
 		return null;
 	}
 
@@ -132,15 +106,6 @@ public abstract class ModuleEnvironment implements IModuleAwareNameEnvironment {
 		return null;
 	}
 	public boolean isPackage(char[][] parentPackageName, char[] packageName, IModuleContext moduleContext) {
-		return false;
-	}
-	@Deprecated
-	public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, IModule[] modules) {
-		return null;
-	}
-
-	@Deprecated
-	public boolean isPackage(char[][] parentPackageName, char[] packageName, IModule[] module) {
 		return false;
 	}
 
@@ -268,7 +233,7 @@ public abstract class ModuleEnvironment implements IModuleAwareNameEnvironment {
 		ModuleEnvironment.ModuleLocationMap.put(location, mod);
 	}
 
-	@Override
+	//@Override
 	public IModule getModule(IModuleLocation location) {
 		IModule module = ModuleEnvironment.ModuleLocationMap.get(location);
 		if (module == null) 

@@ -25,7 +25,7 @@ import org.eclipse.jdt.internal.codeassist.ISearchRequestor;
 import org.eclipse.jdt.internal.compiler.env.AccessRestriction;
 import org.eclipse.jdt.internal.compiler.env.IBinaryType;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
-import org.eclipse.jdt.internal.compiler.env.IModule;
+import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.env.ISourceType;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
 import org.eclipse.jdt.internal.compiler.lookup.ModuleEnvironment;
@@ -41,8 +41,8 @@ import org.eclipse.jdt.internal.core.util.Util;
  *	This class provides a <code>SearchableBuilderEnvironment</code> for code assist which
  *	uses the Java model as a search tool.
  */
-public class SearchableEnvironment extends ModuleEnvironment
-	implements IJavaSearchConstants {
+public class SearchableEnvironment
+	implements INameEnvironment, IJavaSearchConstants {
 
 	public NameLookup nameLookup;
 	protected ICompilationUnit unitToSkip;
@@ -96,7 +96,7 @@ public class SearchableEnvironment extends ModuleEnvironment
 	 * Returns the given type in the the given package if it exists,
 	 * otherwise <code>null</code>.
 	 */
-	protected NameEnvironmentAnswer find(String typeName, String packageName, IModule[] module) {
+	protected NameEnvironmentAnswer find(String typeName, String packageName) {
 		if (packageName == null)
 			packageName = IPackageFragment.DEFAULT_PACKAGE_NAME;
 		if (this.owner != null) {
@@ -112,8 +112,7 @@ public class SearchableEnvironment extends ModuleEnvironment
 				packageName,
 				false/*exact match*/,
 				NameLookup.ACCEPT_ALL,
-				this.checkAccessRestrictions,
-				module);
+				this.checkAccessRestrictions);
 		if (answer != null) {
 			// construct name env answer
 			if (answer.type instanceof BinaryType) { // BinaryType
@@ -295,15 +294,15 @@ public class SearchableEnvironment extends ModuleEnvironment
 	}
 
 	/**
-	 * @see ModuleEnvironment#findType(char[][], IModule[])
+	 * @see ModuleEnvironment#findType(char[][])
 	 */
-	public NameEnvironmentAnswer findType(char[][] compoundTypeName, IModule[] module) {
+	public NameEnvironmentAnswer findType(char[][] compoundTypeName) {
 		if (compoundTypeName == null) return null;
 
 		int length = compoundTypeName.length;
 		if (length <= 1) {
 			if (length == 0) return null;
-			return find(new String(compoundTypeName[0]), null, module);
+			return find(new String(compoundTypeName[0]), null);
 		}
 
 		int lengthM1 = length - 1;
@@ -312,18 +311,18 @@ public class SearchableEnvironment extends ModuleEnvironment
 
 		return find(
 			new String(compoundTypeName[lengthM1]),
-			CharOperation.toString(packageName), module);
+			CharOperation.toString(packageName));
 	}
 
 	/**
-	 * @see ModuleEnvironment#findType(char[], char[][], IModule[])
+	 * @see ModuleEnvironment#findType(char[], char[][])
 	 */
-	public NameEnvironmentAnswer findType(char[] name, char[][] packageName, IModule[] module) {
+	public NameEnvironmentAnswer findType(char[] name, char[][] packageName) {
 		if (name == null) return null;
 
 		return find(
 			new String(name),
-			packageName == null || packageName.length == 0 ? null : CharOperation.toString(packageName), module);
+			packageName == null || packageName.length == 0 ? null : CharOperation.toString(packageName));
 	}
 
 	/**
@@ -714,9 +713,9 @@ public class SearchableEnvironment extends ModuleEnvironment
 	}
 
 	/**
-	 * @see ModuleEnvironment#isPackage(char[][], char[], IModule[])
+	 * @see ModuleEnvironment#isPackage(char[][], char[])
 	 */
-	public boolean isPackage(char[][] parentPackageName, char[] subPackageName, IModule[] modules) {
+	public boolean isPackage(char[][] parentPackageName, char[] subPackageName) {
 		String[] pkgName;
 		if (parentPackageName == null)
 			pkgName = new String[] {new String(subPackageName)};
@@ -755,13 +754,13 @@ public class SearchableEnvironment extends ModuleEnvironment
 		// nothing to do
 	}
 
-	@Override
-	public IModule getModule(char[] name) {
-		IModule module = null;
-		NameLookup.Answer answer = this.nameLookup.findModule(CharOperation.charToString(name));
-		if (answer != null) {
-			module = answer.module;
-		}
-		return module;
-	}
+//	@Override
+//	public IModule getModule(char[] name) {
+//		IModule module = null;
+//		NameLookup.Answer answer = this.nameLookup.findModule(CharOperation.charToString(name));
+//		if (answer != null) {
+//			module = answer.module;
+//		}
+//		return module;
+//	}
 }
