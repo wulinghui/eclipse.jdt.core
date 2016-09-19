@@ -22,7 +22,7 @@ import java.util.function.BiFunction;
  */
 public interface TypeLookup {
 
-	TypeLookup nullTypeLookup = (typeName, qualifiedPackageName, qualifiedBinaryFileName,binaryOnly) -> null;
+	TypeLookup Dummy = (typeName, qualifiedPackageName, qualifiedBinaryFileName,binaryOnly) -> null;
 
 	/**
 	 * Find the class named typeName with binary file name qualifiedBinaryFileName in the package whose full name is qualifiedPackageName

@@ -18,22 +18,19 @@ package org.eclipse.jdt.internal.compiler.env;
  * A module aware name environment
  *
  */
-public interface IModuleAwareNameEnvironment extends INameEnvironmentExtension {
+public interface IModuleAwareNameEnvironment extends INameEnvironment {
 	default NameEnvironmentAnswer findType(char[][] compoundTypeName) {
-		return findType(compoundTypeName, null);
+		return findType(compoundTypeName, IModuleContext.UNNAMED_MODULE_CONTEXT);
 	}
 	default NameEnvironmentAnswer findType(char[] typeName, char[][] packageName) {
-		return findType(typeName, packageName, null);
+		return findType(typeName, packageName, IModuleContext.UNNAMED_MODULE_CONTEXT);
 	}
 	default boolean isPackage(char[][] parentPackageName, char[] packageName) {
-		return isPackage(parentPackageName, packageName, null);
+		return isPackage(parentPackageName, packageName, IModuleContext.UNNAMED_MODULE_CONTEXT);
 	}
-	default NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, boolean searchWithSecondaryTypes) {
-		return findType(typeName, packageName, searchWithSecondaryTypes, null);
-	}
+
 	NameEnvironmentAnswer findType(char[][] compoundTypeName, IModuleContext moduleContext);
 	NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, IModuleContext moduleContext);
-	NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, boolean searchWithSecondaryTypes, IModuleContext moduleContext);
 	boolean isPackage(char[][] parentPackageName, char[] packageName, IModuleContext moduleContext);
 	IModule getModule(char[] moduleName);
 }

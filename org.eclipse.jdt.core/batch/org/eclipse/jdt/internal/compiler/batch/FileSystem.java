@@ -33,7 +33,7 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
 import org.eclipse.jdt.internal.compiler.env.IModulePathEntry;
 import org.eclipse.jdt.internal.compiler.env.IModule;
-import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
+import org.eclipse.jdt.internal.compiler.env.IModuleAwareNameEnvironment;
 import org.eclipse.jdt.internal.compiler.env.IModule.IPackageExport;
 import org.eclipse.jdt.internal.compiler.env.IModuleContext;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
@@ -44,7 +44,7 @@ import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
 @SuppressWarnings({ "rawtypes", "unchecked" })
-public class FileSystem extends ModuleEnvironment implements SuffixConstants {
+public class FileSystem implements IModuleAwareNameEnvironment, SuffixConstants {
 	/**
 	 * A <code>Classpath<code>, even though an IModuleLocation, can represent a plain
 	 * classpath location too. The FileSystem tells the Classpath whether to behave as a module or regular class
@@ -348,7 +348,7 @@ private static String convertPathSeparators(String path) {
 //	return suggestedAnswer;
 //}
 private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeName, boolean asBinaryOnly) {
-	return findClass(qualifiedTypeName, typeName, asBinaryOnly, ModuleEnvironment.UNNAMED_MODULE_CONTEXT);
+	return findClass(qualifiedTypeName, typeName, asBinaryOnly, IModuleContext.UNNAMED_MODULE_CONTEXT);
 }
 private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeName, boolean asBinaryOnly, IModuleContext moduleContext) {
 	NameEnvironmentAnswer answer = internalFindClass(qualifiedTypeName, typeName, asBinaryOnly, moduleContext);
@@ -367,90 +367,6 @@ private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeNam
 		}
 	}
 	return answer;
-}
-private NameEnvironmentAnswer internalFindClass(String qualifiedTypeName, char[] typeName, boolean asBinaryOnly, IModule[] modules){
-	if (this.knownFileNames.contains(qualifiedTypeName)) return null; // looking for a file which we know was provided at the beginning of the compilation
-//
-	String qualifiedBinaryFileName = qualifiedTypeName + SUFFIX_STRING_class;
-	String qualifiedPackageName =
-		qualifiedTypeName.length() == typeName.length
-			? Util.EMPTY_STRING
-			: qualifiedBinaryFileName.substring(0, qualifiedTypeName.length() - typeName.length - 1);
-//	String qp2 = File.separatorChar == '/' ? qualifiedPackageName : qualifiedPackageName.replace('/', File.separatorChar);
-//	NameEnvironmentAnswer suggestedAnswer = null;
-//	if (qualifiedPackageName == qp2) {
-//		for (int i = 0, length = this.classpaths.length; i < length; i++) {
-//			NameEnvironmentAnswer answer = null;
-//			for (IModule iModule : modules) {
-//				boolean isUnnamed = CharOperation.equals(iModule.name(), ModuleEnvironment.UNNAMED);
-//				if (!isUnnamed && !this.classpaths[i].servesModule(iModule.name())) continue;
-//				answer = isUnnamed ? this.classpaths[i].findClass(new String(typeName), qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly) : this.classpaths[i].findClass(new String(typeName), qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly, iModule.name());
-//				if (answer != null) break;
-//			}
-//			if (answer != null) {
-//				if (!answer.ignoreIfBetter()) {
-//					if (answer.isBetter(suggestedAnswer))
-//						return answer;
-//				} else if (answer.isBetter(suggestedAnswer))
-//					// remember suggestion and keep looking
-//					suggestedAnswer = answer;
-//			}
-//		}
-//	} else {
-//		String qb2 = qualifiedBinaryFileName.replace('/', File.separatorChar);
-//		for (int i = 0, length = this.classpaths.length; i < length; i++) {
-//			Classpath p = this.classpaths[i];
-//			NameEnvironmentAnswer answer = null;
-//			for (IModule iModule : modules) {
-//				boolean isUnnamed = CharOperation.equals(iModule.name(), ModuleEnvironment.UNNAMED);
-//				if (!isUnnamed && !p.servesModule(iModule.name())) continue;
-//				if (isUnnamed) {
-//					answer = (p instanceof ClasspathJar)
-//							? p.findClass(new String(typeName), qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly)
-//									: p.findClass(new String(typeName), qp2, qb2, asBinaryOnly);
-//				} else {
-//					answer = (p instanceof ClasspathJar)
-//							? p.findClass(new String(typeName), qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly)
-//									: p.findClass(new String(typeName), qp2, qb2, asBinaryOnly, iModule.name());
-//				}
-//				if (answer != null) break;
-//			}
-//			if (answer != null) {
-//				if (!answer.ignoreIfBetter()) {
-//					if (answer.isBetter(suggestedAnswer))
-//						return answer;
-//				} else if (answer.isBetter(suggestedAnswer))
-//					// remember suggestion and keep looking
-//					suggestedAnswer = answer;
-//			}
-//		}
-//	}
-//	if (suggestedAnswer != null)
-//		// no better answer was found
-//		return suggestedAnswer;
-//	return null;
-	
-	return Stream.of(modules)
-			.map(m -> {
-				if (m == ModuleEnvironment.UNNAMED_MODULE) {
-					TypeLookup t = null;
-					for (int i = 0, length = this.classpaths.length; i < length; i++) {
-						Classpath p = this.classpaths[i];
-						if (t == null) {
-							t = p::findClass;
-						} else {
-							t = t.chain(p :: findClass);
-						}
-					}
-					return t;
-				}
-				IModuleEnvironment env = m.getLookupEnvironment();
-				return env == null ? null : m.getLookupEnvironment().typeLookup();
-			})
-			.filter(t -> t != null)
-			.reduce(TypeLookup::chain)
-			.map(lookup -> lookup.findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly))
-			.orElse(null);
 }
 public NameEnvironmentAnswer findType(char[][] compoundName) {
 	if (compoundName != null)
@@ -576,7 +492,7 @@ public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, IMo
 	
 }
 public boolean isPackage(char[][] compoundName, char[] packageName) {
-	return isPackage(compoundName, packageName, ModuleEnvironment.UNNAMED_MODULE_CONTEXT);
+	return isPackage(compoundName, packageName, IModuleContext.UNNAMED_MODULE_CONTEXT);
 }
 public boolean isPackage(char[][] compoundName, char[] packageName, IModuleContext moduleContext) {
 	String qualifiedPackageName = new String(CharOperation.concatWith(compoundName, packageName, '/'));
@@ -590,7 +506,7 @@ public boolean isPackage(char[][] compoundName, char[] packageName, IModuleConte
 //					return true;
 //			}
 //	} else {
-	if (moduleContext == ModuleEnvironment.UNNAMED_MODULE_CONTEXT) {
+	if (moduleContext == IModuleContext.UNNAMED_MODULE_CONTEXT) {
 		return Stream.of(this.classpaths).map(p -> p.getLookupEnvironment().packageLookup()).filter(l -> l.isPackage(qualifiedPackageName)).findAny().isPresent();
 	} else {
 		return moduleContext.getEnvironment().map(e -> e.packageLookup()).filter(l -> l.isPackage(qualifiedPackageName)).findAny().isPresent();
@@ -646,21 +562,11 @@ private NameEnvironmentAnswer internalFindClass(String qualifiedTypeName, char[]
 			? Util.EMPTY_STRING
 			: qualifiedBinaryFileName.substring(0, qualifiedTypeName.length() - typeName.length - 1);
 
-	if (ModuleEnvironment.UNNAMED_MODULE_CONTEXT == moduleContext) {
-		return Stream.of(this.classpaths).map(p -> {
-			return p.getLookupEnvironment().typeLookup();
-			})
-			.reduce(TypeLookup::chain).map(t -> t.findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName)).orElse(null);
-//		TypeLookup t = null;
-//		for (int i = 0, length = this.classpaths.length; i < length; i++) {
-//			Classpath p = this.classpaths[i];
-//			if (t == null) {
-//				t = p::findClass;
-//			} else {
-//				t = t.chain(p :: findClass);
-//			}
-//		}
-//		return t.findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName);
+	if (IModuleContext.UNNAMED_MODULE_CONTEXT == moduleContext) {
+		return Stream.of(this.classpaths)
+				.map(p -> p.getLookupEnvironment().typeLookup())
+				.reduce(TypeLookup::chain)
+				.map(t -> t.findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName)).orElse(null);
 	}
 	return moduleContext.getEnvironment().map(env -> env.typeLookup())
 				.reduce(TypeLookup::chain)

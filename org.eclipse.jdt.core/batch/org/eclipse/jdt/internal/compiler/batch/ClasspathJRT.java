@@ -370,13 +370,13 @@ public class ClasspathJRT extends ClasspathLocation implements IMultiModuleEntry
 			@Override
 			public TypeLookup typeLookup() {
 				//
-				return servesModule(module.name()) ? ClasspathJRT.this.typeLookupForModule.apply(module.name()) : TypeLookup.nullTypeLookup;
+				return servesModule(module.name()) ? ClasspathJRT.this.typeLookupForModule.apply(module.name()) : TypeLookup.Dummy;
 			}
 			
 			@Override
 			public PackageLookup packageLookup() {
 				//
-				return servesModule(module.name()) ? ClasspathJRT.this.pkgLookupForModule.apply(module.name()) : PackageLookup.nullPkgLookup;
+				return servesModule(module.name()) ? ClasspathJRT.this.pkgLookupForModule.apply(module.name()) : PackageLookup.Dummy;
 			}
 		};
 	}

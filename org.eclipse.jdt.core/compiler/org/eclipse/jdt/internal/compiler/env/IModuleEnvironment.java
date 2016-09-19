@@ -16,9 +16,9 @@ package org.eclipse.jdt.internal.compiler.env;
 
 /**
  * The module environment provides a callback API that the compiler
- * can use to look up types, compilation units, and packages in a
- * specific module. A lookup environment for a module can be obtained
- * from the IModulePathEntry that contributes the module
+ * can use to look up types, compilation units, and packages in the 
+ * context of one or modules. A lookup environment for a module can
+ * be obtained from the IModulePathEntry that contributes the module
  * 
  * @see IModulePathEntry#getLookupEnvironmentFor(IModule)
  */

@@ -12,6 +12,7 @@ package org.eclipse.jdt.core.tests.compiler.regression;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.core.tests.util.AbstractCompilerTest;
+import org.eclipse.jdt.internal.compiler.env.IModuleContext;
 import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
@@ -147,7 +148,7 @@ public class PackageBindingTest extends AbstractCompilerTest
 		}
 
 		@Override
-		public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, boolean searchWithSecondaryTypes) {
+		public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, boolean searchWithSecondaryTypes, IModuleContext context) {
 			this.isTypeSearchExecutedWithSearchWithSecondaryTypes = true;
 			this.isTypeSearchWithSearchWithSecondaryTypes = searchWithSecondaryTypes;
 			return null;

@@ -19,7 +19,7 @@ package org.eclipse.jdt.internal.compiler.env;
  */
 public interface PackageLookup {
 
-	PackageLookup nullPkgLookup = qualifiedPackageName -> false;
+	PackageLookup Dummy = qualifiedPackageName -> false;
 
 	/**
 	 * Answer whether qualifiedPackageName is the name of a known package

@@ -55,6 +55,19 @@ public interface IModulePathEntry {
 	default boolean servesModule(char[] name) {
 		return getModule(name) != null;
 	}
+	/**
+	 * Return the look up environment for this entry. Should be used when one needs to
+	 * look up types/packages in all the modules contributed by this entry
+	 * 
+	 */
 	IModuleEnvironment getLookupEnvironment();
+	/**
+	 * Return the lookup environment for the given module
+	 * 
+	 * @param module
+	 * 
+	 * @return The look up environment for the module, or null if this entry
+	 * does not know any such module
+	 */
 	IModuleEnvironment getLookupEnvironmentFor(IModule module);
 }

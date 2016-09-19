@@ -17,7 +17,6 @@ package org.eclipse.jdt.internal.compiler.lookup;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
-
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.IModuleAwareNameEnvironment;
@@ -62,33 +61,12 @@ public abstract class ModuleEnvironment implements IModuleAwareNameEnvironment {
 			return new String(UNNAMED);
 		}
 	};
-	// A special context to represent the unnamed module context. Subclasses should perform a whole
-	// world lookup when they see this context
-	public static final IModuleContext UNNAMED_MODULE_CONTEXT = () -> {
-		return null;
-	};
 	public static IModule[] UNNAMED_MODULE_ARRAY = new IModule[]{UNNAMED_MODULE};
 	private HashMap<String, IModule> modulesCache = null;
 	private static HashMap<IModuleLocation, IModule> ModuleLocationMap = new HashMap<>();
 	
 	public ModuleEnvironment() {
 		this.modulesCache = new HashMap<>();
-	}
-
-	private NameEnvironmentAnswer findTypeWorker(char[] typeName, char[][] packageName, boolean searchSecondaryTypes, IModuleContext context) {
-		NameEnvironmentAnswer answer = findType(typeName, packageName, context);
-//		char[] module = null;
-//		if(answer == null || (module = answer.moduleName()) == null || client == null ||
-//				CharOperation.equals(module, JRTUtil.JAVA_BASE_CHAR)) {
-//			return answer;
-//		}
-//		return returnAnswerAfterValidation(packageName, answer, client);
-		return answer;
-	}
-
-	//TODO this should be abstract
-	public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, boolean searchWithSecondaryTypes, IModuleContext context) {
-		return findTypeWorker(typeName, packageName, searchWithSecondaryTypes, context);
 	}
 
 	protected NameEnvironmentAnswer returnAnswerAfterValidation(char[][] packageName, NameEnvironmentAnswer answer, char[] client) {
@@ -98,7 +76,7 @@ public abstract class ModuleEnvironment implements IModuleAwareNameEnvironment {
 		return null;
 	}
 
-	// TODO: this should be abstract
+	// TODO: these should be abstract
 	public NameEnvironmentAnswer findType(char[][] compoundTypeName, IModuleContext moduleContext) {
 		return null;
 	}

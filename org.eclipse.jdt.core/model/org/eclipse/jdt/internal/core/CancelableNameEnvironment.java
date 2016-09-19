@@ -19,6 +19,7 @@ import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.WorkingCopyOwner;
 import org.eclipse.jdt.internal.codeassist.ISearchRequestor;
+import org.eclipse.jdt.internal.compiler.env.IModuleContext;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
 import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
 
@@ -53,7 +54,7 @@ public class CancelableNameEnvironment extends SearchableEnvironment implements 
 		checkCanceled();
 		return super.findType(compoundTypeName);
 	}
-	public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, boolean searchWithSecondaryTypes) {
+	public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, boolean searchWithSecondaryTypes, IModuleContext context) {
 		return findType(typeName, packageName);
 	}
 	public void findTypes(char[] prefix, boolean findMembers, boolean camelCaseMatch, int searchFor, ISearchRequestor storage, IProgressMonitor progressMonitor) {

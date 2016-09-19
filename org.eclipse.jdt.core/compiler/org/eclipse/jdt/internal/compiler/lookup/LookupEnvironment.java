@@ -130,7 +130,7 @@ public class LookupEnvironment implements ProblemReasons, TypeConstants {
 
 	static final ProblemPackageBinding TheNotFoundPackage = new ProblemPackageBinding(CharOperation.NO_CHAR, NotFound);
 	static final ProblemReferenceBinding TheNotFoundType = new ProblemReferenceBinding(CharOperation.NO_CHAR_CHAR, null, NotFound);
-	final ModuleBinding UnNamedModule = new ModuleBinding(ModuleEnvironment.UNNAMED_MODULE, this);
+	final ModuleBinding UnNamedModule = new ModuleBinding.UnNamedModule(this);
 
 public LookupEnvironment(ITypeRequestor typeRequestor, CompilerOptions globalOptions, ProblemReporter problemReporter, INameEnvironment nameEnvironment) {
 	this.typeRequestor = typeRequestor;
@@ -177,7 +177,7 @@ public ReferenceBinding askForType(char[][] compoundName, char[] mod) {
 	NameEnvironmentAnswer answer = null;
 	if (this.nameEnvironment instanceof IModuleAwareNameEnvironment) {
 		ModuleBinding module = getModule(mod);
-		answer = ((IModuleAwareNameEnvironment)this.nameEnvironment).findType(compoundName, module.getDependencyLookupContext());
+		answer = ((IModuleAwareNameEnvironment)this.nameEnvironment).findType(compoundName, module.getDependencyClosureContext());
 	} else {
 		answer = this.nameEnvironment.findType(compoundName);
 	}
@@ -218,7 +218,7 @@ ReferenceBinding askForType(PackageBinding packageBinding, char[] name, char[] m
 	NameEnvironmentAnswer answer = null;
 	if (this.nameEnvironment instanceof IModuleAwareNameEnvironment) {
 		ModuleBinding module = getModule(mod);
-		answer = ((IModuleAwareNameEnvironment)this.nameEnvironment).findType(name, packageBinding.compoundName, module.getDependencyLookupContext());
+		answer = ((IModuleAwareNameEnvironment)this.nameEnvironment).findType(name, packageBinding.compoundName, module.getDependencyClosureContext());
 	} else {
 		answer = this.nameEnvironment.findType(name, packageBinding.compoundName);
 	}
@@ -846,10 +846,11 @@ public PackageBinding createPackage(char[][] compoundName, char[] mod) {
 			// since the package can be added after a set of source files have already been compiled,
 			// we need to check whenever a package is created
 			if(this.nameEnvironment instanceof INameEnvironmentExtension) {
+				ModuleBinding module = getModule(mod);
 				//When the nameEnvironment is an instance of INameEnvironmentWithProgress, it can get avoided to search for secondaryTypes (see flag).
 				// This is a performance optimization, because it is very expensive to search for secondary types and it isn't necessary to check when creating a package,
 				// because package name can not collide with a secondary type name.
-				if (((INameEnvironmentExtension)this.nameEnvironment).findType(compoundName[i], parent.compoundName, false) != null) {
+				if (((INameEnvironmentExtension)this.nameEnvironment).findType(compoundName[i], parent.compoundName, false, module.getDependencyClosureContext()) != null) {
 					return null;
 				}
 			} else {
@@ -1753,7 +1754,7 @@ boolean isPackage(char[][] compoundName, char[] name, char[] mod) {
 	boolean answer = false;
 	if (this.nameEnvironment instanceof IModuleAwareNameEnvironment) {
 		ModuleBinding module = getModule(mod);
-		answer = ((IModuleAwareNameEnvironment)this.nameEnvironment).isPackage(pkgName, name, module.getDependencyLookupContext());
+		answer = ((IModuleAwareNameEnvironment)this.nameEnvironment).isPackage(pkgName, name, module.getDependencyClosureContext());
 	} else {
 		answer = this.nameEnvironment.isPackage(pkgName, name);
 	}

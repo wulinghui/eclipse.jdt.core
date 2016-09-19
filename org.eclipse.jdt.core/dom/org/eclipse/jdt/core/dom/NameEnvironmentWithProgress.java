@@ -16,6 +16,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.core.dom;
 
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -26,7 +27,6 @@ import org.eclipse.jdt.internal.compiler.batch.FileSystem;
 import org.eclipse.jdt.internal.compiler.env.IModuleContext;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
 import org.eclipse.jdt.internal.compiler.env.TypeLookup;
-import org.eclipse.jdt.internal.compiler.lookup.ModuleEnvironment;
 import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
 import org.eclipse.jdt.internal.core.INameEnvironmentWithProgress;
 import org.eclipse.jdt.internal.core.NameLookup;
@@ -51,9 +51,8 @@ class NameEnvironmentWithProgress extends FileSystem implements INameEnvironment
 		}
 	}
 	public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, IModuleContext context) {
-		return super.findType(typeName, packageName, true, context);
+		return findType(typeName, packageName, true, context);
 	}
-
 	public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, boolean searchSecondaryTypes, IModuleContext context) {
 		checkCanceled();
 		NameEnvironmentAnswer answer = super.findType(typeName, packageName, context);
@@ -78,20 +77,23 @@ class NameEnvironmentWithProgress extends FileSystem implements INameEnvironment
 //					}
 //				}
 //			}
-			if (ModuleEnvironment.UNNAMED_MODULE_CONTEXT == context) {
-				answer =  Stream.of(this.classpaths).<TypeLookup>map(p -> {
-					return (t, qPackageName, qBinaryFileName,asBinaryOnly) -> {
-						return ((ClasspathDirectory)p).findSecondaryInClass(typeName, qualifiedPackageName, qualifiedBinaryFileName);
-					};
-					})
-					.reduce(TypeLookup::chain).map(t -> t.findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName)).orElse(null);
+			Function<ClasspathDirectory, TypeLookup> secondaryTypesLookup = d -> {
+				return (t, qPackageName, qBinaryFileName,asBinaryOnly) -> {
+					return d.findSecondaryInClass(t, qPackageName, qBinaryFileName);
+				};
+			};
+			if (IModuleContext.UNNAMED_MODULE_CONTEXT == context) {
+				answer =  Stream.of(this.classpaths)
+						.filter(env -> env instanceof ClasspathDirectory)
+						.map(p -> (ClasspathDirectory)p)
+						.map(secondaryTypesLookup)
+						.reduce(TypeLookup::chain)
+						.map(t -> t.findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName)).orElse(null);
 			} else {
-				answer = context.getEnvironment().filter(env -> env instanceof ClasspathDirectory)
-					.<TypeLookup>map(p -> {
-						return (t, qPackageName, qBinaryFileName,asBinaryOnly) -> {
-							return ((ClasspathDirectory)p).findSecondaryInClass(typeName, qualifiedPackageName, qualifiedBinaryFileName);
-						};
-						})
+				answer = context.getEnvironment()
+						.filter(env -> env instanceof ClasspathDirectory)
+						.map(p -> (ClasspathDirectory)p)
+						.map(secondaryTypesLookup)
 						.reduce(TypeLookup::chain)
 						.map(lookup -> lookup.findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName))
 						.orElse(null);

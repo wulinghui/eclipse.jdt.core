@@ -16,7 +16,6 @@
 package org.eclipse.jdt.internal.compiler.lookup;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -33,6 +32,28 @@ import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 
 public class ModuleBinding extends Binding {
 
+	public static class UnNamedModule extends ModuleBinding {
+
+		UnNamedModule(LookupEnvironment env) {
+			super(env);
+		}
+		public ModuleBinding[] getAllRequiredModules() {
+			return NO_REQUIRES;
+		}
+		public IModuleContext getModuleLookupContext() {
+			return IModuleContext.UNNAMED_MODULE_CONTEXT;
+		}
+		public IModuleContext getDependencyClosureContext() {
+			return IModuleContext.UNNAMED_MODULE_CONTEXT;
+		}
+		public IModuleContext getModuleGraphContext() {
+			return IModuleContext.UNNAMED_MODULE_CONTEXT;
+		}
+		public boolean canSee(PackageBinding pkg) {
+			//TODO - if the package is part of a named module, then we should check if the module exports the package
+			return true;
+		}
+	}
 	public char[] moduleName;
 	public IModuleReference[] requires;
 	public IPackageExport[] exportedPackages;
@@ -52,6 +73,8 @@ public class ModuleBinding extends Binding {
 	ModuleBinding(LookupEnvironment env) {
 		this.moduleName = ModuleEnvironment.UNNAMED;
 		this.environment = env;
+		this.requires = NO_MODULE_REFS;
+		this.exportedPackages = NO_EXPORTS;
 	}
 	public ModuleBinding(IModule module, LookupEnvironment environment) {
 		this.moduleName = module.name();
@@ -99,8 +122,6 @@ public class ModuleBinding extends Binding {
 	 *  collection of implicit dependencies
 	 */
 	public Collection<ModuleBinding> getImplicitDependencies() {
-		if (this == this.environment.UnNamedModule)
-			return Collections.emptyList();
 		return implicitDependencyCollector().get();
 	}
 
@@ -114,8 +135,6 @@ public class ModuleBinding extends Binding {
 	 *   An array of all required modules
 	 */
 	public ModuleBinding[] getAllRequiredModules() {
-		if (this == this.environment.UnNamedModule)
-			return NO_REQUIRES;
 		if (this.requiredModules != null)
 			return this.requiredModules;
 
@@ -158,10 +177,6 @@ public class ModuleBinding extends Binding {
 	 * @return True, if the package is visible to this module, false otherwise
 	 */
 	public boolean canSee(PackageBinding pkg) {
-		if (this == this.environment.UnNamedModule) {
-			//TODO - if the package is part of a named module, then we should check if the module exports the package
-			return true;
-		}
 		return Stream.of(getAllRequiredModules()).filter(dep -> dep.isPackageExportedTo(pkg, this)).findFirst().isPresent();
 	}
 	
@@ -170,24 +185,20 @@ public class ModuleBinding extends Binding {
  			return true;
 		return Stream.of(getAllRequiredModules()).anyMatch(other::equals);
 	}
+	// A context representing just this module
  	public IModuleContext getModuleLookupContext() {
- 		return this == this.environment.UnNamedModule ? ModuleEnvironment.UNNAMED_MODULE_CONTEXT : () -> Stream.of(this.moduleEnviroment);
+ 		return () -> this.moduleEnviroment == null ? Stream.empty() : Stream.of(this.moduleEnviroment);
  	}
- 	public IModuleContext getDependencyLookupContext() {
+ 	// A context including this module and all it's required modules
+ 	public IModuleContext getDependencyClosureContext() {
  		ModuleBinding[] deps = getAllRequiredModules();
- 		return this == this.environment.UnNamedModule ? ModuleEnvironment.UNNAMED_MODULE_CONTEXT : () -> Stream.concat(getModuleLookupContext().getEnvironment(), Stream.of(deps).flatMap(m -> m.getDependencyLookupContext().getEnvironment())).filter(e -> e != null);
- 		//return getModuleLookupContext().chain(Stream.of(deps).map(m -> m.moduleEnviroment.typeLookup())
-// 				.collect(Collectors.groupingBy(m -> {
-// 			return m.moduleEnviroment;
-// 		}))
-// 		.entrySet().stream().map (e -> {
-// 			IModuleEnvironment env = e.getKey();
-// 			if (root instanceof IMultiModuleEntry) {
-// 	 			return ((IMultiModuleEntry)root).forModules(e.getValue().stream().map(ModuleBinding::name).collect(Collectors.toList()));
-// 	 		}
-// 			return env.typeLookup();
- 		//})
-//		.reduce(TypeLookup::chain).orElse(null));
+ 		return getModuleLookupContext().includeAll(Stream.of(deps).map(m -> m.getDependencyClosureContext()));
+ 	}
+ 	// A context that includes the entire module graph starting from this module
+ 	public IModuleContext getModuleGraphContext() {
+ 		Stream<ModuleBinding> reqs = getRequiredModules(false);
+ 		return this == this.environment.UnNamedModule ? IModuleContext.UNNAMED_MODULE_CONTEXT : 
+ 			getModuleLookupContext().includeAll(reqs.map(m -> m.getModuleGraphContext()));
  	}
 	@Override
 	public int kind() {

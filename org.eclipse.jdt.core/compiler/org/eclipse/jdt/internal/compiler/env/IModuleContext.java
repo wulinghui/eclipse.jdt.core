@@ -24,8 +24,36 @@ import java.util.stream.Stream;
  */
 public interface IModuleContext {
 	/**
+	 * A special context to represent the unnamed module context
+	 * 
+	 */
+	IModuleContext UNNAMED_MODULE_CONTEXT = () -> {
+		return Stream.empty();
+	};
+	/**
 	 * Return the environments that are included in this context
 	 * 
 	 */
 	public Stream<IModuleEnvironment> getEnvironment();
+	
+	/**
+	 * Include the other module context in this context
+	 * 
+	 * @param other
+	 * 
+	 * @return A joint context that represents both the module contexts
+	 */
+	default IModuleContext include(IModuleContext other) {
+		return () -> Stream.concat(getEnvironment(), other.getEnvironment());
+	}
+	/**
+	 * Include all the other contexts in this context
+	 * 
+	 * @param other
+	 * 
+	 * @return A joint context that represents all the module contexts
+	 */
+	default IModuleContext includeAll(Stream<IModuleContext> other) {
+		return () -> Stream.concat(getEnvironment(), other.flatMap(c -> c.getEnvironment()));
+	}
 }

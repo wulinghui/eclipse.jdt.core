@@ -43,6 +43,10 @@ public interface INameEnvironmentExtension extends INameEnvironment {
 	 * @param searchWithSecondaryTypes flag to switch on/off the search for secondary types
 	 * @return {@link NameEnvironmentAnswer}
 	 */
-	NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, boolean searchWithSecondaryTypes);
+	NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, boolean searchWithSecondaryTypes, IModuleContext moduleContext);
+	default NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, boolean searchWithSecondaryTypes) {
+		return findType(typeName, packageName, searchWithSecondaryTypes, IModuleContext.UNNAMED_MODULE_CONTEXT);
+	}
+	
 
 }
