@@ -130,7 +130,7 @@ public class LookupEnvironment implements ProblemReasons, TypeConstants {
 
 	static final ProblemPackageBinding TheNotFoundPackage = new ProblemPackageBinding(CharOperation.NO_CHAR, NotFound);
 	static final ProblemReferenceBinding TheNotFoundType = new ProblemReferenceBinding(CharOperation.NO_CHAR_CHAR, null, NotFound);
-	final ModuleBinding UnNamedModule = new ModuleBinding.UnNamedModule(this);
+	final ModuleBinding UnNamedModule;
 
 public LookupEnvironment(ITypeRequestor typeRequestor, CompilerOptions globalOptions, ProblemReporter problemReporter, INameEnvironment nameEnvironment) {
 	this.typeRequestor = typeRequestor;
@@ -149,6 +149,7 @@ public LookupEnvironment(ITypeRequestor typeRequestor, CompilerOptions globalOpt
 	this.typesBeingConnected = new HashSet<>();
 	this.typeSystem = this.globalOptions.sourceLevel >= ClassFileConstants.JDK1_8 && this.globalOptions.storeAnnotations ? new AnnotatableTypeSystem(this) : new TypeSystem(this);
 	this.knownModules = new HashtableOfObject(5);
+	this.UnNamedModule = new ModuleBinding.UnNamedModule(this);
 }
 
 public ReferenceBinding askForType(char[][] compoundName) {
@@ -1754,7 +1755,7 @@ boolean isPackage(char[][] compoundName, char[] name, char[] mod) {
 	boolean answer = false;
 	if (this.nameEnvironment instanceof IModuleAwareNameEnvironment) {
 		ModuleBinding module = getModule(mod);
-		answer = ((IModuleAwareNameEnvironment)this.nameEnvironment).isPackage(pkgName, name, module.getDependencyClosureContext());
+		answer = module.isPackage(compoundName, name);
 	} else {
 		answer = this.nameEnvironment.isPackage(pkgName, name);
 	}

@@ -26,8 +26,10 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.IModule.IModuleReference;
 import org.eclipse.jdt.internal.compiler.env.IModule.IPackageExport;
+import org.eclipse.jdt.internal.compiler.env.IModuleAwareNameEnvironment;
 import org.eclipse.jdt.internal.compiler.env.IModuleContext;
 import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
+import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 
 public class ModuleBinding extends Binding {
@@ -63,6 +65,7 @@ public class ModuleBinding extends Binding {
 	public CompilationUnitScope scope;
 	public LookupEnvironment environment;
 	public IModuleEnvironment moduleEnviroment;
+	public INameEnvironment nameEnvironment;
 	public int tagBits;
 	private ModuleBinding[] requiredModules = null;
 
@@ -75,6 +78,7 @@ public class ModuleBinding extends Binding {
 		this.environment = env;
 		this.requires = NO_MODULE_REFS;
 		this.exportedPackages = NO_EXPORTS;
+		this.nameEnvironment = env.nameEnvironment;
 	}
 	public ModuleBinding(IModule module, LookupEnvironment environment) {
 		this.moduleName = module.name();
@@ -89,6 +93,7 @@ public class ModuleBinding extends Binding {
 		this.services = Binding.NO_TYPES;
 		this.implementations = Binding.NO_TYPES;
 		this.moduleEnviroment = module.getLookupEnvironment();
+		this.nameEnvironment = environment.nameEnvironment;
 	}
 
 	private Stream<ModuleBinding> getRequiredModules(boolean implicitOnly) {
@@ -151,7 +156,7 @@ public class ModuleBinding extends Binding {
 	}
 
 	public boolean isPackageExported(char[] pkgName) {
-		Predicate<IPackageExport> isExported = e -> CharOperation.equals(e.name(), pkgName);
+		Predicate<IPackageExport> isExported = e -> CharOperation.prefixEquals(pkgName, e.name());
 		return Stream.of(this.exportedPackages).anyMatch(isExported);
 	}
 	/**
@@ -163,23 +168,51 @@ public class ModuleBinding extends Binding {
 	 * @return true if the package is visible to the client module, false otherwise
 	 */
 	public boolean isPackageExportedTo(PackageBinding pkg, ModuleBinding client) {
-		Predicate<IPackageExport> isExported = e -> CharOperation.equals(e.name(), pkg.readableName());
-		//.and(e -> e.exportedTo == null);
+		return isPackageExportedTo(pkg.readableName(), client);
+	}
+	public boolean isPackageExportedTo(char[] qualifiedPackageName, ModuleBinding client) {
+		Predicate<IPackageExport> isExported = e -> CharOperation.prefixEquals(qualifiedPackageName, e.name());
 		Predicate<IPackageExport> isTargeted = e -> e.exportedTo() != null;
 		Predicate<IPackageExport> isExportedTo = e -> 
 			Stream.of(e.exportedTo()).map(ref -> this.environment.getModule(ref)).filter(m -> m != null).anyMatch(client::equals);
 		return Stream.of(this.exportedPackages).anyMatch(isExported.and(isTargeted.negate().or(isExportedTo)));
 	}
+	
+	public boolean declaresPackage(PackageBinding p) {
+		return declaresPackage(p.readableName());
+	}
+	public boolean declaresPackage(char[] qualifiedPackageName) {
+		if (this.nameEnvironment instanceof IModuleAwareNameEnvironment) {
+			return ((IModuleAwareNameEnvironment)this.nameEnvironment).isPackage(null, qualifiedPackageName, getModuleLookupContext());
+		}
+		return false;
+	}
+	public boolean isPackage(char[][] parentPackageName, char[] packageName) {
+		boolean answer = false;
+		if (this.nameEnvironment instanceof IModuleAwareNameEnvironment) {
+			char[] qualifiedPackageName = CharOperation.concatWith(parentPackageName, packageName, '.');
+			answer = ((IModuleAwareNameEnvironment)this.nameEnvironment).isPackage(parentPackageName, packageName, getDependencyClosureContext());
+			return answer && canSee(qualifiedPackageName);
+		} else {
+			answer = this.nameEnvironment.isPackage(parentPackageName, packageName);
+		}
+		return answer;
+	}
 	/**
-	 * Check if the given package is visible to this module. True when the package is exported by some
-	 * required module to this module. See {@link #isPackageExportedTo(PackageBinding, ModuleBinding)}
+	 * Check if the given package is visible to this module. True when the package is declared in
+	 * this module or exported by some required module to this module.
+	 * See {@link #isPackageExportedTo(PackageBinding, ModuleBinding)}
+	 * 
 	 * @param pkg
+	 * 
 	 * @return True, if the package is visible to this module, false otherwise
 	 */
 	public boolean canSee(PackageBinding pkg) {
-		return Stream.of(getAllRequiredModules()).filter(dep -> dep.isPackageExportedTo(pkg, this)).findFirst().isPresent();
+		return declaresPackage(pkg) || Stream.of(getAllRequiredModules()).filter(dep -> dep.isPackageExportedTo(pkg, this)).findFirst().isPresent();
 	}
-	
+	public boolean canSee(char[] qualifiedPackageName) {
+		return declaresPackage(qualifiedPackageName) || Stream.of(getAllRequiredModules()).filter(dep -> dep.isPackageExportedTo(qualifiedPackageName, this)).findFirst().isPresent();
+	}
 	public boolean dependsOn(ModuleBinding other) {
  		if (other == this)
  			return true;
