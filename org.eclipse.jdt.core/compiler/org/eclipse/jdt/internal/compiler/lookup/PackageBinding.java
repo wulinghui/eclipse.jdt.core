@@ -56,7 +56,7 @@ public PackageBinding(char[][] compoundName, PackageBinding parent, LookupEnviro
 public PackageBinding(LookupEnvironment environment) {
 	this(CharOperation.NO_CHAR_CHAR, null, environment);
 }
-private void addNotFoundPackage(char[] simpleName) {
+/*private*/ void addNotFoundPackage(char[] simpleName) {
 	this.knownPackages.put(simpleName, LookupEnvironment.TheNotFoundPackage);
 }
 private void addNotFoundType(char[] simpleName) {
@@ -96,13 +96,16 @@ public char[] computeUniqueKey(boolean isLeaf) {
 	return CharOperation.concatWith(this.compoundName, '/');
 }
 private PackageBinding findPackage(char[] name, char[] mod) {
-	if (!this.environment.isPackage(this.compoundName, name, mod))
+	ModuleBinding module = this.environment.getModule(mod);
+	PackageBinding sub = module.getPackage(this.compoundName, name);
+	if (sub == null)
 		return null;
 
-	char[][] subPkgCompoundName = CharOperation.arrayConcat(this.compoundName, name);
-	PackageBinding subPackageBinding = new PackageBinding(subPkgCompoundName, this, this.environment);
-	addPackage(subPackageBinding);
-	return subPackageBinding;
+//	char[][] subPkgCompoundName = CharOperation.arrayConcat(this.compoundName, name);
+//	PackageBinding subPackageBinding = new PackageBinding(subPkgCompoundName, this, this.environment);
+//	addPackage(subPackageBinding);
+//	return subPackageBinding;
+	return sub;
 }
 /* Answer the subpackage named name; ask the oracle for the package if its not in the cache.
 * Answer null if it could not be resolved.

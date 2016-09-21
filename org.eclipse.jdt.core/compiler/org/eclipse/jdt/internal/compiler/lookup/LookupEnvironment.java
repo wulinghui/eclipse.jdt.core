@@ -1306,7 +1306,8 @@ PackageBinding getTopLevelPackage(char[] name, char[] mod) {
 			return null;
 		return packageBinding;
 	}
-	if (isPackage(null, name, mod)) {
+	packageBinding = getPackage(null, name, mod);
+	if (packageBinding != null) {
 	//if (this.nameEnvironment.isPackage(null, name, mod)) {
 		this.knownPackages.put(name, packageBinding = new PackageBinding(name, this));
 		return packageBinding;
@@ -1747,19 +1748,21 @@ boolean isMissingType(char[] typeName) {
 
 /* Ask the oracle if a package exists named name in the package named compoundName.
 */
-boolean isPackage(char[][] compoundName, char[] name, char[] mod) {
-	char[][] pkgName = (compoundName == null || compoundName.length == 0) ? null : compoundName;
+PackageBinding getPackage(char[][] compoundName, char[] name, char[] mod) {
+	char[][] parentPackageName = (compoundName == null || compoundName.length == 0) ? null : compoundName;
 //	if (compoundName == null || compoundName.length == 0)
 //		return this.nameEnvironment.isPackage(null, name, mod);
 //	return this.nameEnvironment.isPackage(compoundName, name, mod);
-	boolean answer = false;
+	PackageBinding binding = null;
 	if (this.nameEnvironment instanceof IModuleAwareNameEnvironment) {
 		ModuleBinding module = getModule(mod);
-		answer = module.isPackage(compoundName, name);
+		binding = module.getPackage(parentPackageName, name);
 	} else {
-		answer = this.nameEnvironment.isPackage(pkgName, name);
+		if (this.nameEnvironment.isPackage(parentPackageName, name)) {
+			binding = new PackageBinding(name, this);
+		}
 	}
-	return answer;
+	return binding;
 }
 // The method verifier is lazily initialized to guarantee the receiver, the compiler & the oracle are ready.
 public MethodVerifier methodVerifier() {
