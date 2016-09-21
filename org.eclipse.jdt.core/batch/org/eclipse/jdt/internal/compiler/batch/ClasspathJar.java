@@ -54,7 +54,7 @@ protected ZipFile annotationZipFile;
 protected boolean closeZipFileAtEnd;
 private Set<String> packageCache;
 protected List<String> annotationPaths;
-private IModule module;
+protected IModule module;
 
 public ClasspathJar(File file, boolean closeZipFileAtEnd,
 		AccessRuleSet accessRuleSet, String destinationPath) {

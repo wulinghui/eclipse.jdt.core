@@ -472,23 +472,23 @@ public char[][][] findTypeNames(char[][] packageName, IModule[] modules) {
 public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, IModuleContext moduleLookupContext) {
 	if (typeName == null)
 		return null;
-		String qualifiedTypeName = new String(CharOperation.concatWith(packageName, typeName, '/'));
-		NameEnvironmentAnswer answer = internalFindClass(qualifiedTypeName, typeName, false, moduleLookupContext);
-		if (this.annotationsFromClasspath && answer != null && answer.getBinaryType() instanceof ClassFileReader) {
-			for (int i = 0, length = this.classpaths.length; i < length; i++) {
-				Classpath classpathEntry = this.classpaths[i];
-				if (classpathEntry.hasAnnotationFileFor(qualifiedTypeName)) {
-					ZipFile zip = classpathEntry instanceof ClasspathJar ? ((ClasspathJar) classpathEntry).zipFile : null;
-					try {
-						((ClassFileReader) answer.getBinaryType()).setExternalAnnotationProvider(classpathEntry.getPath(), qualifiedTypeName, zip, null);
-						break;
-					} catch (IOException e) {
-						// ignore broken entry, keep searching
-					}
+	String qualifiedTypeName = new String(CharOperation.concatWith(packageName, typeName, '/'));
+	NameEnvironmentAnswer answer = internalFindClass(qualifiedTypeName, typeName, false, moduleLookupContext);
+	if (this.annotationsFromClasspath && answer != null && answer.getBinaryType() instanceof ClassFileReader) {
+		for (int i = 0, length = this.classpaths.length; i < length; i++) {
+			Classpath classpathEntry = this.classpaths[i];
+			if (classpathEntry.hasAnnotationFileFor(qualifiedTypeName)) {
+				ZipFile zip = classpathEntry instanceof ClasspathJar ? ((ClasspathJar) classpathEntry).zipFile : null;
+				try {
+					((ClassFileReader) answer.getBinaryType()).setExternalAnnotationProvider(classpathEntry.getPath(), qualifiedTypeName, zip, null);
+					break;
+				} catch (IOException e) {
+					// ignore broken entry, keep searching
 				}
 			}
 		}
-		return answer;
+	}
+	return answer;
 	
 }
 public boolean isPackage(char[][] compoundName, char[] packageName) {

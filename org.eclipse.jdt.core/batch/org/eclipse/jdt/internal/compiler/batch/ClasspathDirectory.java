@@ -128,7 +128,7 @@ private NameEnvironmentAnswer findClassInternal(char[] typeName, String qualifie
 	if (sourceExists && !asBinaryOnly) {
 		String fullSourcePath = this.path + qualifiedBinaryFileName.substring(0, qualifiedBinaryFileName.length() - 6)  + SUFFIX_STRING_java;
 		CompilationUnit unit = new CompilationUnit(null, fullSourcePath, this.encoding, this.destinationPath);
-		unit.module = this.module.name();
+		unit.module = this.module == null ? null : this.module.name();
 		if (!binaryExists)
 			return new NameEnvironmentAnswer(new CompilationUnit(null,
 					fullSourcePath, this.encoding, this.destinationPath),

@@ -281,28 +281,29 @@ public class ModuleBinding extends Binding {
 		}
 		if (this.nameEnvironment instanceof IModuleAwareNameEnvironment) {
 			return ((IModuleAwareNameEnvironment)this.nameEnvironment).isPackage(parentPackageName, name, getModuleLookupContext());
+		} else {
+			return this.nameEnvironment.isPackage(parentPackageName, name);
 		}
-		return false;
 	}
 	public PackageBinding getPackage(char[][] parentPackageName, char[] packageName) {
 		PackageBinding binding = null;
 		if (parentPackageName == null || parentPackageName.length == 0) {
-			binding = getTopLevelPackage(CharOperation.concatWith(parentPackageName, packageName, '.'));
+			binding = getTopLevelPackage(packageName);
 		} else {
 			binding = getDeclaredPackage(parentPackageName);
-		}
-		if (binding != null && binding != LookupEnvironment.TheNotFoundPackage) {
-			binding = getDeclaredPackage(binding, packageName);
-			if (binding != null)
-				return binding;
+			if (binding != null && binding != LookupEnvironment.TheNotFoundPackage) {
+				binding = getDeclaredPackage(binding, packageName);
+				if (binding != null)
+					return binding;
+			}
 		}
 		if (binding == null) {
 			char[] qualifiedPackageName = CharOperation.concatWith(parentPackageName, packageName, '.');
-			return Stream.of(getAllRequiredModules()).sorted((m1, m2) -> m1.requires.length - m2.requires.length)
+			return Stream.of(getAllRequiredModules())
 					.map(m -> {
 						PackageBinding p = m.getExportedPackage(qualifiedPackageName);
 						if (p != null && m.isPackageExportedTo(p, this)) {
-							return p;
+							return m.declaredPackages.get(qualifiedPackageName);
 						}
 						return null;
 					})

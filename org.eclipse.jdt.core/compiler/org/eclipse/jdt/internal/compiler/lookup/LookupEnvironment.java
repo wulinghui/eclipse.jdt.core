@@ -1309,7 +1309,7 @@ PackageBinding getTopLevelPackage(char[] name, char[] mod) {
 	packageBinding = getPackage(null, name, mod);
 	if (packageBinding != null) {
 	//if (this.nameEnvironment.isPackage(null, name, mod)) {
-		this.knownPackages.put(name, packageBinding = new PackageBinding(name, this));
+		this.knownPackages.put(name, packageBinding);
 		return packageBinding;
 	}
 
