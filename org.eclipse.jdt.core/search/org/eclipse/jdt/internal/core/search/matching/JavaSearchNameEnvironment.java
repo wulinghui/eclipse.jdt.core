@@ -158,13 +158,13 @@ private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeNam
 			if (workingCopy != null) {
 				answer = new NameEnvironmentAnswer(workingCopy, null /*no access restriction*/);
 			} else {
-				mods: for (IModule iModule : modules) {
+				//mods: for (IModule iModule : modules) {
 					answer = location.findClass(
 							sourceFileName, // doesn't include the file extension
 							qPackageName,
 							qSourceFileName);  // doesn't include the file extension
-					if (answer != null) break mods;
-				}
+				//	if (answer != null) break mods;
+				//}
 			}
 		} else {
 			if (binaryFileName == null) {
@@ -177,14 +177,14 @@ private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeNam
 					binaryFileName = qBinaryFileName.substring(typeNameStart);
 				}
 			}
-			mods: for (IModule iModule : modules) {
+			//mods: for (IModule iModule : modules) {
 				answer =
 						location.findClass(
 								binaryFileName,
 								qPackageName,
 								qBinaryFileName);
-				if (answer != null) break mods;
-			}
+				//if (answer != null) break mods;
+			//}
 		}
 		if (answer != null) {
 			if (!answer.ignoreIfBetter()) {

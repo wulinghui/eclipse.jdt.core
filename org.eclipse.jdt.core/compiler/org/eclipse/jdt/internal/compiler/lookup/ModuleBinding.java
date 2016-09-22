@@ -188,8 +188,8 @@ public class ModuleBinding extends Binding {
 		return false;
 	}
 	public PackageBinding getTopLevelPackage(char[] name) {
-		// return packagebinding if there exists a package named name in this module's context and it can be seen by this module
-		// A package can be seen by this module if it declares the package or someone exports tha package to it
+		// return package binding if there exists a package named name in this module's context and it can be seen by this module
+		// A package can be seen by this module if it declares the package or someone exports that package to it
 		PackageBinding existing = this.environment.getPackage0(name);
 		if (existing != null) {
 			if (existing == LookupEnvironment.TheNotFoundPackage)
@@ -209,6 +209,7 @@ public class ModuleBinding extends Binding {
 			.filter(p -> p != null).findFirst().orElse(null);
 		}
 	}
+	// Given parent is declared in this module, see if there is sub package named name declared in this module
 	private PackageBinding getDeclaredPackage(PackageBinding parent, char[] name) {
 		PackageBinding pkg = parent.getPackage0(name);
 		if (pkg != null && pkg != LookupEnvironment.TheNotFoundPackage)
@@ -224,31 +225,32 @@ public class ModuleBinding extends Binding {
 		return null;
 	}
 	public PackageBinding getDeclaredPackage(char[][] name) {
-		// return packagebinding if there exists a package named name in this module's context and it can be seen by this module
-		// A package can be seen by this module if it declares the package or someone exports tha package to it
+		// return package binding if there exists a package named name in this module
 		PackageBinding parent = null;
-		PackageBinding existing = this.environment.getPackage0(name[0]);
-		if (existing != null) {
+		PackageBinding existing = this.environment.getPackage0(name[0]); 
+		if (existing != null) { // known top level package
 			if (existing == LookupEnvironment.TheNotFoundPackage)
 				return null;
 			parent = existing;
 		}
 		if (parent == null) {
-			if (declaresPackage(null, name[0])) {
+			if (declaresPackage(null, name[0])) { // unknown as yet, but declared in this module
 				parent = new PackageBinding(name[0], this.environment);
 				this.declaredPackages.put(name[0], parent);
 			} else {
-				this.declaredPackages.put(name[0], LookupEnvironment.TheNotFoundPackage);
+				this.declaredPackages.put(name[0], LookupEnvironment.TheNotFoundPackage); // not declared in this module
+				return null;
 			}
+		} else if (!declaresPackage(null, name[0])) { // already seen before, but not declared in this module
+			return null;
 		}
-		if (parent != null) {
-			for (int i = 1; i < name.length; i++) {
-				PackageBinding binding = getDeclaredPackage(parent, name[i]);
-				if (binding == null) {
-					return null;
-				}
-				parent = binding;
+		// check each sub package
+		for (int i = 1; i < name.length; i++) {
+			PackageBinding binding = getDeclaredPackage(parent, name[i]); 
+			if (binding == null) {
+				return null;
 			}
+			parent = binding;
 		}
 		return parent;
 	}
@@ -256,8 +258,9 @@ public class ModuleBinding extends Binding {
 		PackageBinding existing = this.exportedPackages.get(qualifiedPackageName);
 		if (existing != null && existing != LookupEnvironment.TheNotFoundPackage)
 			return existing;
+		//Resolve exports to see if the package or a sub package is exported
 		return Stream.of(this.exports).sorted((e1, e2) -> e1.name().length - e2.name().length)
-		.filter(e -> CharOperation.prefixEquals(qualifiedPackageName, e.name()))
+		.filter(e -> CharOperation.prefixEquals(qualifiedPackageName, e.name())) // TODO: improve this
 		.map(e -> {
 			PackageBinding binding = getDeclaredPackage(CharOperation.splitOn('.', e.name()));
 			if (binding != null) {
@@ -268,7 +271,15 @@ public class ModuleBinding extends Binding {
 		}).filter(p -> p != null).findFirst().orElse(null);
 	}
 	public boolean declaresPackage(PackageBinding p) {
-		return  this.declaredPackages.get(p.readableName()) == p;
+		PackageBinding pkg = this.declaredPackages.get(p.readableName());
+		if (pkg == null) {
+			pkg = getDeclaredPackage(p.compoundName);
+			if (pkg == p) {
+				this.declaredPackages.put(p.readableName(), p);
+				return true;
+			}
+		}
+		return pkg == p;
 	}
 	public boolean declaresPackage(char[][] parentPackageName, char[] name) {
 		char[] qualifiedName = CharOperation.concatWith(parentPackageName, name, '.');
@@ -286,6 +297,8 @@ public class ModuleBinding extends Binding {
 		}
 	}
 	public PackageBinding getPackage(char[][] parentPackageName, char[] packageName) {
+		// Returns a package binding if there exists such a package in the context of this module and it is observable
+		// A package is observable if it is declared in this module or it is exported by some required module
 		PackageBinding binding = null;
 		if (parentPackageName == null || parentPackageName.length == 0) {
 			binding = getTopLevelPackage(packageName);

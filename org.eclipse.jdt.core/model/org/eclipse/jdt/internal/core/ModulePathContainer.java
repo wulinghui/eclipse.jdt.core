@@ -27,6 +27,7 @@ import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.IModule.IModuleReference;
+import org.eclipse.jdt.internal.compiler.env.IModulePathEntry;
 
 public class ModulePathContainer implements IClasspathContainer{
 
@@ -45,7 +46,11 @@ public class ModulePathContainer implements IClasspathContainer{
 			if (module == null)
 				return new IClasspathEntry[0];
 			for (IModuleReference ref : module.requires()) {
-				JavaProject refRoot = manager.getModuleRoot(CharOperation.charToString(ref.name()));
+				IModulePathEntry entry = manager.getModuleRoot(CharOperation.charToString(ref.name()));
+				JavaProject refRoot = null;
+				if (entry instanceof ProjectEntry) {
+					refRoot = ((ProjectEntry) entry).project;
+				}
 				if (refRoot == null)
 					continue;
 				IPath path = refRoot.getPath();

@@ -19,14 +19,16 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Optional;
-
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.compiler.CharOperation;
-import org.eclipse.jdt.internal.compiler.env.IMultiModulePackageLookup;
+import org.eclipse.jdt.internal.compiler.env.IModule;
+import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
+import org.eclipse.jdt.internal.compiler.env.IModulePathEntry;
+import org.eclipse.jdt.internal.compiler.env.PackageLookup;
+import org.eclipse.jdt.internal.compiler.env.TypeLookup;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 import org.eclipse.jdt.internal.core.util.HashtableOfArrayToObject;
@@ -38,7 +40,7 @@ import org.eclipse.jdt.internal.core.util.Util;
  * @see org.eclipse.jdt.core.IPackageFragmentRoot
  * @see org.eclipse.jdt.internal.core.JarPackageFragmentRootInfo
  */
-public class JrtPackageFragmentRoot extends JarPackageFragmentRoot implements IMultiModulePackageLookup {
+public class JrtPackageFragmentRoot extends JarPackageFragmentRoot implements IModulePathEntry, IModuleEnvironment {
 
 	String moduleName;
 	
@@ -122,8 +124,26 @@ public class JrtPackageFragmentRoot extends JarPackageFragmentRoot implements IM
 	}
 
 	@Override
-	public boolean isPackage(String qualifiedName, Optional<char[]> moduleName) {
-		// TODO Auto-generated method stub
-		return false;
+	public IModuleEnvironment getLookupEnvironment() {
+		// 
+		return this;
+	}
+
+	@Override
+	public IModuleEnvironment getLookupEnvironmentFor(IModule module) {
+		// 
+		return getModule() == module ? this : null;
+	}
+
+	@Override
+	public TypeLookup typeLookup() {
+		// 
+		return TypeLookup.Dummy;
+	}
+
+	@Override
+	public PackageLookup packageLookup() {
+		// 
+		return PackageLookup.Dummy;
 	}
 }

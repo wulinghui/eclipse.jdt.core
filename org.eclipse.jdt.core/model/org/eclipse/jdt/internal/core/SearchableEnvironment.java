@@ -113,7 +113,8 @@ public class SearchableEnvironment
 				packageName,
 				false/*exact match*/,
 				NameLookup.ACCEPT_ALL,
-				this.checkAccessRestrictions);
+				this.checkAccessRestrictions,
+				context);
 		if (answer != null) {
 			// construct name env answer
 			if (answer.type instanceof BinaryType) { // BinaryType

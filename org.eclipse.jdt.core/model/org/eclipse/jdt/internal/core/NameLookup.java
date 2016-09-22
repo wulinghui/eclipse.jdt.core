@@ -13,6 +13,7 @@ package org.eclipse.jdt.internal.core;
 
 import java.io.File;
 import java.util.*;
+import java.util.stream.Stream;
 
 import org.eclipse.core.resources.*;
 import org.eclipse.core.runtime.IPath;
@@ -33,6 +34,7 @@ import org.eclipse.jdt.internal.compiler.env.AccessRestriction;
 import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
 import org.eclipse.jdt.internal.compiler.env.IBinaryType;
 import org.eclipse.jdt.internal.compiler.env.IModule;
+import org.eclipse.jdt.internal.compiler.env.IModuleContext;
 import org.eclipse.jdt.internal.compiler.lookup.ModuleEnvironment;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.parser.ScannerHelper;
@@ -637,22 +639,23 @@ public class NameLookup implements SuffixConstants {
 	 * It means that secondary types may be not found under certain circumstances...
 	 * @see "https://bugs.eclipse.org/bugs/show_bug.cgi?id=118789"
 	 */
-	public Answer findType(String typeName, String packageName, boolean partialMatch, int acceptFlags, boolean checkRestrictions, IModule[] modules) {
+	public Answer findType(String typeName, String packageName, boolean partialMatch, int acceptFlags, boolean checkRestrictions, IModuleContext context) {
 		Answer suggestedAnswer = null;
-		if (modules != null) {
-			for (IModule module : modules) {
-				Answer answer = findType(typeName, packageName, partialMatch, acceptFlags,
+		if (context != IModuleContext.UNNAMED_MODULE_CONTEXT) {
+//			for (IModule module : modules) {
+				suggestedAnswer = findType(typeName, packageName, partialMatch, acceptFlags,
 						true/* consider secondary types */, false/* do NOT wait for indexes */, checkRestrictions,
-						module.name(), null);
-				if (answer != null) {
-					if (!answer.ignoreIfBetter()) {
-						if (answer.isBetter(suggestedAnswer))
-							return answer;
-					} else if (answer.isBetter(suggestedAnswer))
-						// remember suggestion and keep looking
-						suggestedAnswer = answer;
-				}
-			}
+						null, context);
+//				if (answer != null) {
+//					if (!answer.ignoreIfBetter()) {
+//						if (answer.isBetter(suggestedAnswer))
+//							return answer;
+//					} else if (answer.isBetter(suggestedAnswer))
+//						// remember suggestion and keep looking
+//						suggestedAnswer = answer;
+//				}
+//			}
+			
 		} else {
 			suggestedAnswer = findType(typeName,
 					packageName,
@@ -661,7 +664,6 @@ public class NameLookup implements SuffixConstants {
 					true/* consider secondary types */,
 					false/* do NOT wait for indexes */,
 					checkRestrictions,
-					null,
 					null);
 		}
 		return suggestedAnswer;
@@ -702,8 +704,8 @@ public class NameLookup implements SuffixConstants {
 				considerSecondaryTypes,
 				waitForIndexes,
 				checkRestrictions,
-				null,
-				monitor);
+				monitor,
+				IModuleContext.UNNAMED_MODULE_CONTEXT);
 	}
 	/**
 	 * Find type. Considering secondary types and waiting for indexes depends on given corresponding parameters.
@@ -716,8 +718,8 @@ public class NameLookup implements SuffixConstants {
 			boolean considerSecondaryTypes,
 			boolean waitForIndexes,
 			boolean checkRestrictions,
-			char[] module,
-			IProgressMonitor monitor) {
+			IProgressMonitor monitor,
+			IModuleContext context) {
 		if (packageName == null || packageName.length() == 0) {
 			packageName= IPackageFragment.DEFAULT_PACKAGE_NAME;
 		} else if (typeName.length() > 0 && ScannerHelper.isLowerCase(typeName.charAt(0))) {
@@ -727,7 +729,7 @@ public class NameLookup implements SuffixConstants {
 
 		// Look for concerned package fragments
 		JavaElementRequestor elementRequestor = new JavaElementRequestor();
-		seekPackageFragments(packageName, false, module, elementRequestor);
+		seekPackageFragments(packageName, false, elementRequestor, context);
 		IPackageFragment[] packages= elementRequestor.getPackageFragments();
 
 		// Try to find type in package fragments list
@@ -1004,8 +1006,37 @@ public class NameLookup implements SuffixConstants {
 	 * @param partialMatch partial name matches qualify when <code>true</code>;
 	 *	only exact name matches qualify when <code>false</code>
 	 */
-	public void seekPackageFragments(String name, boolean partialMatch, IJavaElementRequestor requestor) {
-		seekPackageFragments(name, partialMatch, null, requestor);
+	public void seekPackageFragments(String name, boolean partialMatch, IJavaElementRequestor requestor, IModuleContext context) {
+		context.getEnvironment().<PackageFragmentRoot>flatMap(e -> {
+			if (e instanceof ProjectEntry) {
+				JavaProject prj = ((ProjectEntry) e).project;
+				List<IPackageFragmentRoot> children;
+				try {
+					children = prj.getChildrenOfType(IJavaElement.PACKAGE_FRAGMENT_ROOT);
+					return children.stream().filter(r -> {
+							try {
+								return r.getKind() == IPackageFragmentRoot.K_SOURCE;
+							} catch (JavaModelException e1) {
+								// TODO Auto-generated catch block
+								e1.printStackTrace();
+							}
+							return false;
+						}).map(r -> (PackageFragmentRoot)r);
+				} catch (JavaModelException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+				return Stream.empty();
+			} else {
+				return Stream.of((JrtPackageFragmentRoot)e);
+			}
+		}).forEach(r -> {
+			IPackageFragment pkg = r.getPackageFragment(name);
+			if (pkg != null) {
+				requestor.acceptPackageFragment(pkg);
+			}
+		});
+		
 	}
 	/**
 	 * Notifies the given requestor of all package fragments with the
@@ -1017,14 +1048,13 @@ public class NameLookup implements SuffixConstants {
 	 * @param partialMatch partial name matches qualify when <code>true</code>;
 	 *	only exact name matches qualify when <code>false</code>
 	 */
-	public void seekPackageFragments(String name, boolean partialMatch, char[] moduleName, IJavaElementRequestor requestor) {
+	public void seekPackageFragments(String name, boolean partialMatch, IJavaElementRequestor requestor) {
 /*		if (VERBOSE) {
 			Util.verbose(" SEEKING PACKAGE FRAGMENTS");  //$NON-NLS-1$
 			Util.verbose(" -> name: " + name);  //$NON-NLS-1$
 			Util.verbose(" -> partial match:" + partialMatch);  //$NON-NLS-1$
 		}
 */
-		boolean isUnnamedModule = (moduleName == null || CharOperation.equals(moduleName, ModuleEnvironment.UNNAMED));
 		if (partialMatch) {
 			String[] splittedName = Util.splitOn('.', name, 0, name.length());
 			Object[][] keys = this.packageFragments.keyTable;
@@ -1036,18 +1066,14 @@ public class NameLookup implements SuffixConstants {
 					Object value = this.packageFragments.valueTable[i];
 					if (value instanceof PackageFragmentRoot) {
 						PackageFragmentRoot root = (PackageFragmentRoot) value;
-						IModule module = null;
-						if (isUnnamedModule || ((module = getModule(root)) != null && CharOperation.equals(moduleName, module.name())))
-							requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
+						requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
 					} else {
 						IPackageFragmentRoot[] roots = (IPackageFragmentRoot[]) value;
 						for (int j = 0, length2 = roots.length; j < length2; j++) {
 							if (requestor.isCanceled())
 								return;
 							PackageFragmentRoot root = (PackageFragmentRoot) roots[j];
-							IModule module = null;
-							if (isUnnamedModule || ((module = getModule(root)) != null && CharOperation.equals(moduleName, module.name())))
-								requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
+							requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
 						}
 					}
 				}
@@ -1061,9 +1087,7 @@ public class NameLookup implements SuffixConstants {
 				String[] pkgName = (String[]) this.packageFragments.keyTable[pkgIndex];
 				if (value instanceof PackageFragmentRoot) {
 					PackageFragmentRoot root = (PackageFragmentRoot) value;
-					IModule module = null;
-					if (isUnnamedModule || ((module = getModule(root)) != null && CharOperation.equals(moduleName, module.name())))
-						requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
+					requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
 				} else {
 					IPackageFragmentRoot[] roots = (IPackageFragmentRoot[]) value;
 					if (roots != null) {
@@ -1071,9 +1095,7 @@ public class NameLookup implements SuffixConstants {
 							if (requestor.isCanceled())
 								return;
 							PackageFragmentRoot root = (PackageFragmentRoot) roots[i];
-							IModule module = null;
-							if (isUnnamedModule || ((module = getModule(root)) != null && CharOperation.equals(moduleName, module.name())))
-								requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
+							requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
 						}
 					}
 				}

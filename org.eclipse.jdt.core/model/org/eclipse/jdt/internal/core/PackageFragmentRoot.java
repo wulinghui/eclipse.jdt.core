@@ -23,6 +23,7 @@ import org.eclipse.core.runtime.*;
 import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
+import org.eclipse.jdt.internal.compiler.classfmt.ModuleInfo;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.core.util.MementoTokenizer;
 import org.eclipse.jdt.internal.core.util.Messages;
@@ -891,7 +892,9 @@ public org.eclipse.jdt.internal.compiler.env.IModule getModule() {
 					IClassFile classFile = ((IPackageFragment)pkgs[j]).getClassFile(TypeConstants.MODULE_INFO_CLASS_NAME_STRING);
 					if (classFile instanceof ClassFile && classFile.exists()) {
 						IType type = classFile.getType();
-						return ((ClassFileReader)(((BinaryType)type).getElementInfo())).getModuleDeclaration();
+						IModule mod = (IModule) ((ClassFileReader)(((BinaryType)type).getElementInfo())).getModuleDeclaration();
+						if (mod instanceof ModuleInfo)
+							((ModuleInfo) mod).entry = (JrtPackageFragmentRoot)this;
 					}
 				}
 				break;

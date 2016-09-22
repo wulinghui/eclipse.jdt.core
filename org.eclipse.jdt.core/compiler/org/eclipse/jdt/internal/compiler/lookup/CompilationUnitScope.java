@@ -482,8 +482,6 @@ private Binding findImport(char[][] compoundName, int length) {
 				break foundNothingOrType;
 
 			packageBinding = (PackageBinding) binding;
-			if (!packageBinding.canBeSeenBy(module()))
-				return new ProblemPackageBinding(CharOperation.subarray(compoundName, 0, i), ProblemReasons.NotVisible);
 		}
 		return packageBinding;
 	}

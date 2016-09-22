@@ -311,7 +311,7 @@ private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeNam
 	String qBinaryFileName = qualifiedTypeName + SUFFIX_STRING_class;
 	String qPackageName =  (qualifiedTypeName.length() == typeName.length) ? Util.EMPTY_STRING :
 		qBinaryFileName.substring(0, qBinaryFileName.length() - typeName.length - 7);
-
+	char[] binaryFileName = CharOperation.concat(typeName, SUFFIX_class);
 	// NOTE: the output folders are added at the beginning of the binaryLocations
 //	NameEnvironmentAnswer suggestedAnswer = null;
 //	for (int i = 0, l = this.binaryLocations.length; i < l; i++) {
@@ -337,11 +337,11 @@ private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeNam
 		return Stream.of(this.binaryLocations)
 				.map(p -> p.getLookupEnvironment().typeLookup())
 				.reduce(TypeLookup::chain)
-				.map(t -> t.findClass(typeName, qPackageName, qBinaryFileName)).orElse(null);
+				.map(t -> t.findClass(binaryFileName, qPackageName, qBinaryFileName)).orElse(null);
 	}
 	return moduleContext.getEnvironment().map(env -> env.typeLookup())
 				.reduce(TypeLookup::chain)
-				.map(lookup -> lookup.findClass(typeName, qPackageName, qBinaryFileName))
+				.map(lookup -> lookup.findClass(binaryFileName, qPackageName, qBinaryFileName))
 				.orElse(null);
 }
 

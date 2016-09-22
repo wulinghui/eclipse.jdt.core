@@ -42,13 +42,13 @@ public class ProjectEntry implements IModulePathEntry, IModuleEnvironment {
 	}
 	@Override
 	public TypeLookup typeLookup() {
-		// TODO Auto-generated method stub
-		return null;
+		// 
+		return TypeLookup.Dummy;
 	}
 	@Override
 	public PackageLookup packageLookup() {
-		// TODO Auto-generated method stub
-		return null;
+		// 
+		return PackageLookup.Dummy;
 	}
 
 }
