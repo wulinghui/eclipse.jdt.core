@@ -165,7 +165,8 @@ public ModuleBinding getModule(char[] name) {
 			if (mod != null) {
 				this.knownModules.put(name, module = new ModuleBinding(mod, this));
 			}
-		}
+		} else 
+			return this.UnNamedModule;
 	}
 	return module;
 }

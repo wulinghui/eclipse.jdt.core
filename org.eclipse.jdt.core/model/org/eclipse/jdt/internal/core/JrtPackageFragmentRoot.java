@@ -19,12 +19,14 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Optional;
 
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.compiler.CharOperation;
+import org.eclipse.jdt.internal.compiler.env.IMultiModulePackageLookup;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 import org.eclipse.jdt.internal.core.util.HashtableOfArrayToObject;
@@ -36,7 +38,7 @@ import org.eclipse.jdt.internal.core.util.Util;
  * @see org.eclipse.jdt.core.IPackageFragmentRoot
  * @see org.eclipse.jdt.internal.core.JarPackageFragmentRootInfo
  */
-public class JrtPackageFragmentRoot extends JarPackageFragmentRoot {
+public class JrtPackageFragmentRoot extends JarPackageFragmentRoot implements IMultiModulePackageLookup {
 
 	String moduleName;
 	
@@ -117,5 +119,11 @@ public class JrtPackageFragmentRoot extends JarPackageFragmentRoot {
 		if (info == null) {
 			buffer.append(" (not open)"); //$NON-NLS-1$
 		}
+	}
+
+	@Override
+	public boolean isPackage(String qualifiedName, Optional<char[]> moduleName) {
+		// TODO Auto-generated method stub
+		return false;
 	}
 }

@@ -25,7 +25,8 @@ import org.eclipse.jdt.internal.codeassist.ISearchRequestor;
 import org.eclipse.jdt.internal.compiler.env.AccessRestriction;
 import org.eclipse.jdt.internal.compiler.env.IBinaryType;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
-import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
+import org.eclipse.jdt.internal.compiler.env.IModuleAwareNameEnvironment;
+import org.eclipse.jdt.internal.compiler.env.IModuleContext;
 import org.eclipse.jdt.internal.compiler.env.ISourceType;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
 import org.eclipse.jdt.internal.compiler.lookup.ModuleEnvironment;
@@ -42,7 +43,7 @@ import org.eclipse.jdt.internal.core.util.Util;
  *	uses the Java model as a search tool.
  */
 public class SearchableEnvironment
-	implements INameEnvironment, IJavaSearchConstants {
+	implements IModuleAwareNameEnvironment, IJavaSearchConstants {
 
 	public NameLookup nameLookup;
 	protected ICompilationUnit unitToSkip;
@@ -96,7 +97,7 @@ public class SearchableEnvironment
 	 * Returns the given type in the the given package if it exists,
 	 * otherwise <code>null</code>.
 	 */
-	protected NameEnvironmentAnswer find(String typeName, String packageName) {
+	protected NameEnvironmentAnswer find(String typeName, String packageName, IModuleContext context) {
 		if (packageName == null)
 			packageName = IPackageFragment.DEFAULT_PACKAGE_NAME;
 		if (this.owner != null) {
@@ -296,13 +297,13 @@ public class SearchableEnvironment
 	/**
 	 * @see ModuleEnvironment#findType(char[][])
 	 */
-	public NameEnvironmentAnswer findType(char[][] compoundTypeName) {
+	public NameEnvironmentAnswer findType(char[][] compoundTypeName, IModuleContext context) {
 		if (compoundTypeName == null) return null;
 
 		int length = compoundTypeName.length;
 		if (length <= 1) {
 			if (length == 0) return null;
-			return find(new String(compoundTypeName[0]), null);
+			return find(new String(compoundTypeName[0]), null, context);
 		}
 
 		int lengthM1 = length - 1;
@@ -311,18 +312,18 @@ public class SearchableEnvironment
 
 		return find(
 			new String(compoundTypeName[lengthM1]),
-			CharOperation.toString(packageName));
+			CharOperation.toString(packageName), context);
 	}
 
 	/**
 	 * @see ModuleEnvironment#findType(char[], char[][])
 	 */
-	public NameEnvironmentAnswer findType(char[] name, char[][] packageName) {
+	public NameEnvironmentAnswer findType(char[] name, char[][] packageName, IModuleContext context) {
 		if (name == null) return null;
 
 		return find(
 			new String(name),
-			packageName == null || packageName.length == 0 ? null : CharOperation.toString(packageName));
+			packageName == null || packageName.length == 0 ? null : CharOperation.toString(packageName), context);
 	}
 
 	/**
@@ -715,7 +716,7 @@ public class SearchableEnvironment
 	/**
 	 * @see ModuleEnvironment#isPackage(char[][], char[])
 	 */
-	public boolean isPackage(char[][] parentPackageName, char[] subPackageName) {
+	public boolean isPackage(char[][] parentPackageName, char[] subPackageName, IModuleContext moduleContext) {
 		String[] pkgName;
 		if (parentPackageName == null)
 			pkgName = new String[] {new String(subPackageName)};
@@ -754,13 +755,31 @@ public class SearchableEnvironment
 		// nothing to do
 	}
 
-//	@Override
-//	public IModule getModule(char[] name) {
-//		IModule module = null;
-//		NameLookup.Answer answer = this.nameLookup.findModule(CharOperation.charToString(name));
-//		if (answer != null) {
-//			module = answer.module;
-//		}
-//		return module;
-//	}
+	@Override
+	public org.eclipse.jdt.internal.compiler.env.IModule getModule(char[] name) {
+		org.eclipse.jdt.internal.compiler.env.IModule module = null;
+		NameLookup.Answer answer = this.nameLookup.findModule(CharOperation.charToString(name));
+		if (answer != null) {
+			module = answer.module;
+		}
+		return module;
+	}
+
+	@Override
+	public NameEnvironmentAnswer findType(char[][] compoundTypeName) {
+		// 
+		return findType(compoundTypeName, IModuleContext.UNNAMED_MODULE_CONTEXT);
+	}
+
+	@Override
+	public NameEnvironmentAnswer findType(char[] typeName, char[][] packageName) {
+		// 
+		return findType(typeName, packageName, IModuleContext.UNNAMED_MODULE_CONTEXT);
+	}
+
+	@Override
+	public boolean isPackage(char[][] parentPackageName, char[] packageName) {
+		// 
+		return isPackage(parentPackageName, packageName, IModuleContext.UNNAMED_MODULE_CONTEXT);
+	}
 }

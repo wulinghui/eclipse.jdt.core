@@ -566,7 +566,7 @@ private NameEnvironmentAnswer internalFindClass(String qualifiedTypeName, char[]
 		return Stream.of(this.classpaths)
 				.map(p -> p.getLookupEnvironment().typeLookup())
 				.reduce(TypeLookup::chain)
-				.map(t -> t.findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName)).orElse(null);
+				.map(t -> t.findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly)).orElse(null);
 	}
 	return moduleContext.getEnvironment().map(env -> env.typeLookup())
 				.reduce(TypeLookup::chain)

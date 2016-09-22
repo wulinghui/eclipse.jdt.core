@@ -23,16 +23,17 @@ import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.env.IModule;
+import org.eclipse.jdt.internal.compiler.env.IModulePathEntry;
 
 public class ModuleSourcePathManager {
 
-	private Map<String, JavaProject> knownModules = new HashMap<String, JavaProject>(11);
+	private Map<String, IModulePathEntry> knownModules = new HashMap<String, IModulePathEntry>(11);
 
-	private JavaProject getModuleRoot0(String name) {
+	private IModulePathEntry getModuleRoot0(String name) {
 		return this.knownModules.get(name);
 	}
-	public JavaProject getModuleRoot(String name) {
-		JavaProject root = getModuleRoot0(name);
+	public IModulePathEntry getModuleRoot(String name) {
+		IModulePathEntry root = getModuleRoot0(name);
 		if (root == null) {
 			try {
 				seekModule(name.toCharArray(),false, new JavaElementRequestor());
@@ -59,7 +60,7 @@ public class ModuleSourcePathManager {
 					if (module != null) {
 						char[] moduleName = module.name();
 						if (CharOperation.equals(name, moduleName)) {
-							this.knownModules.put(CharOperation.charToString(name), (JavaProject) project);
+							this.knownModules.put(CharOperation.charToString(name), new ProjectEntry((JavaProject) project));
 							requestor.acceptModule(module);
 							break;
 						}
@@ -75,14 +76,14 @@ public class ModuleSourcePathManager {
 		}
 	}
 	public IModule getModule(char[] name) {
-		JavaProject root = getModuleRoot0(CharOperation.charToString(name));
+		IModulePathEntry root = getModuleRoot0(CharOperation.charToString(name));
 		if (root != null)
-			try {
+			//try {
 				return root.getModule();
-			} catch (JavaModelException e1) {
-				//
-				return null;
-			}
+//			} catch (JavaModelException e1) {
+//				//
+//				return null;
+//			}
 		JavaElementRequestor requestor = new JavaElementRequestor();
 		try {
 			seekModule(name, false, requestor);
@@ -97,13 +98,13 @@ public class ModuleSourcePathManager {
 			return new IModule[0];
 		}
 		List<IModule> modules = new ArrayList<IModule>();
-		for (JavaProject val : this.knownModules.values()) {
-			try {
+		for (IModulePathEntry val : this.knownModules.values()) {
+			//try {
 				modules.add(val.getModule());
-			} catch (JavaModelException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+//			} catch (JavaModelException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
 		}
 		return modules.toArray(new IModule[modules.size()]);
 	}

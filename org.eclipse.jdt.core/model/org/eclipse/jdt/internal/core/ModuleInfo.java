@@ -20,6 +20,8 @@ import org.eclipse.jdt.internal.compiler.ast.ModuleDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.ModuleReference;
 import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.env.IModule;
+import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
+import org.eclipse.jdt.internal.compiler.env.IModulePathEntry;
 
 public class ModuleInfo extends SourceTypeElementInfo implements IModule {
 
@@ -92,11 +94,14 @@ public class ModuleInfo extends SourceTypeElementInfo implements IModule {
 	PackageExport[] exports;
 	char[][] uses;
 	Service[] provides;
+	public IModulePathEntry entry;
 	@Override
 	public char[] name() {
 		return this.name;
 	}
-
+	public IModuleEnvironment getLookupEnvironment() {
+		return this.entry.getLookupEnvironmentFor(this);
+	}
 	public static ModuleInfo createModule(ModuleDeclaration module) {
 		ModuleInfo mod = new ModuleInfo();
 		mod.name = module.moduleName;

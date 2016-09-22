@@ -383,7 +383,7 @@ public class ClasspathJRT extends ClasspathLocation implements IMultiModuleEntry
 
 	@Override
 	public IModuleEnvironment getLookupEnvironment() {
-		// TODO Auto-generated method stub
+		//
 		return this;
 	}
 }

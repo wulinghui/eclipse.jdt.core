@@ -328,7 +328,7 @@ public PackageLookup packageLookup() {
 @Override
 public IModuleEnvironment getLookupEnvironmentFor(IModule mod) {
 	//
-	return servesModule(mod.name()) ? this : null;
+	return this.module == mod ? this : null;
 }
 @Override
 public IModuleEnvironment getLookupEnvironment() {

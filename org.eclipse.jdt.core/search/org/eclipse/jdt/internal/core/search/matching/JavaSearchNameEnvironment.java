@@ -162,7 +162,7 @@ private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeNam
 					answer = location.findClass(
 							sourceFileName, // doesn't include the file extension
 							qPackageName,
-							qSourceFileName, iModule);  // doesn't include the file extension
+							qSourceFileName);  // doesn't include the file extension
 					if (answer != null) break mods;
 				}
 			}
@@ -182,7 +182,7 @@ private NameEnvironmentAnswer findClass(String qualifiedTypeName, char[] typeNam
 						location.findClass(
 								binaryFileName,
 								qPackageName,
-								qBinaryFileName, iModule);
+								qBinaryFileName);
 				if (answer != null) break mods;
 			}
 		}

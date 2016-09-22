@@ -727,6 +727,7 @@ public void exitType(int declarationEnd) {
 				org.eclipse.jdt.internal.core.ModuleInfo module = createModuleInfo(typeInfo, handle);
 				this.unitInfo.setModule(module);
 				((PackageFragmentRootInfo)(root.getElementInfo())).setModule(module);
+				module.entry = JavaModelManager.getModulePathManager().getModuleRoot(new String(module.name));
 			} catch (JavaModelException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
