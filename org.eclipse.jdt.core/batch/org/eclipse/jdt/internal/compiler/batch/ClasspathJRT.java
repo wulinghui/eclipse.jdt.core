@@ -19,9 +19,9 @@ import java.util.zip.ZipFile;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
-import org.eclipse.jdt.internal.compiler.classfmt.ModuleInfo;
 import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
 import org.eclipse.jdt.internal.compiler.env.IModule;
+import org.eclipse.jdt.internal.compiler.env.IModuleDeclaration;
 import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
 import org.eclipse.jdt.internal.compiler.env.IModuleLocation;
 import org.eclipse.jdt.internal.compiler.env.IMultiModuleEntry;
@@ -213,15 +213,14 @@ public class ClasspathJRT extends ClasspathLocation implements IMultiModuleEntry
 	}
 	void acceptModule(ClassFileReader reader) {
 		if (reader != null) {
-			IModule moduleDecl = reader.getModuleDeclaration();
+			IModuleDeclaration moduleDecl = reader.getModuleDeclaration();
 			if (moduleDecl != null) {
 				Set<IModule> cache = ModulesCache.get(this.file);
 				if (cache == null) {
 					ModulesCache.put(new String(moduleDecl.name()), cache = new HashSet<IModule>());
 				}
-				cache.add(moduleDecl);
+				cache.add(new BinaryModule(this, reader));
 			}
-			((ModuleInfo)moduleDecl).entry = this;
 		}
 		
 	}

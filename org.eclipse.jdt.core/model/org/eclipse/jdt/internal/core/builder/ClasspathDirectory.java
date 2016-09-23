@@ -24,7 +24,6 @@ import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
-import org.eclipse.jdt.internal.compiler.classfmt.ModuleInfo;
 import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
@@ -36,6 +35,7 @@ import org.eclipse.jdt.internal.compiler.env.TypeLookup;
 import org.eclipse.jdt.internal.compiler.lookup.ModuleEnvironment;
 import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
+import org.eclipse.jdt.internal.core.Module;
 import org.eclipse.jdt.internal.core.util.Util;
 
 public class ClasspathDirectory extends ClasspathLocation implements IModuleEnvironment {
@@ -137,10 +137,7 @@ String[] directoryList(String qualifiedPackageName) {
 }
 void acceptModule(ClassFileReader classfile) {
 	if (classfile != null) {
-		this.module = classfile.getModuleDeclaration();
-		if (this.module instanceof ModuleInfo) {
-			((ModuleInfo)this.module).entry = this;
-		}
+		this.module = new Module(this, classfile.getModuleDeclaration());
 	}
 }
 boolean doesFileExist(String fileName, String qualifiedPackageName, String qualifiedFullName) {

@@ -89,7 +89,8 @@ import org.eclipse.jdt.internal.compiler.env.AccessRule;
 import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.env.IModule;
-import org.eclipse.jdt.internal.compiler.env.IModule.IPackageExport;
+import org.eclipse.jdt.internal.compiler.env.IModuleDeclaration;
+import org.eclipse.jdt.internal.compiler.env.IModuleDeclaration.IPackageExport;
 import org.eclipse.jdt.internal.compiler.env.IModuleLocation;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.CompilerStats;
@@ -3016,7 +3017,7 @@ private IModule extractModuleDesc(String fileName, Parser parser) {
 	} else if (fileName.toLowerCase().endsWith(IModuleLocation.MODULE_INFO_CLASS)) {
 		try {
 			ClassFileReader reader = ClassFileReader.read(fileName); // Check the absolute path?
-			mod = reader.getModuleDeclaration();
+			mod = new BinaryModule(null, reader);
 		} catch (ClassFormatException | IOException e) {
 			e.printStackTrace();
 			throw new IllegalArgumentException(
@@ -3283,7 +3284,7 @@ protected ArrayList handleBootclasspath(ArrayList bootclasspaths, String customE
 private void processAddonModuleOptions(FileSystem env) {
 	Map<String, IPackageExport[]> exports = new HashMap<>();
 	for (String option : this.addonExports) {
-		IModule mod = ModuleFinder.extractAddonExport(option);
+		IModuleDeclaration mod = ModuleFinder.extractAddonExport(option);
 		if (mod != null) {
 			String modName = new String(mod.name());
 			IPackageExport export = mod.exports()[0];

@@ -21,11 +21,9 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
-import org.eclipse.jdt.internal.compiler.env.IModule;
-import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
-import org.eclipse.jdt.internal.compiler.env.IModulePathEntry;
+import org.eclipse.jdt.internal.compiler.env.IModuleDeclaration;
 
-public class ModuleInfo extends ClassFileStruct implements IModule {
+public class ModuleInfo extends ClassFileStruct implements IModuleDeclaration {
 	protected int requiresCount;
 	protected int exportsCount;
 	protected int usesCount;
@@ -34,8 +32,7 @@ public class ModuleInfo extends ClassFileStruct implements IModule {
 	protected ModuleReferenceInfo[] requires;
 	protected PackageExportInfo[] exports;
 	char[][] uses;
-	IModule.IService[] provides;
-	public IModulePathEntry entry; // The entry that contributes this module to the module path
+	IModuleDeclaration.IService[] provides;
 
 	public int requiresCount() {
 		return this.requiresCount;
@@ -57,11 +54,11 @@ public class ModuleInfo extends ClassFileStruct implements IModule {
 		this.name = name;
 	}
 	@Override
-	public IModule.IModuleReference[] requires() {
+	public IModuleDeclaration.IModuleReference[] requires() {
 		return this.requires;
 	}
 	@Override
-	public IModule.IPackageExport[] exports() {
+	public IModuleDeclaration.IPackageExport[] exports() {
 		return this.exports;
 	}
 	@Override
@@ -100,9 +97,6 @@ public class ModuleInfo extends ClassFileStruct implements IModule {
 				ArrayList::add,
 				ArrayList::addAll);
 		this.exports = merged.toArray(new PackageExportInfo[merged.size()]);
-	}
-	public IModuleEnvironment getLookupEnvironment() {
-		return this.entry.getLookupEnvironmentFor(this);
 	}
 	/**
 	 * @param name char[]
@@ -170,7 +164,7 @@ public class ModuleInfo extends ClassFileStruct implements IModule {
 		}
 		return module;
 	}
-	class ModuleReferenceInfo implements IModule.IModuleReference {
+	class ModuleReferenceInfo implements IModuleDeclaration.IModuleReference {
 		char[] refName;
 		boolean isPublic = false;
 		@Override
@@ -184,9 +178,9 @@ public class ModuleInfo extends ClassFileStruct implements IModule {
 		public boolean equals(Object o) {
 			if (this == o) 
 				return true;
-			if (!(o instanceof IModule.IModuleReference))
+			if (!(o instanceof IModuleDeclaration.IModuleReference))
 				return false;
-			IModule.IModuleReference mod = (IModule.IModuleReference) o;
+			IModuleDeclaration.IModuleReference mod = (IModuleDeclaration.IModuleReference) o;
 			if (this.isPublic != mod.isPublic())
 				return false;
 			return CharOperation.equals(this.refName, mod.name(), false);
@@ -196,7 +190,7 @@ public class ModuleInfo extends ClassFileStruct implements IModule {
 			return this.refName.hashCode();
 		}
 	}
-	class PackageExportInfo implements IModule.IPackageExport {
+	class PackageExportInfo implements IModuleDeclaration.IPackageExport {
 		char[] packageName;
 		char[][] exportedTo;
 		int exportedToCount;
@@ -226,7 +220,7 @@ public class ModuleInfo extends ClassFileStruct implements IModule {
 			buffer.append(';').append('\n');
 		}
 	}
-	class ServiceInfo implements IModule.IService {
+	class ServiceInfo implements IModuleDeclaration.IService {
 		char[] serviceName;
 		char[] with;
 		@Override
@@ -242,9 +236,9 @@ public class ModuleInfo extends ClassFileStruct implements IModule {
 	public boolean equals(Object o) {
 		if (this == o)
 			return true;
-		if (!(o instanceof IModule))
+		if (!(o instanceof IModuleDeclaration))
 			return false;
-		IModule mod = (IModule) o;
+		IModuleDeclaration mod = (IModuleDeclaration) o;
 		if (!CharOperation.equals(this.name, mod.name()))
 			return false;
 		return Arrays.equals(this.requires, mod.requires());

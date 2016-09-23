@@ -29,10 +29,10 @@ import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem.Classpath;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
-import org.eclipse.jdt.internal.compiler.classfmt.ModuleInfo;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.env.IModule;
-import org.eclipse.jdt.internal.compiler.env.IModule.IPackageExport;
+import org.eclipse.jdt.internal.compiler.env.IModuleDeclaration;
+import org.eclipse.jdt.internal.compiler.env.IModuleDeclaration.IPackageExport;
 import org.eclipse.jdt.internal.compiler.env.IModuleLocation;
 import org.eclipse.jdt.internal.compiler.parser.Parser;
 import org.eclipse.jdt.internal.compiler.util.Util;
@@ -136,7 +136,7 @@ public class ModuleFinder {
 	 * @param option
 	 * @return a dummy module object with package exports
 	 */
-	protected static IModule extractAddonExport(String option) {
+	protected static IModuleDeclaration extractAddonExport(String option) {
 		StringTokenizer tokenizer = new StringTokenizer(option, "/"); //$NON-NLS-1$
 		String source = null;
 		String pack = null;
@@ -180,7 +180,7 @@ public class ModuleFinder {
 		}
 	}
 	
-	static class Module implements IModule {
+	static class Module implements IModuleDeclaration {
 		char[] name;
 		IPackageExport[] export;
 		Module(char[] name, IPackageExport export) {
@@ -218,11 +218,11 @@ public class ModuleFinder {
 		try {
 			zipFile = new ZipFile(file);
 			ClassFileReader reader = ClassFileReader.read(zipFile, IModuleLocation.MODULE_INFO_CLASS);
-			IModule module = getModule(reader);
-			if (module instanceof ModuleInfo) {
-				((ModuleInfo) module).entry = pathEntry;
+			IModuleDeclaration module = getModule(reader);
+			if (module != null) {
+				return new BinaryModule(pathEntry, reader);
 			}
-			return module;
+			return null;
 		} catch (ClassFormatException | IOException e) {
 			e.printStackTrace();
 		} finally {
@@ -240,17 +240,17 @@ public class ModuleFinder {
 		ClassFileReader reader;
 		try {
 			reader = ClassFileReader.read(classfilePath);
-			IModule module =  getModule(reader);
+			IModuleDeclaration module =  getModule(reader);
 			if (module != null) {
-				((ModuleInfo)module).entry = pathEntry;
+				return new BinaryModule(pathEntry, reader);
 			}
-			return module;
+			return null;
 		} catch (ClassFormatException | IOException e) {
 			e.printStackTrace();
 		}
 		return null;
 	}
-	private static IModule getModule(ClassFileReader classfile) {
+	private static IModuleDeclaration getModule(ClassFileReader classfile) {
 		if (classfile != null) {
 			return classfile.getModuleDeclaration();
 		}

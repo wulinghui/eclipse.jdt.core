@@ -21,7 +21,6 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.*;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
-import org.eclipse.jdt.internal.compiler.classfmt.ModuleInfo;
 import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
@@ -33,6 +32,7 @@ import org.eclipse.jdt.internal.compiler.env.TypeLookup;
 import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
 import org.eclipse.jdt.internal.compiler.util.SimpleSet;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
+import org.eclipse.jdt.internal.core.Module;
 import org.eclipse.jdt.internal.core.util.Util;
 
 import java.io.*;
@@ -110,10 +110,7 @@ void acceptModule(ClassFileReader classfile) {
 //		if ((this.module = classfile.getModuleDeclaration()) != null) {
 //			this.env.acceptModule(this.module, this);
 //		}
-		this.module = classfile.getModuleDeclaration();
-		if (this.module instanceof ModuleInfo) {
-			((ModuleInfo)this.module).entry = this;
-		}
+		this.module = new Module(this, classfile.getModuleDeclaration());
 	}
 }
 

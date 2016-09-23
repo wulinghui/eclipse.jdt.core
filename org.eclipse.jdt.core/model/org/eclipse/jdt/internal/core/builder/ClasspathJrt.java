@@ -31,8 +31,8 @@ import org.eclipse.core.runtime.IPath;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
-import org.eclipse.jdt.internal.compiler.classfmt.ModuleInfo;
 import org.eclipse.jdt.internal.compiler.env.IModule;
+import org.eclipse.jdt.internal.compiler.env.IModuleDeclaration;
 import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
 import org.eclipse.jdt.internal.compiler.env.IModuleLocation;
 import org.eclipse.jdt.internal.compiler.env.IMultiModuleEntry;
@@ -45,6 +45,7 @@ import org.eclipse.jdt.internal.compiler.env.TypeLookup;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 import org.eclipse.jdt.internal.compiler.util.SimpleSet;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
+import org.eclipse.jdt.internal.core.Module;
 
 public class ClasspathJrt extends ClasspathLocation implements IMultiModuleEntry, IModuleEnvironment {
 
@@ -175,16 +176,14 @@ void acceptModule(byte[] content) {
 		e.printStackTrace();
 	}
 	if (reader != null) {
-		IModule moduleDecl = reader.getModuleDeclaration();
+		IModuleDeclaration moduleDecl = reader.getModuleDeclaration();
 		if (moduleDecl != null) {
 			Set<IModule> cache = ModulesCache.get(this.zipFilename);
 			if (cache == null) {
 				ModulesCache.put(this.zipFilename, cache = new HashSet<IModule>());
 			}
-			cache.add(moduleDecl);
-			if (moduleDecl instanceof ModuleInfo) {
-				((ModuleInfo)moduleDecl).entry = this;
-			}
+			IModule module = new Module(this, moduleDecl);
+			cache.add(module);
 		}
 	}
 }

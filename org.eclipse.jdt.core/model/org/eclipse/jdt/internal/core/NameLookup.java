@@ -1007,6 +1007,17 @@ public class NameLookup implements SuffixConstants {
 	 *	only exact name matches qualify when <code>false</code>
 	 */
 	public void seekPackageFragments(String name, boolean partialMatch, IJavaElementRequestor requestor, IModuleContext context) {
+		if (context == IModuleContext.UNNAMED_MODULE_CONTEXT) {
+			seekPackageFragments(name, partialMatch, requestor);
+			return;
+		}
+		String[] splittedName = Util.splitOn('.', name, 0, name.length());
+		int pkgIndex = this.packageFragments.getIndex(splittedName);
+		if (pkgIndex == -1)
+			return;
+		Object value = this.packageFragments.valueTable[pkgIndex];
+		// reuse existing String[]
+		String[] pkgName = (String[]) this.packageFragments.keyTable[pkgIndex];
 		context.getEnvironment().<PackageFragmentRoot>flatMap(e -> {
 			if (e instanceof ProjectEntry) {
 				JavaProject prj = ((ProjectEntry) e).project;
@@ -1031,9 +1042,22 @@ public class NameLookup implements SuffixConstants {
 				return Stream.of((JrtPackageFragmentRoot)e);
 			}
 		}).forEach(r -> {
-			IPackageFragment pkg = r.getPackageFragment(name);
-			if (pkg != null) {
-				requestor.acceptPackageFragment(pkg);
+			if (value instanceof PackageFragmentRoot) {
+				if (value.equals(r)) {
+					PackageFragmentRoot root = (PackageFragmentRoot) value;
+					requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
+				}
+			} else {
+				IPackageFragmentRoot[] roots = (IPackageFragmentRoot[]) value;
+				if (roots != null) {
+					for (int i = 0, length = roots.length; i < length; i++) {
+						if (requestor.isCanceled())
+							return;
+						PackageFragmentRoot root = (PackageFragmentRoot) roots[i];
+						if (root.equals(r))
+							requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
+					}
+				}
 			}
 		});
 		

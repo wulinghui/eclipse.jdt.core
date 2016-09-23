@@ -23,7 +23,6 @@ import org.eclipse.core.runtime.*;
 import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
-import org.eclipse.jdt.internal.compiler.classfmt.ModuleInfo;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.core.util.MementoTokenizer;
 import org.eclipse.jdt.internal.core.util.Messages;
@@ -878,23 +877,33 @@ public org.eclipse.jdt.internal.compiler.env.IModule getModule() {
 		for (int j = 0, length = pkgs.length; j < length; j++) {
 			// only look in the default package
 			if (pkgs[j].getElementName().length() == 0) {
-				OpenableElementInfo info = null;
 				if (getKind() == IPackageFragmentRoot.K_SOURCE) {
 					ICompilationUnit unit = ((PackageFragment) pkgs[j])
 							.getCompilationUnit(TypeConstants.MODULE_INFO_FILE_NAME_STRING);
 					if (unit instanceof CompilationUnit && unit.exists()) {
-						info = (CompilationUnitElementInfo) ((CompilationUnit) unit)
-								.getElementInfo();
-						if (info != null)
-							return info.getModule();
+						IType type = unit.getType(new String(TypeConstants.MODULE_INFO_NAME));
+						ModuleInfo decl = (ModuleInfo)((SourceType)type).getElementInfo();
+						if (decl != null) {
+							JavaProject prj = (JavaProject) this.getAncestor(IJavaElement.JAVA_PROJECT);
+							module = new Module(new ProjectEntry(prj), decl);
+							rootInfo.setModule(module);
+							return module;
+						}
+//						info = (CompilationUnitElementInfo) ((CompilationUnit) unit)
+//								.getElementInfo();
+//						if (info != null)
+//							return info.getModule();
 					}
 				} else {
 					IClassFile classFile = ((IPackageFragment)pkgs[j]).getClassFile(TypeConstants.MODULE_INFO_CLASS_NAME_STRING);
 					if (classFile instanceof ClassFile && classFile.exists()) {
 						IType type = classFile.getType();
-						IModule mod = (IModule) ((ClassFileReader)(((BinaryType)type).getElementInfo())).getModuleDeclaration();
-						if (mod instanceof ModuleInfo)
-							((ModuleInfo) mod).entry = (JrtPackageFragmentRoot)this;
+						org.eclipse.jdt.internal.compiler.env.IModuleDeclaration decl = ((ClassFileReader)(((BinaryType)type).getElementInfo())).getModuleDeclaration();
+						if (decl != null) {
+							org.eclipse.jdt.internal.compiler.env.IModule mod = new Module((JrtPackageFragmentRoot)this, decl);
+							rootInfo.setModule(mod);
+							return mod;
+						}
 					}
 				}
 				break;

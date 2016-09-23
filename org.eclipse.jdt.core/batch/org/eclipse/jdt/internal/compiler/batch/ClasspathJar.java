@@ -33,7 +33,6 @@ import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
 import org.eclipse.jdt.internal.compiler.classfmt.ExternalAnnotationProvider;
-import org.eclipse.jdt.internal.compiler.classfmt.ModuleInfo;
 import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
@@ -194,13 +193,8 @@ public void acceptModule(IModule mod) {
 }
 void acceptModule(ClassFileReader reader) {
 	if (reader != null) {
-		IModule moduleDecl = reader.getModuleDeclaration();
-		if (moduleDecl != null) {
-			this.module = moduleDecl;
-			((ModuleInfo)moduleDecl).entry = this;
-		}
+		this.module = new BinaryModule(this, reader);
 	}
-	
 }
 void acceptModule(byte[] content) {
 	if (content == null) 
@@ -211,7 +205,7 @@ void acceptModule(byte[] content) {
 	} catch (ClassFormatException e) {
 		e.printStackTrace();
 	}
-	if (reader != null) {
+	if (reader != null && reader.getModuleDeclaration() != null) {
 		acceptModule(reader);
 	}
 }

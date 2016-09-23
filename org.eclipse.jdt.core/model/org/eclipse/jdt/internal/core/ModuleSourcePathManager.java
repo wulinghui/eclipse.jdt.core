@@ -59,8 +59,8 @@ public class ModuleSourcePathManager {
 					IModule module = ((JavaProject) project).getModule();
 					if (module != null) {
 						char[] moduleName = module.name();
+						this.knownModules.put(CharOperation.charToString(name), ((Module)module).entry);
 						if (CharOperation.equals(name, moduleName)) {
-							this.knownModules.put(CharOperation.charToString(name), new ProjectEntry((JavaProject) project));
 							requestor.acceptModule(module);
 							break;
 						}
@@ -78,17 +78,17 @@ public class ModuleSourcePathManager {
 	public IModule getModule(char[] name) {
 		IModulePathEntry root = getModuleRoot0(CharOperation.charToString(name));
 		if (root != null)
-			//try {
+			try {
 				return root.getModule();
-//			} catch (JavaModelException e1) {
-//				//
-//				return null;
-//			}
+			} catch (Exception e1) {
+				//
+				return null;
+			}
 		JavaElementRequestor requestor = new JavaElementRequestor();
 		try {
 			seekModule(name, false, requestor);
 		} catch (JavaModelException e) {
-			// TODO Auto-generated catch block
+			// 
 		}
 		IModule[] modules = requestor.getModules();
 		return modules.length > 0 ? modules[0] : null; 
@@ -99,12 +99,12 @@ public class ModuleSourcePathManager {
 		}
 		List<IModule> modules = new ArrayList<IModule>();
 		for (IModulePathEntry val : this.knownModules.values()) {
-			//try {
+			try {
 				modules.add(val.getModule());
-//			} catch (JavaModelException e) {
-//				// TODO Auto-generated catch block
-//				e.printStackTrace();
-//			}
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 		return modules.toArray(new IModule[modules.size()]);
 	}

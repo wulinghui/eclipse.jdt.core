@@ -20,8 +20,10 @@ import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.env.IModule;
+import org.eclipse.jdt.internal.compiler.env.IModuleDeclaration;
 import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.parser.Parser;
+import org.eclipse.jdt.internal.core.Module;
 import org.eclipse.jdt.internal.core.ModuleInfo;
 import org.eclipse.jdt.internal.core.util.Util;
 
@@ -80,10 +82,9 @@ public void acceptModuleInfo(ICompilationUnit cu, Parser parser) {
 	CompilationUnitDeclaration unit = parser.parse(cu, compilationResult);
 	// Request could also come in when module-info has changed or removed.
 	if (unit.isModuleInfo() && unit.moduleDeclaration != null) {
-		IModule mod = ModuleInfo.createModule(unit.moduleDeclaration);
-		if (mod != null) {
-			this.module = mod;
-			((ModuleInfo)this.module).entry = this;
+		IModuleDeclaration decl = ModuleInfo.createModule(unit.moduleDeclaration);
+		if (decl != null) {
+			this.module = new Module(this, decl);
 		}
 	}
 }
