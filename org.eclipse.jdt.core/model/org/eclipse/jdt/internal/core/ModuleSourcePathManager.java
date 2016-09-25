@@ -45,7 +45,15 @@ public class ModuleSourcePathManager {
 		root = this.knownModules.get(name);
 		return root;
 	}
-
+	public void addEntry(IModule module, JavaProject project) throws JavaModelException {
+		String moduleName = new String(module.name());
+		IModulePathEntry entry = getModuleRoot0(moduleName);
+		if (entry != null) {
+			// TODO : Should we signal error via JavaModelException
+			return;
+		}
+		this.knownModules.put(moduleName, new ProjectEntry(project));
+	}
 	public void seekModule(char[] name, boolean partialMatch, IJavaElementRequestor requestor) throws JavaModelException {
 		if (name == null)
 			return;
@@ -59,8 +67,8 @@ public class ModuleSourcePathManager {
 					IModule module = ((JavaProject) project).getModule();
 					if (module != null) {
 						char[] moduleName = module.name();
-						this.knownModules.put(CharOperation.charToString(name), ((Module)module).entry);
 						if (CharOperation.equals(name, moduleName)) {
+							addEntry(module, (JavaProject) project);
 							requestor.acceptModule(module);
 							break;
 						}

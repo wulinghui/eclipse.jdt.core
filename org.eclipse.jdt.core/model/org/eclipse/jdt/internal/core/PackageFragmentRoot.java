@@ -22,7 +22,6 @@ import org.eclipse.core.resources.*;
 import org.eclipse.core.runtime.*;
 import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.compiler.CharOperation;
-import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.core.util.MementoTokenizer;
 import org.eclipse.jdt.internal.core.util.Messages;
@@ -882,33 +881,20 @@ public org.eclipse.jdt.internal.compiler.env.IModule getModule() {
 							.getCompilationUnit(TypeConstants.MODULE_INFO_FILE_NAME_STRING);
 					if (unit instanceof CompilationUnit && unit.exists()) {
 						IType type = unit.getType(new String(TypeConstants.MODULE_INFO_NAME));
-						ModuleInfo decl = (ModuleInfo)((SourceType)type).getElementInfo();
-						if (decl != null) {
-							JavaProject prj = (JavaProject) this.getAncestor(IJavaElement.JAVA_PROJECT);
-							module = new Module(new ProjectEntry(prj), decl);
-							rootInfo.setModule(module);
-							return module;
+						if (type != null) {
+							rootInfo.setModule(module = new Module((SourceType)type));
 						}
-//						info = (CompilationUnitElementInfo) ((CompilationUnit) unit)
-//								.getElementInfo();
-//						if (info != null)
-//							return info.getModule();
 					}
 				} else {
 					IClassFile classFile = ((IPackageFragment)pkgs[j]).getClassFile(TypeConstants.MODULE_INFO_CLASS_NAME_STRING);
 					if (classFile instanceof ClassFile && classFile.exists()) {
-						IType type = classFile.getType();
-						org.eclipse.jdt.internal.compiler.env.IModuleDeclaration decl = ((ClassFileReader)(((BinaryType)type).getElementInfo())).getModuleDeclaration();
-						if (decl != null) {
-							org.eclipse.jdt.internal.compiler.env.IModule mod = new Module((JrtPackageFragmentRoot)this, decl);
-							rootInfo.setModule(mod);
-							return mod;
-						}
+						rootInfo.setModule(module = new Module((ClassFile)classFile));
 					}
 				}
 				break;
 			}
 		}
+		return module;
 	} catch (JavaModelException e) {
 		//
 	}

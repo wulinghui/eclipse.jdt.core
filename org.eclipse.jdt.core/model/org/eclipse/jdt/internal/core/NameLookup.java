@@ -13,8 +13,6 @@ package org.eclipse.jdt.internal.core;
 
 import java.io.File;
 import java.util.*;
-import java.util.stream.Stream;
-
 import org.eclipse.core.resources.*;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -1018,32 +1016,13 @@ public class NameLookup implements SuffixConstants {
 		Object value = this.packageFragments.valueTable[pkgIndex];
 		// reuse existing String[]
 		String[] pkgName = (String[]) this.packageFragments.keyTable[pkgIndex];
-		context.getEnvironment().<PackageFragmentRoot>flatMap(e -> {
-			if (e instanceof ProjectEntry) {
-				JavaProject prj = ((ProjectEntry) e).project;
-				List<IPackageFragmentRoot> children;
-				try {
-					children = prj.getChildrenOfType(IJavaElement.PACKAGE_FRAGMENT_ROOT);
-					return children.stream().filter(r -> {
-							try {
-								return r.getKind() == IPackageFragmentRoot.K_SOURCE;
-							} catch (JavaModelException e1) {
-								// TODO Auto-generated catch block
-								e1.printStackTrace();
-							}
-							return false;
-						}).map(r -> (PackageFragmentRoot)r);
-				} catch (JavaModelException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-				return Stream.empty();
-			} else {
-				return Stream.of((JrtPackageFragmentRoot)e);
-			}
-		}).forEach(r -> {
+		context.getEnvironment().forEach(r -> {
 			if (value instanceof PackageFragmentRoot) {
-				if (value.equals(r)) {
+				Object toCompare = value;
+				if (r instanceof JavaProject) {
+					toCompare  = ((PackageFragmentRoot)value).getJavaProject();
+				}
+				if (value.equals(toCompare)) {
 					PackageFragmentRoot root = (PackageFragmentRoot) value;
 					requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
 				}
@@ -1054,7 +1033,11 @@ public class NameLookup implements SuffixConstants {
 						if (requestor.isCanceled())
 							return;
 						PackageFragmentRoot root = (PackageFragmentRoot) roots[i];
-						if (root.equals(r))
+						Object toCompare = root;
+						if (r instanceof JavaProject) {
+							toCompare  = root.getJavaProject();
+						}
+						if (root.equals(toCompare))
 							requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
 					}
 				}

@@ -76,6 +76,9 @@ import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.eval.IEvaluationContext;
 import org.eclipse.jdt.internal.compiler.env.IModule;
+import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
+import org.eclipse.jdt.internal.compiler.env.PackageLookup;
+import org.eclipse.jdt.internal.compiler.env.TypeLookup;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 import org.eclipse.jdt.internal.compiler.util.ObjectVector;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
@@ -116,7 +119,7 @@ import org.xml.sax.SAXException;
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class JavaProject
 	extends Openable
-	implements IJavaProject, IProjectNature, SuffixConstants {
+	implements IJavaProject, IProjectNature, IModuleEnvironment, SuffixConstants {
 
 	/**
 	 * Name of file containing project classpath
@@ -3350,5 +3353,17 @@ public class JavaProject
 		}
 		
 		return module;
+	}
+
+	@Override
+	public TypeLookup typeLookup() {
+		// No direct way to lookup, use the java model APIs instead
+		return TypeLookup.Dummy;
+	}
+
+	@Override
+	public PackageLookup packageLookup() {
+		// No direct way to lookup, use the java model APIs instead
+		return PackageLookup.Dummy;
 	}
 }

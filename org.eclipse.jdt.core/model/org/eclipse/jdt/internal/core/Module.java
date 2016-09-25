@@ -14,33 +14,64 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
 
+import org.eclipse.jdt.core.IJavaElement;
+import org.eclipse.jdt.core.IType;
+import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.jdt.core.compiler.CharOperation;
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.env.IModuleDeclaration;
 import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
-import org.eclipse.jdt.internal.compiler.env.IModulePathEntry;
 
 public class Module implements org.eclipse.jdt.internal.compiler.env.IModule {
 
-	public IModulePathEntry entry;
-	public IModuleDeclaration declaration;
+	public ClassFile binaryDecl;
+	public IModuleDeclaration declaration = null;
+	public boolean isBinary = false;
+	public SourceType sourceDecl;
 
-	public Module(IModulePathEntry entry, IModuleDeclaration declaration) {
-		this.entry = entry;
-		this.declaration = declaration;
+	public Module(SourceType sourceDecl) {
+		this.sourceDecl = sourceDecl;
+	}
+	public Module(ClassFile binaryDecl) {
+		this.binaryDecl = binaryDecl;
+		this.isBinary = true;
 	}
 	@Override
 	public char[] name() {
 		//
-		return this.declaration.name();
+		IModuleDeclaration decl = getDeclaration();
+		return decl == null ? CharOperation.NO_CHAR : decl.name();
 	}
 	@Override
 	public IModuleDeclaration getDeclaration() {
 		// 
+		if (this.declaration == null) {
+			try {
+				if (this.isBinary) {
+					IType type = this.binaryDecl.getType();
+					this.declaration = ((ClassFileReader) (((BinaryType)type).getElementInfo())).getModuleDeclaration();
+				} else {
+					this.declaration = (ModuleInfo) this.sourceDecl.getElementInfo();
+				}
+			}catch (JavaModelException e) {
+				// do nothing
+			}
+		}
 		return this.declaration;
 	}
 	@Override
 	public IModuleEnvironment getLookupEnvironment() {
-		// 
-		return this.entry == null ? null : this.entry.getLookupEnvironment();
-	}
+		// TODO: this should refer to the ModuleSourcePathManager to map this module to
+		// an IModuelePathEntry
+		if (this.isBinary) {
+			PackageFragmentRoot root = (PackageFragmentRoot) this.binaryDecl
+					.getAncestor(IJavaElement.PACKAGE_FRAGMENT_ROOT);
+			if (root instanceof JrtPackageFragmentRoot)
+				return (JrtPackageFragmentRoot) root;
+		} else {
+			return (JavaProject) this.sourceDecl.getAncestor(IJavaElement.JAVA_PROJECT);
 
+		}
+		return null;
+	}
 }

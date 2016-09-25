@@ -45,7 +45,6 @@ import org.eclipse.jdt.internal.compiler.env.TypeLookup;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
 import org.eclipse.jdt.internal.compiler.util.SimpleSet;
 import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
-import org.eclipse.jdt.internal.core.Module;
 
 public class ClasspathJrt extends ClasspathLocation implements IMultiModuleEntry, IModuleEnvironment {
 

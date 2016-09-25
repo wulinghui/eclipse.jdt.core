@@ -137,13 +137,13 @@ public class JrtPackageFragmentRoot extends JarPackageFragmentRoot implements IM
 
 	@Override
 	public TypeLookup typeLookup() {
-		// 
+		// No direct way to lookup, use the java model APIs instead
 		return TypeLookup.Dummy;
 	}
 
 	@Override
 	public PackageLookup packageLookup() {
-		// 
+		// No direct way to lookup, use the java model APIs instead
 		return PackageLookup.Dummy;
 	}
 }
