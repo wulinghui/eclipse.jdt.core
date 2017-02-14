@@ -18,7 +18,6 @@ import java.util.ArrayList;
 import java.util.Map;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
-import org.eclipse.jdt.internal.compiler.ISourceElementRequestor.ModuleInfo;
 import org.eclipse.jdt.internal.compiler.ISourceElementRequestor.ParameterInfo;
 import org.eclipse.jdt.internal.compiler.ISourceElementRequestor.TypeParameterInfo;
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
@@ -465,7 +464,12 @@ public void notifySourceElementRequestor(
 						notifySourceElementRequestor(importRef, false);
 					}
 				} else { // instanceof TypeDeclaration
-					notifySourceElementRequestor((TypeDeclaration)node, true, null, currentPackage);
+					TypeDeclaration type = (TypeDeclaration) node;
+					if (type.isModuleInfo()) {
+						notifySourceElementRequestor(parsedUnit.moduleDeclaration);
+					} else {
+						notifySourceElementRequestor((TypeDeclaration)node, true, null, currentPackage);
+					}
 				}
 			}
 		}
@@ -584,6 +588,36 @@ protected void notifySourceElementRequestor(
 			importReference.modifiers);
 	}
 }
+protected void notifySourceElementRequestor(ModuleDeclaration moduleDeclaration) {
+	boolean isInRange =
+			this.initialPosition <= moduleDeclaration.declarationSourceStart
+			&& this.eofPosition >= moduleDeclaration.declarationSourceEnd;
+	ISourceElementRequestor.ModuleInfo info = new ISourceElementRequestor.ModuleInfo();
+	if (isInRange) {
+
+		int currentModifiers = moduleDeclaration.modifiers;
+
+		// remember deprecation so as to not lose it below
+		//TODO
+		//boolean deprecated = (currentModifiers & ClassFileConstants.AccDeprecated) != 0 || hasDeprecatedAnnotation(moduleDeclaration.annotations);
+
+		info.declarationStart = moduleDeclaration.declarationSourceStart;
+		info.modifiers = currentModifiers;
+		// TODO
+		//typeInfo.modifiers = deprecated ? (currentModifiers & ExtraCompilerModifiers.AccJustFlag) | ClassFileConstants.AccDeprecated : currentModifiers & ExtraCompilerModifiers.AccJustFlag;
+		info.name = TypeConstants.MODULE_INFO_NAME;
+		info.nameSourceStart = moduleDeclaration.sourceStart;
+		info.nameSourceEnd = moduleDeclaration.sourceEnd;
+		info.moduleName = moduleDeclaration.moduleName;
+		// TODO
+		//info.annotations = moduleDeclaration.annotations;
+		info.node = moduleDeclaration;
+		this.requestor.enterModule(info);
+		fillModuleInfo(moduleDeclaration, info);
+		//TODO
+		this.requestor.exitModule(moduleDeclaration.declarationSourceEnd);
+	}
+}
 protected void notifySourceElementRequestor(TypeDeclaration typeDeclaration, boolean notifyTypePresence, TypeDeclaration declaringType, ImportReference currentPackage) {
 
 	if (CharOperation.equals(TypeConstants.PACKAGE_INFO_NAME, typeDeclaration.name)) return;
@@ -607,7 +641,7 @@ protected void notifySourceElementRequestor(TypeDeclaration typeDeclaration, boo
 		char[][] interfaceNames = getInterfaceNames(typeDeclaration);
 		int kind = TypeDeclaration.kind(typeDeclaration.modifiers);
 		char[] implicitSuperclassName = TypeConstants.CharArray_JAVA_LANG_OBJECT;
-		ISourceElementRequestor.TypeInfo typeInfo = kind == TypeDeclaration.MODULE_DECL ? new ISourceElementRequestor.ModuleInfo(): new ISourceElementRequestor.TypeInfo();
+		ISourceElementRequestor.TypeInfo typeInfo = new ISourceElementRequestor.TypeInfo();
 		typeInfo.typeAnnotated = ((typeDeclaration.bits & ASTNode.HasTypeAnnotations) != 0);
 		if (isInRange) {
 			int currentModifiers = typeDeclaration.modifiers;
@@ -643,7 +677,6 @@ protected void notifySourceElementRequestor(TypeDeclaration typeDeclaration, boo
 			typeInfo.annotations = typeDeclaration.annotations;
 			typeInfo.extraFlags = ExtraFlags.getExtraFlags(typeDeclaration);
 			typeInfo.node = typeDeclaration;
-			fillModuleInfo(typeDeclaration, typeInfo, kind);
 			this.requestor.enterType(typeInfo);
 			switch (kind) {
 				case TypeDeclaration.CLASS_DECL :
@@ -720,11 +753,7 @@ protected void notifySourceElementRequestor(TypeDeclaration typeDeclaration, boo
 		this.nestedTypeIndex--;
 	}
 }
-private void fillModuleInfo(TypeDeclaration typeDeclaration, ISourceElementRequestor.TypeInfo typeInfo, int kind) {
-	if (kind != TypeDeclaration.MODULE_DECL) return;
-	ModuleDeclaration mod = (ModuleDeclaration)typeDeclaration;
-	ModuleInfo modInfo = (ModuleInfo)typeInfo;
-	modInfo.moduleName = mod.moduleName;
+private void fillModuleInfo(ModuleDeclaration mod, ISourceElementRequestor.ModuleInfo modInfo) {
 	if (mod.requiresCount > 0) {
 		ISourceElementRequestor.RequiresInfo reqs[] = new ISourceElementRequestor.RequiresInfo[mod.requiresCount];
 		for (int i = 0; i < mod.requiresCount; i++) {

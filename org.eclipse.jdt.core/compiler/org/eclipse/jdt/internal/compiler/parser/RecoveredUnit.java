@@ -157,13 +157,12 @@ public RecoveredElement add(ImportReference importReference, int bracketBalanceV
 	if (importReference.declarationSourceEnd == 0) return element;
 	return this;
 }
+public RecoveredElement add(ModuleDeclaration moduleDeclaration, int bracketBalanceValue){
+	this.module = new RecoveredModule(moduleDeclaration, this, bracketBalanceValue);
+	return this.module;
+}
 public RecoveredElement add(TypeDeclaration typeDeclaration, int bracketBalanceValue) {
 	
-	if (typeDeclaration instanceof ModuleDeclaration) {
-		this.module = new RecoveredModule((ModuleDeclaration)typeDeclaration, this, bracketBalanceValue);
-		return this.module;
-	}
-
 	if ((typeDeclaration.bits & ASTNode.IsAnonymousType) != 0){
 		if (this.typeCount > 0) {
 			// add it to the last type

@@ -20,6 +20,7 @@ import org.eclipse.jdt.internal.compiler.ast.Block;
 import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.ImportReference;
 import org.eclipse.jdt.internal.compiler.ast.LocalDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.ModuleDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.ModuleStatement;
 import org.eclipse.jdt.internal.compiler.ast.Statement;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
@@ -136,6 +137,12 @@ public RecoveredElement add(Statement statement, int bracketBalanceValue) {
 	}
 	this.updateSourceEndIfNecessary(previousAvailableLineEnd(statement.sourceStart - 1));
 	return this.parent.add(statement, bracketBalanceValue);
+}
+public RecoveredElement add(ModuleDeclaration moduleDeclaration, int bracketBalanceValue){
+	resetPendingModifiers();
+	if (this.parent == null) return this; // ignore
+	this.updateSourceEndIfNecessary(previousAvailableLineEnd(moduleDeclaration.declarationSourceStart - 1));
+	return this.parent.add(moduleDeclaration, bracketBalanceValue);
 }
 /*
  *	Record a type declaration

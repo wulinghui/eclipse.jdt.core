@@ -2600,7 +2600,7 @@ public class ClassFile implements TypeConstants, TypeIds {
 		return 1;
 	}
 	private int generateModuleAttribute() {
-		ModuleDeclaration module = (ModuleDeclaration)this.referenceBinding.scope.referenceContext;
+		ModuleDeclaration module = this.referenceBinding.scope.compilationUnitScope().referenceContext.moduleDeclaration;
 		ModuleBinding binding = module.moduleBinding;
 		int localContentsOffset = this.contentsOffset;
 		if (localContentsOffset + 10 >= this.contents.length) {

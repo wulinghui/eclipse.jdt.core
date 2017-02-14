@@ -3282,10 +3282,10 @@ class ASTConverter {
 	public ModuleDeclaration convertToModuleDeclaration(org.eclipse.jdt.internal.compiler.ast.TypeDeclaration typeDeclaration) {
 		checkCanceled();
 		if (this.scanner.sourceLevel < ClassFileConstants.JDK9) return null;
-		org.eclipse.jdt.internal.compiler.ast.ModuleDeclaration moduleDeclaration = (org.eclipse.jdt.internal.compiler.ast.ModuleDeclaration) typeDeclaration;
+		org.eclipse.jdt.internal.compiler.ast.ModuleDeclaration moduleDeclaration = typeDeclaration.scope.compilationUnitScope().referenceContext.moduleDeclaration;
 		ModuleDeclaration moduleDecl = this.ast.newModuleDeclaration();
-		convert(moduleDeclaration.javadoc, moduleDecl);
-		setModifiers(moduleDecl, moduleDeclaration);
+		convert(typeDeclaration.javadoc, moduleDecl);
+		setModifiers(moduleDecl, typeDeclaration);
 		Name moduleName = getUpdatedName(moduleDeclaration.moduleName, moduleDeclaration.sourceStart, moduleDeclaration.sourceEnd);
 		moduleDecl.setName(moduleName);
 		moduleDecl.setSourceRange(moduleDeclaration.declarationSourceStart, moduleDeclaration.declarationSourceEnd - moduleDeclaration.declarationSourceStart + 1);

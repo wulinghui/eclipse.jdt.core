@@ -2911,14 +2911,14 @@ private void reportMatching(ProvidesStatement[] provides, ModuleDeclaration modu
 			if (intf != null) {
 				Integer level = (Integer) nodeSet.matchingNodes.removeKey(intf);
 				if (level != null)
-					this.patternLocator.matchReportReference(intf, ips, null, null, module.binding, level.intValue(), this);
+					this.patternLocator.matchReportReference(intf, ips, null, null, module.moduleBinding, level.intValue(), this);
 			}
 			TypeReference[] impls = service.implementations;
 			for (TypeReference impl : impls) {
 				if (impl != null) {
 					Integer level = (Integer) nodeSet.matchingNodes.removeKey(impl);
 					if (level != null)
-						this.patternLocator.matchReportReference(impl, ips, null, null, module.binding, level.intValue(), this);
+						this.patternLocator.matchReportReference(impl, ips, null, null, module.moduleBinding, level.intValue(), this);
 				}
 			}
 		}
@@ -2927,16 +2927,14 @@ private void reportMatching(ProvidesStatement[] provides, ModuleDeclaration modu
 private void reportMatching(UsesStatement[] uses, ModuleDeclaration module, MatchingNodeSet nodeSet, IModuleDescription moduleDesc) {
 	if (uses != null && uses.length > 0) {
 		try {
-			String[] usedServices = moduleDesc.getUsedServices();
 			for (int i = 0, l = uses.length; i < l; ++i) {
 				UsesStatement service = uses[i];
-				String usedService = usedServices[i];
-
+				
 				TypeReference intf = service.serviceInterface;
 				if (intf != null) {
 					Integer level = (Integer) nodeSet.matchingNodes.removeKey(intf);
 					if (level != null) {
-						this.patternLocator.matchReportReference(intf, moduleDesc, null, null, module.binding, level.intValue(), this);
+						this.patternLocator.matchReportReference(intf, moduleDesc, null, null, module.moduleBinding, level.intValue(), this);
 					}
 				}
 			}
@@ -2952,8 +2950,9 @@ private void reportMatching(UsesStatement[] uses, ModuleDeclaration module, Matc
  * search pattern (i.e. the ones in the matching nodes set)
  */
 protected void reportMatching(TypeDeclaration type, IJavaElement parent, int accuracy, MatchingNodeSet nodeSet, int occurrenceCount) throws CoreException {
-	if (TypeDeclaration.kind(type.modifiers) == TypeDeclaration.MODULE_DECL) {
-		reportMatching((ModuleDeclaration) type, parent, accuracy, nodeSet, occurrenceCount);
+	if (type.isModuleInfo()) {
+		ModuleDeclaration mod = type.scope.compilationUnitScope().referenceContext.moduleDeclaration;
+		reportMatching(mod, parent, accuracy, nodeSet, occurrenceCount);
 		return;
 	}
 	// create type handle
