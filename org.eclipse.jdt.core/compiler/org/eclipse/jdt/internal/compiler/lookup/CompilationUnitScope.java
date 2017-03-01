@@ -472,32 +472,68 @@ public Binding findImport(char[][] compoundName, boolean findStaticImports, bool
 private Binding findImport(char[][] compoundName, int length) {
 	recordQualifiedReference(compoundName);
 	char[] modName = module();
-	Binding binding = this.environment.getTopLevelPackage(compoundName[0], modName);
-	int i = 1;
-	foundNothingOrType: if (binding != null) {
-		PackageBinding packageBinding = (PackageBinding) binding;
-		while (i < length) {
-			binding = packageBinding.getTypeOrPackage(compoundName[i++], modName);
-			if (binding == null || !binding.isValidBinding()) {
-				binding = null;
-				break foundNothingOrType;
-			}
-			if (!(binding instanceof PackageBinding))
-				break foundNothingOrType;
-
+	ModuleBinding clientModule = this.environment.getModule(modName);
+//	Binding binding = this.environment.getTopLevelPackage(compoundName[0], modName);
+//	int i = 1;
+//	foundNothingOrType: if (binding != null) {
+//		PackageBinding packageBinding = (PackageBinding) binding;
+//		while (i < length) {
+//			binding = packageBinding.getTypeOrPackage(compoundName[i++], modName);
+//			if (binding == null || !binding.isValidBinding()) {
+//				binding = null;
+//				break foundNothingOrType;
+//			}
+//			if (!(binding instanceof PackageBinding))
+//				break foundNothingOrType;
+//
+//			packageBinding = (PackageBinding) binding;
+//		}
+//		return packageBinding;
+//	}
+	int i = 0;
+//	Binding binding = clientModule.getTypeOrPackage(compoundName);
+//	PackageBinding packageBinding = null;
+//	int matchLength = length;
+//	if (binding != null) {
+//		return binding;
+//	}
+	Binding binding = null;
+	PackageBinding packageBinding = null;
+	while (i++ < length) {
+		char[][] qualifiedName = CharOperation.subarray(compoundName, 0, i);
+//		packageBinding = clientModule.getPackage(qualifiedName);
+//		if (packageBinding != null) {
+//			binding = packageBinding.getType(compoundName[i], modName);
+//			if (binding instanceof ReferenceBinding)
+//				break;
+//		}
+//		if (packageBinding != null && binding instanceof PackageBinding) {
+//			packageBinding = (PackageBinding) binding; // Package matching longest name
+//			binding = null;
+//			matchLength = i;
+//		}
+//		if (binding != null)
+//			break;
+		binding = clientModule.getTypeOrPackage(qualifiedName);
+		if (binding instanceof ReferenceBinding)
+			break; // found a type, need to look for member types
+		if (binding instanceof PackageBinding) {
+			if (i == length)
+				return binding;
 			packageBinding = (PackageBinding) binding;
+			binding = null;
 		}
-		return packageBinding;
 	}
-
 	ReferenceBinding type;
 	if (binding == null) {
-		if (compilerOptions().complianceLevel >= ClassFileConstants.JDK1_4)
-			return new ProblemReferenceBinding(CharOperation.subarray(compoundName, 0, i), null, ProblemReasons.NotFound);
+		char[][] problemName = CharOperation.subarray(compoundName, 0, packageBinding != null ? packageBinding.compoundName.length + 1 : length - 1);
+		if (compilerOptions().complianceLevel >= ClassFileConstants.JDK1_4) {
+			return new ProblemReferenceBinding(problemName, null, ProblemReasons.NotFound);
+		}
 		PackageBinding defaultPackage = this.environment.getDefaultPackage(modName);
 		type = findType(compoundName[0], defaultPackage, defaultPackage);
 		if (type == null || !type.isValidBinding())
-			return new ProblemReferenceBinding(CharOperation.subarray(compoundName, 0, i), null, ProblemReasons.NotFound);
+			return new ProblemReferenceBinding(problemName, null, ProblemReasons.NotFound);
 		i = 1; // reset to look for member types inside the default package type
 	} else {
 		type = (ReferenceBinding) binding;
@@ -594,10 +630,11 @@ ImportBinding[] getDefaultImports() {
 	// initialize the default imports if necessary... share the default java.lang.* import
 	if (this.environment.defaultImports != null) return this.environment.defaultImports;
 
-	Binding importBinding = this.environment.getTopLevelPackage(TypeConstants.JAVA, module());
-	if (importBinding != null)
-		importBinding = ((PackageBinding) importBinding).getTypeOrPackage(TypeConstants.JAVA_LANG[1], module());
-
+//	Binding importBinding = this.environment.getTopLevelPackage(TypeConstants.JAVA, module());
+//	if (importBinding != null)
+//		importBinding = ((PackageBinding) importBinding).getTypeOrPackage(TypeConstants.JAVA_LANG[1], module());
+	ModuleBinding clientModule = this.environment.getModule(module());
+	Binding importBinding = clientModule.getPackage(TypeConstants.JAVA_LANG);
 	if (importBinding == null || !importBinding.isValidBinding()) {
 		// create a proxy for the missing BinaryType
 		problemReporter().isClassPathCorrect(

@@ -53,6 +53,7 @@ import org.eclipse.jdt.internal.compiler.lookup.LocalVariableBinding;
 import org.eclipse.jdt.internal.compiler.lookup.LookupEnvironment;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodScope;
+import org.eclipse.jdt.internal.compiler.lookup.ModuleBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Scope;
@@ -336,11 +337,12 @@ public class InternalExtendedCompletionContext {
 
 		CompilationUnitDeclaration previousUnitBeingCompleted = this.lookupEnvironment.unitBeingCompleted;
 		this.lookupEnvironment.unitBeingCompleted = this.compilationUnitDeclaration;
+		ModuleBinding clientModule = this.lookupEnvironment.getModule(scope.module());
 		try {
 
 			SignatureWrapper wrapper = new SignatureWrapper(replacePackagesDot(typeSignature.toCharArray()));
 			// FIXME(stephan): do we interpret type annotations here?
-			assignableTypeBinding = this.lookupEnvironment.getTypeFromTypeSignature(wrapper, typeVariables, this.assistScope.enclosingClassScope().referenceContext.binding, null, ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER);
+			assignableTypeBinding = clientModule.getTypeFromTypeSignature(wrapper, typeVariables, this.assistScope.enclosingClassScope().referenceContext.binding, null, ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER);
 			assignableTypeBinding = BinaryTypeBinding.resolveType(assignableTypeBinding, this.lookupEnvironment, true);
 		} catch (AbortCompilation e) {
 			assignableTypeBinding = null;

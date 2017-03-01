@@ -1813,7 +1813,7 @@ public FieldBinding resolveTypeFor(FieldBinding field) {
 		    initializationScope.initializedField = previousField;
 		}
 		if (this.externalAnnotationProvider != null) {
-			ExternalAnnotationSuperimposer.annotateFieldBinding(field, this.externalAnnotationProvider, this.environment);
+			ExternalAnnotationSuperimposer.annotateFieldBinding(field, this.externalAnnotationProvider, this.environment, this.module);
 		}
 		return field;
 	}
@@ -2039,7 +2039,7 @@ public MethodBinding resolveTypesFor(MethodBinding method) {
 
 	method.modifiers &= ~ExtraCompilerModifiers.AccUnresolved;
 	if (this.externalAnnotationProvider != null) {
-		ExternalAnnotationSuperimposer.annotateMethodBinding(method, this.externalAnnotationProvider, this.environment);
+		ExternalAnnotationSuperimposer.annotateMethodBinding(method, this.externalAnnotationProvider, this.environment, this.module);
 	}
 	return method;
 }

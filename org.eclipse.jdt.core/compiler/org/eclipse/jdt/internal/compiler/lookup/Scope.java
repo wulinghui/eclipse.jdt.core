@@ -2900,27 +2900,33 @@ public abstract class Scope {
 	*/
 	public final Binding getPackage(char[][] compoundName) {
  		compilationUnitScope().recordQualifiedReference(compoundName);
-		Binding binding = getTypeOrPackage(compoundName[0], Binding.TYPE | Binding.PACKAGE, true);
-		if (binding == null) {
-			char[][] qName = new char[][] { compoundName[0] };
-			return new ProblemReferenceBinding(qName, environment().createMissingType(null, compoundName), ProblemReasons.NotFound);
-		}
-		if (!binding.isValidBinding()) {
-			if (binding instanceof PackageBinding) { /* missing package */
-				char[][] qName = new char[][] { compoundName[0] };
-				return new ProblemReferenceBinding(qName, null /* no closest match since search for pkg*/, ProblemReasons.NotFound);
-			}
-			return binding;
-		}
-		if (!(binding instanceof PackageBinding)) return null; // compoundName does not start with a package
+//		Binding binding = getTypeOrPackage(compoundName[0], Binding.TYPE | Binding.PACKAGE, true);
+//		if (binding == null) {
+//			char[][] qName = new char[][] { compoundName[0] };
+//			return new ProblemReferenceBinding(qName, environment().createMissingType(null, compoundName), ProblemReasons.NotFound);
+//		}
+//		if (!binding.isValidBinding()) {
+//			if (binding instanceof PackageBinding) { /* missing package */
+//				char[][] qName = new char[][] { compoundName[0] };
+//				return new ProblemReferenceBinding(qName, null /* no closest match since search for pkg*/, ProblemReasons.NotFound);
+//			}
+//			return binding;
+//		}
+//		if (!(binding instanceof PackageBinding)) return null; // compoundName does not start with a package
 
-		int currentIndex = 1, length = compoundName.length;
-		PackageBinding packageBinding = (PackageBinding) binding;
+		int currentIndex = 0, length = compoundName.length;
+		ModuleBinding clientModule = this.environment().getModule(module());
+		PackageBinding packageBinding = null;//(PackageBinding) binding;
+		Binding binding = null;
 		while (currentIndex < length) {
-			binding = packageBinding.getTypeOrPackage(compoundName[currentIndex++], module());
-			if (binding == null) {
-				return new ProblemReferenceBinding(CharOperation.subarray(compoundName, 0, currentIndex), null /* no closest match since search for pkg*/, ProblemReasons.NotFound);
-			}
+//			binding = packageBinding.getTypeOrPackage(compoundName[currentIndex++], module());
+//			if (binding == null) {
+//				return new ProblemReferenceBinding(CharOperation.subarray(compoundName, 0, currentIndex), null /* no closest match since search for pkg*/, ProblemReasons.NotFound);
+//			}
+			char[][] name = CharOperation.subarray(compoundName, 0, ++currentIndex);
+			binding = clientModule.getTypeOrPackage(name);
+			if (binding == null)
+				continue;
 			if (!binding.isValidBinding())
 				return new ProblemReferenceBinding(
 					CharOperation.subarray(compoundName, 0, currentIndex),

@@ -202,8 +202,8 @@ public Binding getTypeOrPackage(char[] name, char[] mod) {
 
 	PackageBinding packageBinding = getPackage0(name);
 	if (packageBinding != null && packageBinding != LookupEnvironment.TheNotFoundPackage) {
-		return (packageBinding.canBeSeenBy(mod)) ? packageBinding : null;
-		//return packageBinding;
+		//return (packageBinding.canBeSeenBy(mod)) ? packageBinding : null;
+		return packageBinding;
 	}
 	if (referenceBinding == null) { // have not looked for it before
 		if ((referenceBinding = this.environment.askForType(this, name, mod)) != null) {

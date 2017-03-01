@@ -67,7 +67,7 @@ class ExternalAnnotationSuperimposer extends TypeBindingVisitor {
 	static void annotateType(SourceTypeBinding binding, ExternalAnnotationProvider provider, LookupEnvironment environment) {
 		ITypeAnnotationWalker typeWalker = provider.forTypeHeader(environment);
 		if (typeWalker != null && typeWalker != ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER) {
-			ExternalAnnotationSuperimposer visitor = new ExternalAnnotationSuperimposer(environment);
+			ExternalAnnotationSuperimposer visitor = new ExternalAnnotationSuperimposer(environment, binding.module());
 			TypeVariableBinding[] typeParameters = binding.typeVariables();
 			for (int i = 0; i < typeParameters.length; i++) {
 				if (visitor.go(typeWalker.toTypeParameter(true, i)))
@@ -77,23 +77,23 @@ class ExternalAnnotationSuperimposer extends TypeBindingVisitor {
 		binding.externalAnnotationProvider = provider; // for superimposing method signatures
 	}
 
-	public static void annotateFieldBinding(FieldBinding field, ExternalAnnotationProvider provider, LookupEnvironment environment) {
+	public static void annotateFieldBinding(FieldBinding field, ExternalAnnotationProvider provider, LookupEnvironment environment, ModuleBinding clientModule) {
 		char[] fieldSignature = field.genericSignature();
 		if (fieldSignature == null && field.type != null)
 			fieldSignature = field.type.signature();
 		ITypeAnnotationWalker walker = provider.forField(field.name, fieldSignature, environment);
-		ExternalAnnotationSuperimposer visitor = new ExternalAnnotationSuperimposer(environment);
+		ExternalAnnotationSuperimposer visitor = new ExternalAnnotationSuperimposer(environment, clientModule);
 		if (visitor.go(walker))
 			field.type = visitor.superimpose(field.type, TypeBinding.class);
 	}
 
-	public static void annotateMethodBinding(MethodBinding method, ExternalAnnotationProvider provider, LookupEnvironment environment) {
+	public static void annotateMethodBinding(MethodBinding method, ExternalAnnotationProvider provider, LookupEnvironment environment, ModuleBinding clientModule) {
 		char[] methodSignature = method.genericSignature();
 		if (methodSignature == null)
 			methodSignature = method.signature();
 		ITypeAnnotationWalker walker = provider.forMethod(method.selector, methodSignature, environment);
 		if (walker != null && walker != ITypeAnnotationWalker.EMPTY_ANNOTATION_WALKER) {
-			ExternalAnnotationSuperimposer visitor = new ExternalAnnotationSuperimposer(environment);
+			ExternalAnnotationSuperimposer visitor = new ExternalAnnotationSuperimposer(environment, clientModule);
 			TypeVariableBinding[] typeParams = method.typeVariables;
 			for (short i = 0; i < typeParams.length; i++) {
 				if (visitor.go(walker.toTypeParameter(false, i)))
@@ -114,20 +114,22 @@ class ExternalAnnotationSuperimposer extends TypeBindingVisitor {
 	private ITypeAnnotationWalker currentWalker;
 	private TypeBinding typeReplacement;
 	private LookupEnvironment environment;
+	private ModuleBinding clientModule;
 	private boolean isReplacing;
 	
-	ExternalAnnotationSuperimposer(LookupEnvironment environment) {
+	ExternalAnnotationSuperimposer(LookupEnvironment environment, ModuleBinding clientModule) {
 		this.environment = environment;
+		this.clientModule = clientModule;
 	}
 
 	/** for constructing a memento of the superimposer's current state. */
-	private ExternalAnnotationSuperimposer(TypeBinding typeReplacement, boolean isReplacing, ITypeAnnotationWalker walker) {
+	private ExternalAnnotationSuperimposer(TypeBinding typeReplacement, boolean isReplacing, ITypeAnnotationWalker walker, ModuleBinding clientModule) {
 		this.typeReplacement = typeReplacement;
 		this.isReplacing = isReplacing;
 		this.currentWalker = walker;
 	}
 	private ExternalAnnotationSuperimposer snapshot() {
-		ExternalAnnotationSuperimposer memento = new ExternalAnnotationSuperimposer(this.typeReplacement, this.isReplacing, this.currentWalker);
+		ExternalAnnotationSuperimposer memento = new ExternalAnnotationSuperimposer(this.typeReplacement, this.isReplacing, this.currentWalker, this.clientModule);
 		// soft reset:
 		this.typeReplacement = null;
 		this.isReplacing = false;
@@ -181,7 +183,7 @@ class ExternalAnnotationSuperimposer extends TypeBindingVisitor {
 			for (int i = 0; i < dims; i++) {
 				IBinaryAnnotation[] binaryAnnotations = walker.getAnnotationsAtCursor(arrayBinding.id);
 				if (binaryAnnotations != ITypeAnnotationWalker.NO_ANNOTATIONS) {
-					annotsOnDims[i] = BinaryTypeBinding.createAnnotations(binaryAnnotations, this.environment, null);
+					annotsOnDims[i] = BinaryTypeBinding.createAnnotations(binaryAnnotations, this.environment, null, this.clientModule);
 					this.isReplacing = true;
 				} else {
 					annotsOnDims[i] = Binding.NO_ANNOTATIONS;
@@ -212,7 +214,7 @@ class ExternalAnnotationSuperimposer extends TypeBindingVisitor {
 			IBinaryAnnotation[] binaryAnnotations = this.currentWalker.getAnnotationsAtCursor(parameterizedTypeBinding.id);
 			AnnotationBinding[] annotations = Binding.NO_ANNOTATIONS;
 			if (binaryAnnotations != ITypeAnnotationWalker.NO_ANNOTATIONS) {
-				annotations = BinaryTypeBinding.createAnnotations(binaryAnnotations, this.environment, null);
+				annotations = BinaryTypeBinding.createAnnotations(binaryAnnotations, this.environment, null, this.clientModule);
 				this.isReplacing = true;
 			}
 
@@ -236,7 +238,7 @@ class ExternalAnnotationSuperimposer extends TypeBindingVisitor {
 	public boolean visit(ReferenceBinding referenceBinding) {
 		IBinaryAnnotation[] binaryAnnotations = this.currentWalker.getAnnotationsAtCursor(referenceBinding.id);
 		if (binaryAnnotations != ITypeAnnotationWalker.NO_ANNOTATIONS)
-			this.typeReplacement = this.environment.createAnnotatedType(referenceBinding, BinaryTypeBinding.createAnnotations(binaryAnnotations, this.environment, null));
+			this.typeReplacement = this.environment.createAnnotatedType(referenceBinding, BinaryTypeBinding.createAnnotations(binaryAnnotations, this.environment, null, this.clientModule));
 		return false;
 	}
 	@Override
@@ -255,7 +257,7 @@ class ExternalAnnotationSuperimposer extends TypeBindingVisitor {
 			if (this.isReplacing || binaryAnnotations != ITypeAnnotationWalker.NO_ANNOTATIONS) {
 				TypeBinding[] otherBounds = wildcardBinding.otherBounds;
 				if (binaryAnnotations != ITypeAnnotationWalker.NO_ANNOTATIONS) {
-					AnnotationBinding[] annotations = BinaryTypeBinding.createAnnotations(binaryAnnotations, this.environment, null);
+					AnnotationBinding[] annotations = BinaryTypeBinding.createAnnotations(binaryAnnotations, this.environment, null, this.clientModule);
 					this.typeReplacement = this.environment.createWildcard(wildcardBinding.genericType, wildcardBinding.rank, bound, otherBounds, wildcardBinding.boundKind, annotations);
 				} else {
 					this.typeReplacement = this.environment.createWildcard(wildcardBinding.genericType, wildcardBinding.rank, bound, otherBounds, wildcardBinding.boundKind);

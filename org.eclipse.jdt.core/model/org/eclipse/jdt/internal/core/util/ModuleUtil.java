@@ -84,10 +84,10 @@ public class ModuleUtil {
 			String[] mods = new String[this.modules.size()];
 			return this.modules.toArray(mods);
 		}
-		@Override
-		public org.eclipse.jdt.internal.compiler.env.IModule getModule(char[] name) {
-			return null;
-		}
+//		@Override
+//		public org.eclipse.jdt.internal.compiler.env.IModule getModule(char[] name) {
+//			return null;
+//		}
 
 		@Override
 		public void cleanup() {

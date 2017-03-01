@@ -33,6 +33,7 @@ import org.eclipse.jdt.internal.compiler.env.IBinaryType;
 import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
 import org.eclipse.jdt.internal.compiler.lookup.BinaryTypeBinding;
+import org.eclipse.jdt.internal.compiler.lookup.ModuleBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.util.Util;
 import org.eclipse.jdt.internal.core.NameLookup;
@@ -109,8 +110,9 @@ class PackageBinding implements IPackageBinding {
 							IBinaryType type = answer.getBinaryType();
 							char[][][] missingTypeNames = type.getMissingTypeNames();
 							IBinaryAnnotation[] binaryAnnotations = type.getAnnotations();
+							ModuleBinding declaringModule = this.binding.environment.getModule(type.getModule());
 							org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding[] binaryInstances =
-								BinaryTypeBinding.createAnnotations(binaryAnnotations, this.binding.environment, missingTypeNames);
+								BinaryTypeBinding.createAnnotations(binaryAnnotations, this.binding.environment, missingTypeNames, declaringModule);
 							org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding[] allInstances =
 								org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding.addStandardAnnotations(binaryInstances, type.getTagBits(), this.binding.environment);
 							int total = allInstances.length;

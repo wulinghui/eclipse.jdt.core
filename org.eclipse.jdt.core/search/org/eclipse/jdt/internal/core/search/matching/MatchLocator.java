@@ -435,7 +435,7 @@ protected BinaryTypeBinding cacheBinaryType(IType type, IBinaryType binaryType) 
 	BinaryTypeBinding binding = this.lookupEnvironment.cacheBinaryType(binaryType, null /*no access restriction*/);
 	if (binding == null) { // it was already cached as a result of a previous query
 		char[][] compoundName = CharOperation.splitOn('.', type.getFullyQualifiedName().toCharArray());
-		ReferenceBinding referenceBinding = this.lookupEnvironment.getCachedType(compoundName);
+		ReferenceBinding referenceBinding = this.lookupEnvironment.getCachedType(compoundName, binaryType.getModule());
 		if (referenceBinding != null && (referenceBinding instanceof BinaryTypeBinding))
 			binding = (BinaryTypeBinding) referenceBinding; // if the binding could be found and if it comes from a binary type
 	}
