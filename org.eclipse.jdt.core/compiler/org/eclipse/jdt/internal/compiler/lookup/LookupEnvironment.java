@@ -859,7 +859,47 @@ public PackageBinding getDefaultPackage(char[] module) {
 	}
 }
 public PackageBinding createPackage(char[][] compoundName) {
-	return createPackage(compoundName, null);
+	//return createPackage(compoundName, null);
+	PackageBinding packageBinding = getPackage0(compoundName[0]);
+	if (packageBinding == null || packageBinding == TheNotFoundPackage) {
+		packageBinding = new PackageBinding(compoundName[0], this);
+		this.knownPackages.put(compoundName[0], packageBinding);
+	}
+	for (int i = 1, length = compoundName.length; i < length; i++) {
+	// check to see if it collides with a known type...
+	// this case can only happen if the package does not exist as a directory in the file system
+	// otherwise when the source type was defined, the correct error would have been reported
+	// unless its an unresolved type which is referenced from an inconsistent class file
+	// NOTE: empty packages are not packages according to changes in JLS v2, 7.4.3
+	// so not all types cause collision errors when they're created even though the package did exist
+	ReferenceBinding type = packageBinding.getType0(compoundName[i]);
+	if (type != null && type != TheNotFoundType && !(type instanceof UnresolvedReferenceBinding))
+		return null;
+
+	PackageBinding parent = packageBinding;
+	if ((packageBinding = parent.getPackage0(compoundName[i])) == null || packageBinding == TheNotFoundPackage) {
+		// if the package is unknown, check to see if a type exists which would collide with the new package
+		// catches the case of a package statement of: package java.lang.Object;
+		// since the package can be added after a set of source files have already been compiled,
+		// we need to check whenever a package is created
+		if(this.nameEnvironment instanceof INameEnvironmentExtension) {
+			ModuleBinding module = getModule(null);
+			//When the nameEnvironment is an instance of INameEnvironmentWithProgress, it can get avoided to search for secondaryTypes (see flag).
+			// This is a performance optimization, because it is very expensive to search for secondary types and it isn't necessary to check when creating a package,
+			// because package name can not collide with a secondary type name.
+			if (((INameEnvironmentExtension)this.nameEnvironment).findType(compoundName[i], parent.compoundName, false, module.getDependencyClosureContext()) != null) {
+				return null;
+			}
+		} else {
+			if (this.nameEnvironment.findType(compoundName[i], parent.compoundName) != null) {
+				return null;
+			}
+		}
+		packageBinding = new PackageBinding(CharOperation.subarray(compoundName, 0, i + 1), parent, this);
+		parent.addPackage(packageBinding);
+	}
+}
+return packageBinding;
 }
 /*
 * 1. Connect the type hierarchy for the type bindings created for parsedUnits.

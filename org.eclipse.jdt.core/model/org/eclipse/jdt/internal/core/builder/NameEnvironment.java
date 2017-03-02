@@ -446,6 +446,22 @@ public IModule getModule(char[] name) {
 }
 public IModuleEnvironment getModuleEnvironmentFor(char[] moduleName) {
 	IModule module = null;
+	if (moduleName == null || moduleName.length == 0) {
+		Stream<ClasspathLocation> locations = Stream.of(this.binaryLocations).filter(
+				loc -> !(loc instanceof IModulePathEntry) && (loc.getModule() == null || loc.isAutomaticModule()));
+
+		return new IModuleEnvironment() {
+			@Override
+			public ITypeLookup typeLookup() {
+				return locations.map(loc -> loc.typeLookup()).reduce(ITypeLookup::chain).orElse(ITypeLookup.Dummy);
+			}
+
+			@Override
+			public IPackageLookup packageLookup() {
+				return name -> locations.map(loc -> loc.packageLookup()).anyMatch(p -> p.isPackage(name));
+			}
+		};
+	}
 	for (int i = 0; i < this.modulePathEntries.length; i++) {
 		if ((module = this.modulePathEntries[i].getModule(moduleName)) != null)
 			return this.modulePathEntries[i].getLookupEnvironmentFor(module);
@@ -460,5 +476,4 @@ public IModule[] getAllAutomaticModules() {
 			.collect(Collectors.toSet());
 	return set.toArray(new IModule[set.size()]);
 }
-
 }

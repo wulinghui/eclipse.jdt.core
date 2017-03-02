@@ -32,6 +32,7 @@ public interface IModuleAwareNameEnvironment extends INameEnvironment {
 	NameEnvironmentAnswer findType(char[][] compoundTypeName, IModuleContext moduleContext);
 	NameEnvironmentAnswer findType(char[] typeName, char[][] packageName, IModuleContext moduleContext);
 	boolean isPackage(char[][] parentPackageName, char[] packageName, IModuleContext moduleContext);
+	//NameEnvironmentAnswer getModuleDeclaring(char[][] packageName); 
 	IModule getModule(char[] moduleName);
 	IModuleEnvironment getModuleEnvironmentFor(char[] moduleName);
 	IModule[] getAllAutomaticModules();

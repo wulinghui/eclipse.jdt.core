@@ -26,7 +26,7 @@ import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.ModuleReferenceImpl;
 import org.eclipse.jdt.internal.compiler.env.PackageExportImpl;
 
-public class ModuleInfo extends SourceTypeElementInfo implements IModule {
+public class ModuleInfo extends AnnotatableInfo implements IModule {
 
 	protected static final IModuleReference[] NO_REQUIRES = new IModuleReference[0];
 	protected static final IPackageExport[] NO_EXPORTS = new IPackageExport[0];

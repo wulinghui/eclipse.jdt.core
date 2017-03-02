@@ -97,7 +97,7 @@ public class ModuleUtil {
 		@Override
 		public NameEnvironmentAnswer findType(char[][] compoundTypeName, IModuleContext context) {
 			NameEnvironmentAnswer answer = super.findType(compoundTypeName, context);
-			if (answer.moduleName() != null) {
+			if (answer != null && answer.moduleName() != null) {
 				this.modules.add(new String(answer.moduleName()));
 			}
 			return answer;

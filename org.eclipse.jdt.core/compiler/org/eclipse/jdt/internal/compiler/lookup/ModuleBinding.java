@@ -43,12 +43,17 @@ public class ModuleBinding extends Binding {
 		UnNamedModule(LookupEnvironment env) {
 			super(env);
 		}
-		public ModuleBinding[] getAllRequiredModules() {
-			return NO_REQUIRES;
+		protected Stream<ModuleBinding> getRequiredModules(boolean transitiveOnly) {
+			return Stream.of(this.environment.knownModules.valueTable).filter(m -> m != null);
 		}
-		public IModuleContext getModuleLookupContext() {
-			return IModuleContext.UNNAMED_MODULE_CONTEXT;
-		}
+//		public ModuleBinding[] getAllRequiredModules() {
+//			List<ModuleBinding> allModules = Stream.of(this.environment.knownModules.valueTable).filter(m -> m != null).collect(Collectors.toList());
+//			allModules.add(this.environment.getModule(TypeConstants.JAVA_BASE));
+//			return allModules.toArray(new ModuleBinding[allModules.size()]);
+//		}
+//		public IModuleContext getModuleLookupContext() {
+//			return IModuleContext.UNNAMED_MODULE_CONTEXT;
+//		}
 		public IModuleContext getDependencyClosureContext() {
 			return IModuleContext.UNNAMED_MODULE_CONTEXT;
 		}
@@ -59,6 +64,7 @@ public class ModuleBinding extends Binding {
 			//TODO - if the package is part of a named module, then we should check if the module exports the package
 			return true;
 		}
+		
 	}
 	public char[] moduleName;
 	public IModuleReference[] requires;
@@ -103,7 +109,7 @@ public class ModuleBinding extends Binding {
 		this.isAuto = module.isAutomatic();
 	}
 
-	private Stream<ModuleBinding> getRequiredModules(boolean transitiveOnly) {
+	protected Stream<ModuleBinding> getRequiredModules(boolean transitiveOnly) {
 		return Stream.of(this.requires).filter(ref -> transitiveOnly ? ref.isTransitive() : true)
 			.map(ref -> this.environment.getModule(ref.name()))
 			.filter(mod -> mod != null);
@@ -524,9 +530,12 @@ public class ModuleBinding extends Binding {
 		// TODO
 		ReferenceBinding binding = null;
 		char[][] parentPackageName =  CharOperation.subarray(compoundName, 0, compoundName.length - 1);
-		PackageBinding pkg = getPackage(parentPackageName);
+		PackageBinding pkg = getDeclaredPackage(parentPackageName);
 		if (pkg != null) {
 			binding = pkg.getType(compoundName[compoundName.length - 1], this.moduleName);
+		}
+		else {
+			binding = this.environment.askForType(compoundName, this.moduleName);
 		}
 		return binding;
 	}
@@ -539,11 +548,18 @@ public class ModuleBinding extends Binding {
 	}
 	
 	public PackageBinding createPackage(char[][] compoundName) {
-		for(int i = 2; i < compoundName.length; i++) {
-			char[][] typeName = CharOperation.subarray(compoundName, 0, i);
-			ReferenceBinding type = findType(typeName);
-			if (type != null && type != LookupEnvironment.TheNotFoundType && !(type instanceof UnresolvedReferenceBinding))
-				return null;
+		for(int i = 1; i < compoundName.length; i++) {
+//			char[][] typeName = CharOperation.subarray(compoundName, 0, i);
+			ReferenceBinding type;// = findType(typeName);
+//			if (type != null && type != LookupEnvironment.TheNotFoundType && !(type instanceof UnresolvedReferenceBinding))
+//				return null;
+			char[][] packageName = CharOperation.subarray(compoundName, 0, i);
+			PackageBinding pkg = this.declaredPackages.get(CharOperation.concatWith(packageName, '.'));
+			if (pkg != null) {
+				type = pkg.getType0(compoundName[i]);
+				if (type != null && type != LookupEnvironment.TheNotFoundType && !(type instanceof UnresolvedReferenceBinding))
+					return null;
+			}
 		}
 		char[] qualifiedName = CharOperation.concatWith(compoundName, '.');
 		PackageBinding packageBinding = this.declaredPackages.get(qualifiedName);
@@ -556,7 +572,8 @@ public class ModuleBinding extends Binding {
 	}
 	public ReferenceBinding getCachedType(char[][] compoundName) {
 		char[][] pkgName = CharOperation.subarray(compoundName, 0, compoundName.length - 1);
-		PackageBinding pkg = this.declaredPackages.get(CharOperation.concatWith(pkgName, '.'));
+		//PackageBinding pkg = this.declaredPackages.get(CharOperation.concatWith(pkgName, '.'));
+		PackageBinding pkg = getPackage(pkgName);
 		if (pkg != null) {
 			return pkg.getType0(compoundName[compoundName.length - 1]);
 		}
