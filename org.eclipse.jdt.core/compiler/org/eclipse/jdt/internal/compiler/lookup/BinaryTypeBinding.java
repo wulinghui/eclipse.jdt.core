@@ -242,6 +242,7 @@ public BinaryTypeBinding(BinaryTypeBinding prototype) {
 	this.prototype = prototype.prototype;
 	this.environment = prototype.environment;
 	this.storedAnnotations = prototype.storedAnnotations;
+	this.module = prototype.module;
 }
 
 /**
@@ -253,6 +254,12 @@ public BinaryTypeBinding(BinaryTypeBinding prototype) {
 public BinaryTypeBinding(PackageBinding packageBinding, IBinaryType binaryType, LookupEnvironment environment) {
 	this(packageBinding, binaryType, environment, false);
 }
+public BinaryTypeBinding(PackageBinding packageBinding, IBinaryType binaryType, LookupEnvironment environment, ModuleBinding declaringModule) {
+	this(packageBinding, binaryType, environment, false, declaringModule);
+}
+public BinaryTypeBinding(PackageBinding packageBinding, IBinaryType binaryType, LookupEnvironment environment, boolean needFieldsAndMethods) {
+	this(packageBinding, binaryType, environment, needFieldsAndMethods, environment.UnNamedModule);
+}
 /**
  * Standard constructor for creating binary type bindings from binary models (classfiles)
  * @param packageBinding
@@ -260,7 +267,7 @@ public BinaryTypeBinding(PackageBinding packageBinding, IBinaryType binaryType, 
  * @param environment
  * @param needFieldsAndMethods
  */
-public BinaryTypeBinding(PackageBinding packageBinding, IBinaryType binaryType, LookupEnvironment environment, boolean needFieldsAndMethods) {
+public BinaryTypeBinding(PackageBinding packageBinding, IBinaryType binaryType, LookupEnvironment environment, boolean needFieldsAndMethods, ModuleBinding declaringModule) {
 	
 	this.prototype = this;
 	this.compoundName = CharOperation.splitOn('/', binaryType.getName());
@@ -293,7 +300,7 @@ public BinaryTypeBinding(PackageBinding packageBinding, IBinaryType binaryType, 
 	} else if (binaryType.isMember()) {
 		this.tagBits |= TagBits.MemberTypeMask;
 	}
-	this.module = environment.getModule(binaryType.getModule());
+	this.module = declaringModule;
 	// need enclosing type to access type variables
 	char[] enclosingTypeName = binaryType.getEnclosingTypeName();
 	if (enclosingTypeName != null) {
@@ -311,7 +318,8 @@ public BinaryTypeBinding(PackageBinding packageBinding, IBinaryType binaryType, 
 }
 public boolean canBeSeenBy(Scope sco) {
 	ModuleBinding mod = this.environment.getModule(sco.module());
-	return mod.canSee(this.fPackage) && super.canBeSeenBy(sco);
+	return this.module.isPackageExportedTo(this.fPackage, mod) && super.canBeSeenBy(sco);
+	//return mod.canSee(this.fPackage) && super.canBeSeenBy(sco);
 }
 /**
  * @see org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding#availableFields()
@@ -682,7 +690,7 @@ private MethodBinding createMethod(IBinaryMethod method, IBinaryType binaryType,
 	TypeVariableBinding[] typeVars = Binding.NO_TYPE_VARIABLES;
 	AnnotationBinding[][] paramAnnotations = null;
 	TypeBinding returnType = null;
-	ModuleBinding declaringModule = this.environment.getModule(binaryType.getModule());
+	ModuleBinding clientModule = this.module;
 
 	char[][] argumentNames = method.getArgumentNames();
 
@@ -736,7 +744,7 @@ private MethodBinding createMethod(IBinaryMethod method, IBinaryType binaryType,
 					while ((nextChar = methodDescriptor[++end]) != Util.C_NAME_END){/*empty*/}
 
 				if (i >= startIndex) {   // skip the synthetic arg if necessary
-					parameters[i - startIndex] = declaringModule.getTypeFromSignature(methodDescriptor, index, end, false, this, missingTypeNames, walker.toMethodParameter(visibleIdx++));
+					parameters[i - startIndex] = clientModule.getTypeFromSignature(methodDescriptor, index, end, false, this, missingTypeNames, walker.toMethodParameter(visibleIdx++));
 					// 'paramAnnotations' line up with 'parameters'
 					// int parameter to method.getParameterAnnotations() include the synthetic arg
 					if (paramAnnotations != null)
@@ -752,12 +760,12 @@ private MethodBinding createMethod(IBinaryMethod method, IBinaryType binaryType,
 			if (size > 0) {
 				exceptions = new ReferenceBinding[size];
 				for (int i = 0; i < size; i++)
-					exceptions[i] = declaringModule.getTypeFromConstantPoolName(exceptionTypes[i], 0, -1, false, missingTypeNames, walker.toThrows(i));
+					exceptions[i] = clientModule.getTypeFromConstantPoolName(exceptionTypes[i], 0, -1, false, missingTypeNames, walker.toThrows(i));
 			}
 		}
 
 		if (!method.isConstructor())
-			returnType = declaringModule.getTypeFromSignature(methodDescriptor, index + 1, -1, false, this, missingTypeNames, walker.toMethodReturn());   // index is currently pointing at the ')'
+			returnType = clientModule.getTypeFromSignature(methodDescriptor, index + 1, -1, false, this, missingTypeNames, walker.toMethodReturn());   // index is currently pointing at the ')'
 		
 		final int argumentNamesLength = argumentNames == null ? 0 : argumentNames.length;
 		if (startIndex > 0 && argumentNamesLength > 0) {
@@ -794,7 +802,7 @@ private MethodBinding createMethod(IBinaryMethod method, IBinaryType binaryType,
 				java.util.ArrayList types = new java.util.ArrayList(2);
 				short rank = 0;
 				while (wrapper.signature[wrapper.start] != Util.C_PARAM_END)
-					types.add(declaringModule.getTypeFromTypeSignature(wrapper, typeVars, this, missingTypeNames, walker.toMethodParameter(rank++)));
+					types.add(clientModule.getTypeFromTypeSignature(wrapper, typeVars, this, missingTypeNames, walker.toMethodParameter(rank++)));
 				wrapper.start++; // skip ')'
 				int numParam = types.size();
 				parameters = new TypeBinding[numParam];
@@ -808,7 +816,7 @@ private MethodBinding createMethod(IBinaryMethod method, IBinaryType binaryType,
 		}
 
 		// always retrieve return type (for constructors, its V for void - will be ignored)
-		returnType = declaringModule.getTypeFromTypeSignature(wrapper, typeVars, this, missingTypeNames, walker.toMethodReturn());
+		returnType = clientModule.getTypeFromTypeSignature(wrapper, typeVars, this, missingTypeNames, walker.toMethodReturn());
 
 		if (!wrapper.atEnd() && wrapper.signature[wrapper.start] == Util.C_EXCEPTION_START) {
 			// attempt to find each exception if it exists in the cache (otherwise - resolve it when requested)
@@ -816,7 +824,7 @@ private MethodBinding createMethod(IBinaryMethod method, IBinaryType binaryType,
 			int excRank = 0;
 			do {
 				wrapper.start++; // skip '^'
-				types.add(declaringModule.getTypeFromTypeSignature(wrapper, typeVars, this, missingTypeNames,
+				types.add(clientModule.getTypeFromTypeSignature(wrapper, typeVars, this, missingTypeNames,
 					walker.toThrows(excRank++)));
 			} while (!wrapper.atEnd() && wrapper.signature[wrapper.start] == Util.C_EXCEPTION_START);
 			exceptions = new ReferenceBinding[types.size()];
@@ -828,7 +836,7 @@ private MethodBinding createMethod(IBinaryMethod method, IBinaryType binaryType,
 				if (size > 0) {
 					exceptions = new ReferenceBinding[size];
 					for (int i = 0; i < size; i++)
-						exceptions[i] = declaringModule.getTypeFromConstantPoolName(exceptionTypes[i], 0, -1, false, missingTypeNames, walker.toThrows(i));
+						exceptions[i] = clientModule.getTypeFromConstantPoolName(exceptionTypes[i], 0, -1, false, missingTypeNames, walker.toThrows(i));
 				}
 			}
 		}
@@ -851,7 +859,7 @@ private MethodBinding createMethod(IBinaryMethod method, IBinaryType binaryType,
 		result.setAnnotations(
 			createAnnotations(annotations, this.environment, missingTypeNames, this.module),
 			paramAnnotations,
-			isAnnotationType() ? convertMemberValue(method.getDefaultValue(), this.environment, missingTypeNames, true, declaringModule) : null,
+			isAnnotationType() ? convertMemberValue(method.getDefaultValue(), this.environment, missingTypeNames, true, clientModule) : null,
 			this.environment);
 	}
 

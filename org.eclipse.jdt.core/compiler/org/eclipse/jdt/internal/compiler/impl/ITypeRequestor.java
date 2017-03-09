@@ -14,6 +14,7 @@ import org.eclipse.jdt.internal.compiler.env.AccessRestriction;
 import org.eclipse.jdt.internal.compiler.env.IBinaryType;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.env.ISourceType;
+import org.eclipse.jdt.internal.compiler.lookup.ModuleBinding;
 import org.eclipse.jdt.internal.compiler.lookup.PackageBinding;
 
 public interface ITypeRequestor {
@@ -22,7 +23,9 @@ public interface ITypeRequestor {
 	 * Accept the resolved binary form for the requested type.
 	 */
 	void accept(IBinaryType binaryType, PackageBinding packageBinding, AccessRestriction accessRestriction);
-
+	default void accept(IBinaryType binaryType, PackageBinding packageBinding, AccessRestriction accessRestriction, ModuleBinding declaringModule) {
+		accept(binaryType, packageBinding, accessRestriction);// Ignore module by default
+	}
 	/**
 	 * Accept the requested type's compilation unit.
 	 */

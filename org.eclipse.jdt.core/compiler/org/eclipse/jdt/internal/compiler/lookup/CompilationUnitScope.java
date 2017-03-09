@@ -526,7 +526,7 @@ private Binding findImport(char[][] compoundName, int length) {
 	}
 	ReferenceBinding type;
 	if (binding == null) {
-		char[][] problemName = CharOperation.subarray(compoundName, 0, packageBinding != null ? packageBinding.compoundName.length + 1 : length - 1);
+		char[][] problemName = CharOperation.subarray(compoundName, 0, packageBinding != null ? packageBinding.compoundName.length + 1 : 1);
 		if (compilerOptions().complianceLevel >= ClassFileConstants.JDK1_4) {
 			return new ProblemReferenceBinding(problemName, null, ProblemReasons.NotFound);
 		}
@@ -550,7 +550,7 @@ private Binding findImport(char[][] compoundName, int length) {
 		if (type == null)
 			return new ProblemReferenceBinding(CharOperation.subarray(compoundName, 0, i), null, ProblemReasons.NotFound);
 	}
-	if (!type.canBeSeenBy(this.fPackage))
+	if (!clientModule.canSee(type.fPackage) || !type.canBeSeenBy(this.fPackage))
 		return new ProblemReferenceBinding(compoundName, type, ProblemReasons.NotVisible);
 	return type;
 }

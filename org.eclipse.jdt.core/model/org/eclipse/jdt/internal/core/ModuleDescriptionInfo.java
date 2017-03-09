@@ -161,7 +161,65 @@ public class ModuleDescriptionInfo extends AnnotatableInfo implements IModule {
 		}
 		return mod;
 	}
-
+	public static ModuleDescriptionInfo createModule(IModule binaryModule) {
+		ModuleDescriptionInfo mod = new ModuleDescriptionInfo();
+		mod.name = binaryModule.name();
+		IModuleReference[] reqs = binaryModule.requires();
+		if (reqs != null) {
+			mod.requires = new ModuleReferenceInfo[reqs.length];
+			for (int i = 0; i < reqs.length; i++) {
+				mod.requires[i] = new ModuleReferenceInfo();
+				mod.requires[i].name = reqs[i].name(); // Check why ModuleReference#tokens must be a char[][] and not a char[] or String;
+				mod.requires[i].modifiers = reqs[i].getModifiers();
+			}
+		} else {
+			mod.requires = NO_REQUIRES;
+		}
+		IPackageExport[] exports = binaryModule.exports();
+		if (exports != null) {
+			mod.exports = new PackageExportInfo[exports.length];
+			for (int i = 0; i < exports.length; i++) {
+				IPackageExport ref = exports[i];
+				PackageExportInfo exp = new PackageExportInfo();
+				exp.pack = ref.name();
+				exp.target = ref.targets();
+				mod.exports[i] = exp;
+			}
+		} else {
+			mod.exports = NO_EXPORTS;
+		}
+		char[][] uses = binaryModule.uses();
+		if (uses != null) {
+			mod.usedServices = uses;
+		} else {
+			mod.usedServices = NO_USES;
+		}
+		IService[] services = binaryModule.provides();
+		if (services != null) {
+			mod.services = new ServiceInfo[services.length];
+			for (int i = 0; i < services.length; i++) {
+				ServiceInfo info = new ServiceInfo();
+				info.serviceName = services[i].name();
+				info.implNames = services[i].with();
+				mod.services[i] = info;
+			}
+		} else {
+			mod.services = NO_PROVIDES;
+		}
+		IPackageExport[] opens = binaryModule.opens();
+		if (opens != null) {
+			mod.opens = new PackageExportInfo[opens.length];
+			for (int i = 0; i < opens.length; i++) {
+				PackageExportInfo open = new PackageExportInfo();
+				open.pack = opens[i].name();
+				open.target = opens[i].targets();
+				mod.opens[i] = open;
+			}
+		} else {
+			mod.opens = NO_OPENS;
+		}
+		return mod;
+	}
 	private static PackageExportInfo createPackageExport(ExportsStatement ref) {
 		PackageExportInfo exp = new PackageExportInfo();
 		exp.pack = ref.pkgName;

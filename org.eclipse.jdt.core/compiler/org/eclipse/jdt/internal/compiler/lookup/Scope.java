@@ -2900,7 +2900,7 @@ public abstract class Scope {
 	*/
 	public final Binding getPackage(char[][] compoundName) {
  		compilationUnitScope().recordQualifiedReference(compoundName);
-//		Binding binding = getTypeOrPackage(compoundName[0], Binding.TYPE | Binding.PACKAGE, true);
+		Binding binding = getTypeOrPackage(compoundName[0], Binding.TYPE, true);
 //		if (binding == null) {
 //			char[][] qName = new char[][] { compoundName[0] };
 //			return new ProblemReferenceBinding(qName, environment().createMissingType(null, compoundName), ProblemReasons.NotFound);
@@ -2913,11 +2913,13 @@ public abstract class Scope {
 //			return binding;
 //		}
 //		if (!(binding instanceof PackageBinding)) return null; // compoundName does not start with a package
-
+		if (binding != null && binding.isValidBinding()) { // found type
+			return null;
+		}
 		int currentIndex = 0, length = compoundName.length;
 		ModuleBinding clientModule = this.environment().getModule(module());
 		PackageBinding packageBinding = null;//(PackageBinding) binding;
-		Binding binding = null;
+//		Binding binding = null;
 		while (currentIndex < length) {
 //			binding = packageBinding.getTypeOrPackage(compoundName[currentIndex++], module());
 //			if (binding == null) {
@@ -2936,7 +2938,8 @@ public abstract class Scope {
 				return packageBinding;
 			packageBinding = (PackageBinding) binding;
 		}
-		return new ProblemReferenceBinding(compoundName, null /* no closest match since search for pkg*/, ProblemReasons.NotFound);
+		char[][] problemName = CharOperation.subarray(compoundName, 0, packageBinding != null ? packageBinding.compoundName.length + 1 : 1);
+		return new ProblemReferenceBinding(problemName, null /* no closest match since search for pkg*/, ProblemReasons.NotFound);
 	}
 
 	/* Answer the package from the compoundName or null if it begins with a type.

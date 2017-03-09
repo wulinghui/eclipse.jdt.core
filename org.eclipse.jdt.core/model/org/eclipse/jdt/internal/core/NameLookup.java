@@ -17,6 +17,9 @@ package org.eclipse.jdt.internal.core;
 
 import java.io.File;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import org.eclipse.core.resources.*;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -49,6 +52,8 @@ import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.IModuleContext;
 import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
 import org.eclipse.jdt.internal.compiler.env.IModulePathEntry;
+import org.eclipse.jdt.internal.compiler.env.IPackageLookup;
+import org.eclipse.jdt.internal.compiler.env.ITypeLookup;
 import org.eclipse.jdt.internal.compiler.lookup.ModuleEnvironment;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.parser.ScannerHelper;
@@ -340,7 +345,40 @@ public class NameLookup implements SuffixConstants {
 			return null;
 		}
 	}
+	public static class Roots implements IModuleEnvironment {
+		private IPackageFragmentRoot[] roots;
+		Roots(IPackageFragmentRoot[] roots) {
+			this.roots = roots;
+		}
 
+		@Override
+		public ITypeLookup typeLookup() {
+			return ITypeLookup.Dummy;
+		}
+
+		@Override
+		public IPackageLookup packageLookup() {
+			return IPackageLookup.Dummy;
+		}
+		
+		public boolean isIncludedIn(IModuleEnvironment other) {
+			if (this == other)
+				return true;
+			if (!(other instanceof Roots))
+				return false;
+			Roots env = (Roots) other;
+			if (this.roots == null) {
+				return env.roots == null;
+			} else if (env.roots == null){
+				return false;
+			}
+			int len = this.roots.length;
+			int otherLen = env.roots.length;
+			if (len > otherLen)
+				return false;
+			return Stream.of(this.roots).flatMap(r -> Stream.of(env.roots).filter(root -> r.equals(root))).count() == this.roots.length;
+		}
+	}
 	public static class Answer {
 		public IType type;
 		public IModuleDescription module;
@@ -1322,14 +1360,25 @@ public class NameLookup implements SuffixConstants {
 		return context.getEnvironment().anyMatch(e -> {
 			if (value instanceof PackageFragmentRoot) {
 				PackageFragmentRoot root = (PackageFragmentRoot)value;
-				return e.equals(e instanceof JavaProject ? root.getJavaProject() : root);
+				IModuleDescription mod = root.getModuleDescription();
+				try {
+					Roots env = (Roots) getModuleEnvironmentFor(mod == null ? null : mod.getElementName().toCharArray());
+					return env.isIncludedIn(e);
+				} catch (JavaModelException e1) {
+					// not expected
+				}
 			} else {
 				IPackageFragmentRoot[] roots = (IPackageFragmentRoot[]) value;
 				if (roots != null) {
 					for (int i = 0, length = roots.length; i < length; i++) {
 						PackageFragmentRoot root = (PackageFragmentRoot) roots[i];
-						if (e.equals(e instanceof JavaProject ? root.getJavaProject() : root))
-							return true;
+						IModuleDescription mod = root.getModuleDescription();
+						try {
+							Roots env = (Roots) getModuleEnvironmentFor(mod == null ? null : mod.getElementName().toCharArray());
+							if (env.isIncludedIn(e)) return true;
+						} catch (JavaModelException e1) {
+							// not expected
+						}
 					}
 				}
 			}
@@ -1435,15 +1484,25 @@ public class NameLookup implements SuffixConstants {
 		String[] pkgName = (String[]) this.packageFragments.keyTable[pkgIndex];
 		context.getEnvironment().forEach(r -> {
 			if (value instanceof PackageFragmentRoot) {
-				Object toCompare = value;
-				// TODO: need better representation of IModuleEnvironment and IModulePathEntry
-				// in the model to avoid comparison based on instance
-				if (r instanceof JavaProject) {
-					toCompare  = ((PackageFragmentRoot)value).getJavaProject();
-				}
-				if (r.equals(toCompare)) {
-					PackageFragmentRoot root = (PackageFragmentRoot) value;
-					requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
+//				Object toCompare = value;
+//				// TODO: need better representation of IModuleEnvironment and IModulePathEntry
+//				// in the model to avoid comparison based on instance
+//				if (r instanceof JavaProject) {
+//					toCompare  = ((PackageFragmentRoot)value).getJavaProject();
+//				}
+//				if (r.equals(toCompare)) {
+//					PackageFragmentRoot root = (PackageFragmentRoot) value;
+//					requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
+//				}
+				IModuleDescription mod = ((PackageFragmentRoot)value).getModuleDescription();
+				try {
+					Roots env = (Roots) getModuleEnvironmentFor(mod == null ? null : mod.getElementName().toCharArray());
+					if (env.isIncludedIn(r)) {
+						PackageFragmentRoot root = (PackageFragmentRoot) value;
+						requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
+					}
+				} catch (JavaModelException e1) {
+					// not expected
 				}
 			} else {
 				IPackageFragmentRoot[] roots = (IPackageFragmentRoot[]) value;
@@ -1452,12 +1511,21 @@ public class NameLookup implements SuffixConstants {
 						if (requestor.isCanceled())
 							return;
 						PackageFragmentRoot root = (PackageFragmentRoot) roots[i];
-						Object toCompare = root;
-						if (r instanceof JavaProject) {
-							toCompare  = root.getJavaProject();
+						IModuleDescription mod = root.getModuleDescription();
+						try {
+							Roots env = (Roots) getModuleEnvironmentFor(mod == null ? null : mod.getElementName().toCharArray());
+							if (env.isIncludedIn(r)) {
+								requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
+							}
+						} catch (JavaModelException e1) {
+							// not expected
 						}
-						if (r.equals(toCompare))
-							requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
+//						Object toCompare = root;
+//						if (r instanceof JavaProject) {
+//							toCompare  = root.getJavaProject();
+//						}
+//						if (r.equals(toCompare))
+//							requestor.acceptPackageFragment(root.getPackageFragment(pkgName));
 					}
 				}
 			}
@@ -1573,6 +1641,10 @@ public class NameLookup implements SuffixConstants {
 		}
 	}
 	public IModuleEnvironment getModuleEnvironmentFor(char[] moduleName) throws JavaModelException {
+		if (moduleName == null || moduleName.length == 0) {
+			List<IPackageFragmentRoot> roots = Stream.of(this.packageFragmentRoots).filter(root -> !(root instanceof IModulePathEntry) && root.getModuleDescription() == null).collect(Collectors.toList());
+			return roots.isEmpty() ? null : new Roots(roots.toArray(new IPackageFragmentRoot[roots.size()]));
+		}
 		String name = CharOperation.charToString(moduleName);
 		IModulePathEntry entry = JavaModelManager.getModulePathManager().getModuleRoot(name);
 		if (entry != null) {
@@ -1582,16 +1654,21 @@ public class NameLookup implements SuffixConstants {
 		// revisit PackageFragmentRoot being a IModuleEnvironment
 		// It is not ideal to expect a java model element to cater to type lookup.
 		// Besides, the JrtPFR seemed to have only bogus implementation anyway.
-		int count= this.packageFragmentRoots.length;
-		for (int i= 0; i < count; i++) {
-			IPackageFragmentRoot root= this.packageFragmentRoots[i];
-			if (root instanceof JrtPackageFragmentRoot) {
-				if (CharOperation.equals(moduleName, root.getElementName().toCharArray())) {
-					return (IModuleEnvironment) root;
-				}
-			}
-		}
-		return null;
+//		int count= this.packageFragmentRoots.length;
+//		for (int i= 0; i < count; i++) {
+//			IPackageFragmentRoot root= this.packageFragmentRoots[i];
+//			if (root instanceof JrtPackageFragmentRoot) {
+//				if (CharOperation.equals(moduleName, root.getElementName().toCharArray())) {
+//					return new Roots(new IPackageFragmentRoot[]{root});
+//				}
+//			}
+//		}
+		IPackageFragmentRoot root = Stream.of(this.packageFragmentRoots).filter(r -> {
+			IModuleDescription desc = r.getModuleDescription();
+			return desc != null && CharOperation.equals(desc.getElementName().toCharArray(), moduleName);
+		}).findFirst().orElse(null);
+		
+		return root == null ? null : new Roots(new IPackageFragmentRoot[] {root});
 	}
 	public void seekModules(char[] name, JavaElementRequestor requestor) {
 		seekModule(name, false, requestor);

@@ -131,7 +131,7 @@ public class LookupEnvironment implements ProblemReasons, TypeConstants {
 
 	static final ProblemPackageBinding TheNotFoundPackage = new ProblemPackageBinding(CharOperation.NO_CHAR, NotFound);
 	static final ProblemReferenceBinding TheNotFoundType = new ProblemReferenceBinding(CharOperation.NO_CHAR_CHAR, null, NotFound);
-	final ModuleBinding UnNamedModule;
+	public final ModuleBinding UnNamedModule;
 
 public LookupEnvironment(ITypeRequestor typeRequestor, CompilerOptions globalOptions, ProblemReporter problemReporter, INameEnvironment nameEnvironment) {
 	this.typeRequestor = typeRequestor;
@@ -190,7 +190,7 @@ public ReferenceBinding askForType(char[][] compoundName, char[] mod) {
 	if (answer.isBinaryType()) {
 		// the type was found as a .class file
 		PackageBinding pkg = computePackageFrom(compoundName, false /* valid pkg */, moduleName);
-		this.typeRequestor.accept(answer.getBinaryType(), pkg, answer.getAccessRestriction());
+		this.typeRequestor.accept(answer.getBinaryType(), pkg, answer.getAccessRestriction(), declaringModule);
 //		ReferenceBinding binding = pkg.getType0(compoundName[compoundName.length - 1]);
 //		if (binding instanceof BinaryTypeBinding) {
 //			((BinaryTypeBinding) binding).module = declaringModule;
@@ -238,9 +238,10 @@ ReferenceBinding askForType(PackageBinding packageBinding, char[] name, char[] m
 //			&& !this.nameEnvironment.isPackageVisible(packageBinding.readableName(), module, mod)) {
 //		return null;
 //	}
+	ModuleBinding declaringModule = getModule(module);
 	if (answer.isBinaryType()) {
 		// the type was found as a .class file
-		this.typeRequestor.accept(answer.getBinaryType(), packageBinding, answer.getAccessRestriction());
+		this.typeRequestor.accept(answer.getBinaryType(), packageBinding, answer.getAccessRestriction(), declaringModule);
 //		ReferenceBinding binding = packageBinding.getType0(name);
 //		if (binding instanceof BinaryTypeBinding) {
 //			((BinaryTypeBinding) binding).module = getModule(module);
@@ -552,17 +553,16 @@ public PackageBinding computePackageFrom(char[][] constantPoolName, boolean isMi
 		return this.defaultPackage;
 
 	ModuleBinding mod = getModule(declaringModule);
-	char[][] pkgName = CharOperation.subarray(constantPoolName, 0, constantPoolName.length - 1);
-	PackageBinding packageBinding = mod.getPackage(pkgName);
+	PackageBinding packageBinding = mod.computePackageFrom(constantPoolName, isMissing);
 //	PackageBinding packageBinding = getPackage0(constantPoolName[0]);
 //	if (packageBinding == null || packageBinding == TheNotFoundPackage) {
 //		packageBinding = new PackageBinding(constantPoolName[0], this);
 //		if (isMissing) packageBinding.tagBits |= TagBits.HasMissingType;
 //		this.knownPackages.put(constantPoolName[0], packageBinding);
 //	}
-	if (isMissing) {
-		packageBinding.tagBits |= TagBits.HasMissingType;
-	}
+//	if (isMissing) {
+//		packageBinding.tagBits |= TagBits.HasMissingType;
+//	}
 //	for (int i = 1, length = constantPoolName.length - 1; i < length; i++) {
 //		PackageBinding parent = packageBinding;
 //		if ((packageBinding = parent.getPackage0(constantPoolName[i])) == null || packageBinding == TheNotFoundPackage) {
@@ -798,11 +798,18 @@ public TypeBinding createIntersectionType18(ReferenceBinding[] intersectingTypes
 }	
 
 public BinaryTypeBinding createBinaryTypeFrom(IBinaryType binaryType, PackageBinding packageBinding, AccessRestriction accessRestriction) {
-	return createBinaryTypeFrom(binaryType, packageBinding, true, accessRestriction);
+	return createBinaryTypeFrom(binaryType, packageBinding, true, accessRestriction, this.UnNamedModule);
 }
-
+public BinaryTypeBinding createBinaryTypeFrom(IBinaryType binaryType, PackageBinding packageBinding, AccessRestriction accessRestriction, ModuleBinding declaringModule) {
+	return createBinaryTypeFrom(binaryType, packageBinding, true, accessRestriction, declaringModule);
+}
 public BinaryTypeBinding createBinaryTypeFrom(IBinaryType binaryType, PackageBinding packageBinding, boolean needFieldsAndMethods, AccessRestriction accessRestriction) {
-	BinaryTypeBinding binaryBinding = new BinaryTypeBinding(packageBinding, binaryType, this);
+	return createBinaryTypeFrom(binaryType, packageBinding, needFieldsAndMethods, accessRestriction, this.UnNamedModule);
+}
+public BinaryTypeBinding createBinaryTypeFrom(IBinaryType binaryType, PackageBinding packageBinding, boolean needFieldsAndMethods, AccessRestriction accessRestriction, ModuleBinding declaringModule) {
+	if (declaringModule == null)
+		declaringModule = this.UnNamedModule;
+	BinaryTypeBinding binaryBinding = new BinaryTypeBinding(packageBinding, binaryType, this, declaringModule);
 
 	// resolve any array bindings which reference the unresolvedType
 	ReferenceBinding cachedType = packageBinding.getType0(binaryBinding.compoundName[binaryBinding.compoundName.length - 1]);
@@ -1409,15 +1416,17 @@ PackageBinding getTopLevelPackage(char[] name, char[] mod) {
 			return null;
 		return packageBinding;
 	}
-	if (this.nameEnvironment instanceof IModuleAwareNameEnvironment) {
-		ModuleBinding module = getModule(mod);
-		if (module != null)
-			packageBinding = module.getPackage(null, name);
-	} else {
-		if (this.nameEnvironment.isPackage(null, name)) {
-			packageBinding = new PackageBinding(name, this);
-		}
-	}
+	ModuleBinding module = getModule(mod);
+	packageBinding = module.getPackage(null, name);
+//	if (this.nameEnvironment instanceof IModuleAwareNameEnvironment) {
+//		ModuleBinding module = getModule(mod);
+//		if (module != null)
+//			packageBinding = module.getPackage(null, name);
+//	} else {
+//		if (this.nameEnvironment.isPackage(null, name)) {
+//			packageBinding = new PackageBinding(name, this);
+//		}
+//	}
 	if (packageBinding != null) {
 	//if (this.nameEnvironment.isPackage(null, name, mod)) {
 		this.knownPackages.put(name, packageBinding);

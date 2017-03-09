@@ -17,7 +17,6 @@ package org.eclipse.jdt.internal.compiler.ast;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.ClassScope;
@@ -79,7 +78,7 @@ public class ProvidesStatement extends ModuleStatement {
 					if (!implType.canBeSeenBy(scope)) {
 						//
 						scope.problemReporter().invalidType(this.implementations[i], new ProblemReferenceBinding(
-								CharOperation.NO_CHAR_CHAR, (ReferenceBinding) implType, ProblemReasons.NotVisible));
+								new char[][] {implType.readableName()}, (ReferenceBinding) implType, ProblemReasons.NotVisible));
 						hasErrors = true;
 					}
 				} else {

@@ -541,7 +541,7 @@ public class ModuleBinding extends Binding {
 	}
 	public Binding getTypeOrPackage(char[][] name) {
 		ReferenceBinding type = findType(name);
-		if (type != null && type != LookupEnvironment.TheNotFoundType)
+		if (type != null && type.isValidBinding())
 			return type;
 		PackageBinding packageBinding = getPackage(name);
 		return packageBinding;
@@ -578,6 +578,40 @@ public class ModuleBinding extends Binding {
 			return pkg.getType0(compoundName[compoundName.length - 1]);
 		}
 		return null;
+	}
+	public PackageBinding computePackageFrom(char[][] constantPoolName, boolean isMissing) {
+		if (constantPoolName.length == 1)
+			return this.environment.getDefaultPackage(this.moduleName);
+
+		char[][] pkgName = CharOperation.subarray(constantPoolName, 0, constantPoolName.length - 1);
+		char[] qualifiedName = CharOperation.concatWith(pkgName, '.');
+		PackageBinding packageBinding = this.declaredPackages.get(qualifiedName);
+		if (packageBinding == null || packageBinding == LookupEnvironment.TheNotFoundPackage) {
+			packageBinding = new PackageBinding(pkgName, null, this.environment);
+			this.declaredPackages.put(qualifiedName, packageBinding);
+			if (isMissing) {
+				packageBinding.tagBits |= TagBits.HasMissingType;
+			}
+		}
+//		PackageBinding packageBinding = mod.getPackage(pkgName);
+//		PackageBinding packageBinding = getPackage0(constantPoolName[0]);
+//		if (packageBinding == null || packageBinding == TheNotFoundPackage) {
+//			packageBinding = new PackageBinding(constantPoolName[0], this);
+//			if (isMissing) packageBinding.tagBits |= TagBits.HasMissingType;
+//			this.knownPackages.put(constantPoolName[0], packageBinding);
+//		}
+		
+//		for (int i = 1, length = constantPoolName.length - 1; i < length; i++) {
+//			PackageBinding parent = packageBinding;
+//			if ((packageBinding = parent.getPackage0(constantPoolName[i])) == null || packageBinding == TheNotFoundPackage) {
+//				packageBinding = new PackageBinding(CharOperation.subarray(constantPoolName, 0, i + 1), parent, this);
+//				if (isMissing) {
+//					packageBinding.tagBits |= TagBits.HasMissingType;
+//				}
+//				parent.addPackage(packageBinding);
+//			}
+//		}
+		return packageBinding;
 	}
 	public TypeBinding getTypeFromTypeSignature(SignatureWrapper wrapper, TypeVariableBinding[] staticVariables, ReferenceBinding enclosingType, 
 			char[][][] missingTypeNames, ITypeAnnotationWalker walker) 

@@ -287,18 +287,20 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 		this.stats = new CompilerStats();
 		initializeParser();
 	}
-
+	public void accept(IBinaryType binaryType, PackageBinding packageBinding, AccessRestriction accessRestriction) {
+		accept(binaryType, packageBinding, accessRestriction, this.lookupEnvironment.UnNamedModule);
+	}
 	/**
 	 * Add an additional binary type
 	 */
-	public void accept(IBinaryType binaryType, PackageBinding packageBinding, AccessRestriction accessRestriction) {
+	public void accept(IBinaryType binaryType, PackageBinding packageBinding, AccessRestriction accessRestriction, ModuleBinding declaringModule) {
 		if (this.options.verbose) {
 			this.out.println(
 				Messages.bind(Messages.compilation_loadBinary, new String(binaryType.getName())));
 //			new Exception("TRACE BINARY").printStackTrace(System.out);
 //		    System.out.println();
 		}
-		this.lookupEnvironment.createBinaryTypeFrom(binaryType, packageBinding, accessRestriction);
+		this.lookupEnvironment.createBinaryTypeFrom(binaryType, packageBinding, accessRestriction, declaringModule);
 	}
 
 	/**

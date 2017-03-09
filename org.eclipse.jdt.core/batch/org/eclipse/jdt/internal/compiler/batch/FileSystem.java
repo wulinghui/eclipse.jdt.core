@@ -33,6 +33,8 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ExternalAnnotationDecorator;
 import org.eclipse.jdt.internal.compiler.env.AccessRuleSet;
 import org.eclipse.jdt.internal.compiler.env.IModulePathEntry;
+import org.eclipse.jdt.internal.compiler.env.IMultiModuleEntry;
+import org.eclipse.jdt.internal.compiler.env.IPackageLookup;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.IModuleAwareNameEnvironment;
 import org.eclipse.jdt.internal.compiler.env.IModuleContext;
@@ -497,6 +499,20 @@ public IModule getModule(char[] name) {
 	
 }
 public IModuleEnvironment getModuleEnvironmentFor(char[] moduleName) {
+	if (moduleName == null || moduleName.length == 0) {
+		Stream<Classpath> locations = Stream.of(this.classpaths).filter(p -> !(p instanceof IMultiModuleEntry) && p.getModule() == null);
+		return new IModuleEnvironment() {
+			@Override
+			public ITypeLookup typeLookup() {
+				return locations.map(loc -> loc.getLookupEnvironment().typeLookup()).reduce(ITypeLookup::chain).orElse(ITypeLookup.Dummy);
+			}
+
+			@Override
+			public IPackageLookup packageLookup() {
+				return name -> locations.map(loc -> loc.getLookupEnvironment().packageLookup()).anyMatch(p -> p.isPackage(name));
+			}
+		};
+	}
 	return (IModuleEnvironment) Stream.of(this.classpaths).filter(cp -> cp.getModule(moduleName) != null).findAny().orElse(null);
 }
 private NameEnvironmentAnswer internalFindClass(String qualifiedTypeName, char[] typeName, boolean asBinaryOnly, IModuleContext moduleContext) {
