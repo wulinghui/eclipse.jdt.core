@@ -486,49 +486,60 @@ public LocalVariableBinding findVariable(char[] variableName) {
  *	IMPORTANT NOTE: This method is written under the assumption that compoundName is longer than length 1.
  */
 public Binding getBinding(char[][] compoundName, int mask, InvocationSite invocationSite, boolean needResolve) {
-	Binding binding = getBinding(compoundName[0], mask | Binding.TYPE | Binding.PACKAGE, invocationSite, needResolve);
+	Binding binding = getBinding(compoundName[0], mask | Binding.TYPE, invocationSite, needResolve);
 	invocationSite.setFieldIndex(1);
 	if (binding instanceof VariableBinding) return binding;
 	CompilationUnitScope unitScope = compilationUnitScope();
+	ModuleBinding client = this.environment().getModule(module());
+//	binding = client.getTypeOrPackage(compoundName);
 	// in the problem case, we want to ensure we record the qualified dependency in case a type is added
 	// and we do not know that its package was also added (can happen with CompilationParticipants)
 	unitScope.recordQualifiedReference(compoundName);
-	if (!binding.isValidBinding()) return binding;
+//	if (!binding.isValidBinding()) return binding;
 
 	int length = compoundName.length;
 	int currentIndex = 1;
-	foundType : if (binding instanceof PackageBinding) {
-		PackageBinding packageBinding = (PackageBinding) binding;
+	//foundType : if (binding instanceof PackageBinding) {
+	foundType : if (binding == null || !binding.isValidBinding()) {
+		PackageBinding packageBinding = null;//(PackageBinding) binding;
 		while (currentIndex < length) {
-			unitScope.recordReference(packageBinding.compoundName, compoundName[currentIndex]);
-			binding = packageBinding.getTypeOrPackage(compoundName[currentIndex++], module());
+			//unitScope.recordReference(packageBinding.compoundName, compoundName[currentIndex]);
+			//binding = packageBinding.getTypeOrPackage(compoundName[currentIndex++], module());
+			char[][] name = CharOperation.subarray(compoundName, 0, ++currentIndex);
+			binding = client.getTypeOrPackage(name);
 			invocationSite.setFieldIndex(currentIndex);
 			if (binding == null) {
 				if (currentIndex == length) {
 					// must be a type if its the last name, otherwise we have no idea if its a package or type
 					return new ProblemReferenceBinding(
-						CharOperation.subarray(compoundName, 0, currentIndex),
+						//CharOperation.subarray(compoundName, 0, currentIndex),
+						name,
 						null,
 						ProblemReasons.NotFound);
 				}
-				return new ProblemBinding(
-					CharOperation.subarray(compoundName, 0, currentIndex),
-					ProblemReasons.NotFound);
+//				return new ProblemBinding(
+//					//CharOperation.subarray(compoundName, 0, currentIndex),
+//					name,
+//					ProblemReasons.NotFound);
+				continue;
 			}
 			if (binding instanceof ReferenceBinding) {
 				if (!binding.isValidBinding())
 					return new ProblemReferenceBinding(
-						CharOperation.subarray(compoundName, 0, currentIndex),
+						//CharOperation.subarray(compoundName, 0, currentIndex),
+						name,
 						(ReferenceBinding)((ReferenceBinding)binding).closestMatch(),
 						binding.problemId());
 				if (!((ReferenceBinding) binding).canBeSeenBy(this))
 					return new ProblemReferenceBinding(
-						CharOperation.subarray(compoundName, 0, currentIndex),
+						//CharOperation.subarray(compoundName, 0, currentIndex),
+						name,
 						(ReferenceBinding) binding,
 						ProblemReasons.NotVisible);
 				break foundType;
 			}
 			packageBinding = (PackageBinding) binding;
+			unitScope.recordReference(packageBinding.compoundName, compoundName[currentIndex]);
 		}
 
 		// It is illegal to request a PACKAGE from this method.

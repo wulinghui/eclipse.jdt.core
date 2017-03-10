@@ -75,7 +75,7 @@ public class ProvidesStatement extends ModuleStatement {
 				TypeBinding implType = impl;
 				if (provider != null) {
 					implType = provider.returnType;
-					if (!implType.canBeSeenBy(scope)) {
+					if (implType.isValidBinding() && !implType.canBeSeenBy(scope)) {
 						//
 						scope.problemReporter().invalidType(this.implementations[i], new ProblemReferenceBinding(
 								new char[][] {implType.readableName()}, (ReferenceBinding) implType, ProblemReasons.NotVisible));

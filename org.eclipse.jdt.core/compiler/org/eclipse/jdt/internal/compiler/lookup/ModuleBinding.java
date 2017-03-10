@@ -46,6 +46,25 @@ public class ModuleBinding extends Binding {
 		protected Stream<ModuleBinding> getRequiredModules(boolean transitiveOnly) {
 			return Stream.of(this.environment.knownModules.valueTable).filter(m -> m != null);
 		}
+		public PackageBinding computePackageFrom(char[][] constantPoolName, boolean isMissing) {
+			if (constantPoolName.length == 1)
+				return this.environment.getDefaultPackage(this.moduleName);
+
+			char[][] pkgName = CharOperation.subarray(constantPoolName, 0, constantPoolName.length - 1);
+			char[] qualifiedName = CharOperation.concatWith(pkgName, '.');
+			PackageBinding packageBinding = this.declaredPackages.get(qualifiedName);
+			if (packageBinding == null || packageBinding == LookupEnvironment.TheNotFoundPackage) {
+				packageBinding = getRequiredModules(false).map(m -> m.getExportedPackage(qualifiedName)).filter(p -> p != null).findFirst().orElse(null);
+				if(packageBinding != null)
+					return packageBinding;
+				packageBinding = new PackageBinding(pkgName, null, this.environment);
+				this.declaredPackages.put(qualifiedName, packageBinding);
+				if (isMissing) {
+					packageBinding.tagBits |= TagBits.HasMissingType;
+				}
+			}
+			return packageBinding;
+		}
 //		public ModuleBinding[] getAllRequiredModules() {
 //			List<ModuleBinding> allModules = Stream.of(this.environment.knownModules.valueTable).filter(m -> m != null).collect(Collectors.toList());
 //			allModules.add(this.environment.getModule(TypeConstants.JAVA_BASE));
@@ -184,17 +203,20 @@ public class ModuleBinding extends Binding {
 	 * @return true if the package is visible to the client module, false otherwise
 	 */
 	public boolean isPackageExportedTo(PackageBinding pkg, ModuleBinding client) {
-		PackageBinding resolved = getExportedPackage(pkg.readableName());
-		if (resolved == pkg) {
-			if (this.isAuto) { // all packages are exported by an automatic module
+		PackageBinding resolved = getDeclaredPackage(pkg.compoundName);
+		if (resolved != null) {
+			if (this.isAuto || this == client) { // all packages are exported by an automatic module
 				return true;
 			}
-			Predicate<IPackageExport> isTargeted = IPackageExport::isQualified;
 			Predicate<IPackageExport> isExportedTo = e -> 
 				Stream.of(e.targets()).map(ref -> this.environment.getModule(ref)).filter(m -> m != null).anyMatch(client::equals);
 			
 			return Stream.of(this.exports).filter(e -> CharOperation.equals(pkg.readableName(), e.name()))
-					.anyMatch(isTargeted.negate().or(isExportedTo));
+					.anyMatch(e -> {
+						if (!e.isQualified())
+							return true;
+						return client != this.environment.UnNamedModule && isExportedTo.test(e);
+					});
 		}
 		return false;
 	}
@@ -530,7 +552,7 @@ public class ModuleBinding extends Binding {
 		// TODO
 		ReferenceBinding binding = null;
 		char[][] parentPackageName =  CharOperation.subarray(compoundName, 0, compoundName.length - 1);
-		PackageBinding pkg = getDeclaredPackage(parentPackageName);
+		PackageBinding pkg = getPackage(parentPackageName);
 		if (pkg != null) {
 			binding = pkg.getType(compoundName[compoundName.length - 1], this.moduleName);
 		}
@@ -593,24 +615,6 @@ public class ModuleBinding extends Binding {
 				packageBinding.tagBits |= TagBits.HasMissingType;
 			}
 		}
-//		PackageBinding packageBinding = mod.getPackage(pkgName);
-//		PackageBinding packageBinding = getPackage0(constantPoolName[0]);
-//		if (packageBinding == null || packageBinding == TheNotFoundPackage) {
-//			packageBinding = new PackageBinding(constantPoolName[0], this);
-//			if (isMissing) packageBinding.tagBits |= TagBits.HasMissingType;
-//			this.knownPackages.put(constantPoolName[0], packageBinding);
-//		}
-		
-//		for (int i = 1, length = constantPoolName.length - 1; i < length; i++) {
-//			PackageBinding parent = packageBinding;
-//			if ((packageBinding = parent.getPackage0(constantPoolName[i])) == null || packageBinding == TheNotFoundPackage) {
-//				packageBinding = new PackageBinding(CharOperation.subarray(constantPoolName, 0, i + 1), parent, this);
-//				if (isMissing) {
-//					packageBinding.tagBits |= TagBits.HasMissingType;
-//				}
-//				parent.addPackage(packageBinding);
-//			}
-//		}
 		return packageBinding;
 	}
 	public TypeBinding getTypeFromTypeSignature(SignatureWrapper wrapper, TypeVariableBinding[] staticVariables, ReferenceBinding enclosingType, 

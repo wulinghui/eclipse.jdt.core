@@ -1460,7 +1460,7 @@ public ReferenceBinding getType(char[][] compoundName, char[] mod) {
 			PackageBinding packageBinding = client.getPackage(compoundName);
 			if (packageBinding != null && packageBinding != TheNotFoundPackage)
 				return null;
-			referenceBinding = askForType(this.defaultPackage, compoundName[0], mod);
+			referenceBinding = askForType(def, compoundName[0], mod);
 		}
 	} else {
 //		PackageBinding packageBinding = getPackage0(compoundName[0]);

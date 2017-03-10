@@ -2934,12 +2934,12 @@ public abstract class Scope {
 					CharOperation.subarray(compoundName, 0, currentIndex),
 					binding instanceof ReferenceBinding ? (ReferenceBinding)((ReferenceBinding)binding).closestMatch() : null,
 					binding.problemId());
-			if (!(binding instanceof PackageBinding))
-				return packageBinding;
+			if (binding instanceof ReferenceBinding)
+				return ((ReferenceBinding) binding).fPackage;
 			packageBinding = (PackageBinding) binding;
 		}
 		char[][] problemName = CharOperation.subarray(compoundName, 0, packageBinding != null ? packageBinding.compoundName.length + 1 : 1);
-		return new ProblemReferenceBinding(problemName, null /* no closest match since search for pkg*/, ProblemReasons.NotFound);
+		return new ProblemReferenceBinding(problemName == null ? compoundName : problemName, null /* no closest match since search for pkg*/, ProblemReasons.NotFound);
 	}
 
 	/* Answer the package from the compoundName or null if it begins with a type.

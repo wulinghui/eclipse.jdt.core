@@ -633,8 +633,12 @@ ImportBinding[] getDefaultImports() {
 //	Binding importBinding = this.environment.getTopLevelPackage(TypeConstants.JAVA, module());
 //	if (importBinding != null)
 //		importBinding = ((PackageBinding) importBinding).getTypeOrPackage(TypeConstants.JAVA_LANG[1], module());
-	ModuleBinding clientModule = this.environment.getModule(module());
-	Binding importBinding = clientModule.getPackage(TypeConstants.JAVA_LANG);
+	ModuleBinding javaBase = this.environment.getModule(TypeConstants.JAVA_BASE);
+	ModuleBinding target = javaBase;
+	if (javaBase == null) {
+		target = this.environment.getModule(module());
+	}
+	Binding importBinding = target.getPackage(TypeConstants.JAVA_LANG);
 	if (importBinding == null || !importBinding.isValidBinding()) {
 		// create a proxy for the missing BinaryType
 		problemReporter().isClassPathCorrect(

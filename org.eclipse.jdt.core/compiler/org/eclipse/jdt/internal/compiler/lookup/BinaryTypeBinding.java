@@ -318,8 +318,8 @@ public BinaryTypeBinding(PackageBinding packageBinding, IBinaryType binaryType, 
 }
 public boolean canBeSeenBy(Scope sco) {
 	ModuleBinding mod = this.environment.getModule(sco.module());
-	return this.module.isPackageExportedTo(this.fPackage, mod) && super.canBeSeenBy(sco);
-	//return mod.canSee(this.fPackage) && super.canBeSeenBy(sco);
+	//return this.module.isPackageExportedTo(this.fPackage, mod) && super.canBeSeenBy(sco);
+	return mod.canSee(this.fPackage) && super.canBeSeenBy(sco);
 }
 /**
  * @see org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding#availableFields()
