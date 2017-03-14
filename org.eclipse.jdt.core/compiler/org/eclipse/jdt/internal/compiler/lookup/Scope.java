@@ -3033,37 +3033,42 @@ public abstract class Scope {
 
 		CompilationUnitScope unitScope = compilationUnitScope();
 		unitScope.recordQualifiedReference(compoundName);
-		Binding binding = getTypeOrPackage(compoundName[0], typeNameLength == 1 ? Binding.TYPE : Binding.TYPE | Binding.PACKAGE, true);
-		if (binding == null) {
-			char[][] qName = new char[][] { compoundName[0] };
-			return new ProblemReferenceBinding(qName, environment().createMissingType(compilationUnitScope().getCurrentPackage(), qName), ProblemReasons.NotFound);
-		}
-		if (!binding.isValidBinding()) {
-			if (binding instanceof PackageBinding) {
-				char[][] qName = new char[][] { compoundName[0] };
-				return new ProblemReferenceBinding(
-						qName,
-						environment().createMissingType(null, qName),
-						ProblemReasons.NotFound);
-			}
-			return (ReferenceBinding) binding;
-		}
+		Binding binding = getTypeOrPackage(compoundName[0], Binding.TYPE, true);
+//		if (binding == null) {
+//			char[][] qName = new char[][] { compoundName[0] };
+//			return new ProblemReferenceBinding(qName, environment().createMissingType(compilationUnitScope().getCurrentPackage(), qName), ProblemReasons.NotFound);
+//		}
+//		if (!binding.isValidBinding()) {
+//			if (binding instanceof PackageBinding) {
+//				char[][] qName = new char[][] { compoundName[0] };
+//				return new ProblemReferenceBinding(
+//						qName,
+//						environment().createMissingType(null, qName),
+//						ProblemReasons.NotFound);
+//			}
+//			return (ReferenceBinding) binding;
+//		}
 		int currentIndex = 1;
 		boolean checkVisibility = false;
-		if (binding instanceof PackageBinding) {
-			PackageBinding packageBinding = (PackageBinding) binding;
+		ModuleBinding client = this.environment().getModule(module());
+		//if (binding instanceof PackageBinding) {
+		if (binding == null || !binding.isValidBinding()) {
+			PackageBinding packageBinding = null;//(PackageBinding) binding;
 			while (currentIndex < typeNameLength) {
-				binding = packageBinding.getTypeOrPackage(compoundName[currentIndex++], module()); // does not check visibility
+				//binding = packageBinding.getTypeOrPackage(compoundName[currentIndex++], module()); // does not check visibility
+				char[][] qName = CharOperation.subarray(compoundName, 0, ++currentIndex);
+				binding = client.getTypeOrPackage(qName);
 				if (binding == null) {
-					char[][] qName = CharOperation.subarray(compoundName, 0, currentIndex);
-					return new ProblemReferenceBinding(
-						qName,
-						environment().createMissingType(packageBinding, qName),
-						ProblemReasons.NotFound);
+//					char[][] qName = CharOperation.subarray(compoundName, 0, currentIndex);
+//					return new ProblemReferenceBinding(
+//						qName,
+//						environment().createMissingType(packageBinding, qName),
+//						ProblemReasons.NotFound);
+					continue;
 				}
 				if (!binding.isValidBinding())
 					return new ProblemReferenceBinding(
-						CharOperation.subarray(compoundName, 0, currentIndex),
+						qName,
 						binding instanceof ReferenceBinding ? (ReferenceBinding)((ReferenceBinding)binding).closestMatch() : null,
 						binding.problemId());
 				if (!(binding instanceof PackageBinding))
@@ -3080,6 +3085,20 @@ public abstract class Scope {
 			checkVisibility = true;
 		}
 
+		if (binding == null) {
+			char[][] qName = new char[][] { compoundName[0] };
+			return new ProblemReferenceBinding(qName, environment().createMissingType(compilationUnitScope().getCurrentPackage(), qName), ProblemReasons.NotFound);
+		}
+		if (!binding.isValidBinding()) {
+//			if (binding instanceof PackageBinding) {
+//				char[][] qName = new char[][] { compoundName[0] };
+//				return new ProblemReferenceBinding(
+//						qName,
+//						environment().createMissingType(null, qName),
+//						ProblemReasons.NotFound);
+//			}
+			return (ReferenceBinding) binding;
+		}
 		// binding is now a ReferenceBinding
 		ReferenceBinding typeBinding = (ReferenceBinding) binding;
 		unitScope.recordTypeReference(typeBinding);

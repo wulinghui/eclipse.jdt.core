@@ -491,7 +491,6 @@ public Binding getBinding(char[][] compoundName, int mask, InvocationSite invoca
 	if (binding instanceof VariableBinding) return binding;
 	CompilationUnitScope unitScope = compilationUnitScope();
 	ModuleBinding client = this.environment().getModule(module());
-//	binding = client.getTypeOrPackage(compoundName);
 	// in the problem case, we want to ensure we record the qualified dependency in case a type is added
 	// and we do not know that its package was also added (can happen with CompilationParticipants)
 	unitScope.recordQualifiedReference(compoundName);
