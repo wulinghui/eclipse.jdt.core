@@ -63,7 +63,7 @@ public abstract class PackageVisibilityStatement extends ModuleStatement {
 		ModuleDeclaration exportingModule = (ModuleDeclaration)scope.referenceContext();
 		ModuleBinding src = exportingModule.moduleBinding;
 		this.resolvedPackage = src != null ? src.getDeclaredPackage(this.pkgRef.tokens) : null;
-		if (this.resolvedPackage == null) {
+		if (this.resolvedPackage == null || !this.resolvedPackage.isValidBinding()) {
 			// TODO: need a check for empty package as well
 			scope.problemReporter().invalidPackageReference(IProblem.PackageDoesNotExistOrIsEmpty, this);
 		}

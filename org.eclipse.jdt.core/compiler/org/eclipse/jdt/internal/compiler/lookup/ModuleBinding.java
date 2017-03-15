@@ -292,8 +292,10 @@ public class ModuleBinding extends Binding {
 		}
 		if (declaresPackage(name)) {
 			binding = new PackageBinding(name, null, this.environment);
-			this.declaredPackages.put(qualifiedName, binding);
+		} else {
+			binding = LookupEnvironment.TheNotFoundPackage;
 		}
+		this.declaredPackages.put(qualifiedName, binding);
 		return binding;
 //		PackageBinding parent = null;
 //		PackageBinding existing = this.environment.getPackage0(name[0]); 
@@ -522,22 +524,27 @@ public class ModuleBinding extends Binding {
 		if (binding != null && binding != LookupEnvironment.TheNotFoundPackage) {
 			return binding;
 		}
-		if (binding == null) {
-			char[] qualifiedName = CharOperation.concatWith(compoundName, '.');
-			return Stream.of(getAllRequiredModules())
-					.map(m -> {
-//						if (m.isAuto) {
-//							return m.getPackage(compoundName);
-//						}
-						PackageBinding p = m.getExportedPackage(qualifiedName);
-						if (p != null && m.isPackageExportedTo(p, this)) {
-							return m.declaredPackages.get(qualifiedName);
-						}
-						return null;
-					})
-			.filter(p -> p != null).findFirst().orElse(null);
-		}
-		return binding;
+		return Stream.of(getAllRequiredModules()).map(m -> {
+			PackageBinding p = m.getDeclaredPackage(compoundName);
+			if (p != null && p.isValidBinding()) {
+				if (m.isPackageExportedTo(p, this)) {
+					return p;
+				} else {
+					return new ConcealedPackageBinding(compoundName, this.environment, m);
+				}
+			}
+			return null;
+		}).filter(p -> p != null).reduce(null, (p1, p2) -> {
+			if (p1 == null)
+				return p2;
+			if (p1.problemId() == ProblemReasons.Ambiguous)
+				return p1;
+			if (!p2.isValidBinding()) {
+				return p1;
+			} else {
+				return p1.isValidBinding() ? new ConflictPackageBinding(compoundName, this.environment) : p2;
+			}
+		});
 	}
 	public ReferenceBinding getType(char[][] compoundName) {
 		ReferenceBinding binding = null;
@@ -566,7 +573,12 @@ public class ModuleBinding extends Binding {
 		if (type != null && type.isValidBinding())
 			return type;
 		PackageBinding packageBinding = getPackage(name);
-		return packageBinding;
+		if (packageBinding != null) {
+			if (packageBinding.isValidBinding() || packageBinding.problemId() == ProblemReasons.Ambiguous)
+				return packageBinding;
+		}
+			
+		return null;
 	}
 	
 	public PackageBinding createPackage(char[][] compoundName) {
