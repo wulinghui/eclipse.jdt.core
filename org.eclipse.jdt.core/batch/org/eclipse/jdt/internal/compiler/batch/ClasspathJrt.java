@@ -380,19 +380,21 @@ public class ClasspathJrt extends ClasspathLocation implements IMultiModuleEntry
 
 	@Override
 	public IModuleEnvironment getLookupEnvironmentFor(IModule mod) {
+		if (mod == null || !servesModule(mod.name()))
+			return null;
 		// 
 		return new IModuleEnvironment() {
 			
 			@Override
 			public ITypeLookup typeLookup() {
 				//
-				return servesModule(mod.name()) ? typeLookupForModule(mod.name()) : ITypeLookup.Dummy;
+				return typeLookupForModule(mod.name());
 			}
 			
 			@Override
 			public IPackageLookup packageLookup() {
 				//
-				return servesModule(mod.name()) ? pkgLookupForModule(mod.name()) : IPackageLookup.Dummy;
+				return pkgLookupForModule(mod.name());
 			}
 		};
 	}

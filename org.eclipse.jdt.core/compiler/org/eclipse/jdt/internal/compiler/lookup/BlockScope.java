@@ -488,13 +488,18 @@ public LocalVariableBinding findVariable(char[] variableName) {
 public Binding getBinding(char[][] compoundName, int mask, InvocationSite invocationSite, boolean needResolve) {
 	Binding binding = getBinding(compoundName[0], mask | Binding.TYPE, invocationSite, needResolve);
 	invocationSite.setFieldIndex(1);
-	if (binding instanceof VariableBinding) return binding;
+	if (binding instanceof VariableBinding) {
+		if (binding.isValidBinding() || (mask & Binding.TYPE) == 0) // found variable or not looking for type
+			return binding;
+	}
 	CompilationUnitScope unitScope = compilationUnitScope();
 	ModuleBinding client = this.environment().getModule(module());
 	// in the problem case, we want to ensure we record the qualified dependency in case a type is added
 	// and we do not know that its package was also added (can happen with CompilationParticipants)
 	unitScope.recordQualifiedReference(compoundName);
-//	if (!binding.isValidBinding()) return binding;
+	Binding problemBinding = null;
+	if (binding != null && !binding.isValidBinding())
+		problemBinding = binding;
 
 	int length = compoundName.length;
 	int currentIndex = 1;
@@ -506,22 +511,11 @@ public Binding getBinding(char[][] compoundName, int mask, InvocationSite invoca
 			//binding = packageBinding.getTypeOrPackage(compoundName[currentIndex++], module());
 			char[][] name = CharOperation.subarray(compoundName, 0, ++currentIndex);
 			binding = client.getTypeOrPackage(name);
-			invocationSite.setFieldIndex(currentIndex);
+			//invocationSite.setFieldIndex(currentIndex);
 			if (binding == null) {
-				if (currentIndex == length) {
-					// must be a type if its the last name, otherwise we have no idea if its a package or type
-					return new ProblemReferenceBinding(
-						//CharOperation.subarray(compoundName, 0, currentIndex),
-						name,
-						null,
-						ProblemReasons.NotFound);
-				}
-//				return new ProblemBinding(
-//					//CharOperation.subarray(compoundName, 0, currentIndex),
-//					name,
-//					ProblemReasons.NotFound);
 				continue;
 			}
+			invocationSite.setFieldIndex(currentIndex);
 			if (binding instanceof ReferenceBinding) {
 				if (!binding.isValidBinding())
 					return new ProblemReferenceBinding(
@@ -540,12 +534,18 @@ public Binding getBinding(char[][] compoundName, int mask, InvocationSite invoca
 			packageBinding = (PackageBinding) binding;
 			unitScope.recordReference(packageBinding.compoundName, compoundName[currentIndex]);
 		}
+		// Could not resolve, probably partially resolved
+		if (packageBinding != null) {
+			if (packageBinding.compoundName.length < length) { // partially resolved
+				return new ProblemBinding(CharOperation.subarray(compoundName, 0, packageBinding.compoundName.length + 1), ProblemReasons.NotFound);
+			} else { // It is illegal to request a PACKAGE from this method
+				return new ProblemReferenceBinding(compoundName, null, ProblemReasons.NotFound);
+			}
+		} else if (problemBinding == null) { // reuse problem binding if exists
+			problemBinding = new ProblemReferenceBinding(CharOperation.subarray(compoundName, 0, 1), null, ProblemReasons.NotFound);
+		}
 
-		// It is illegal to request a PACKAGE from this method.
-		return new ProblemReferenceBinding(
-			CharOperation.subarray(compoundName, 0, currentIndex),
-			null,
-			ProblemReasons.NotFound);
+		return problemBinding;
 	}
 
 	// know binding is now a ReferenceBinding

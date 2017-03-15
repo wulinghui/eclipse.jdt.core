@@ -513,7 +513,10 @@ public IModuleEnvironment getModuleEnvironmentFor(char[] moduleName) {
 			}
 		};
 	}
-	return (IModuleEnvironment) Stream.of(this.classpaths).filter(cp -> cp.getModule(moduleName) != null).findAny().orElse(null);
+	return Stream.of(this.classpaths).map(cp -> {
+		IModule mod = cp.getModule(moduleName);
+		return mod == null ? null : cp.getLookupEnvironmentFor(mod);
+	}).filter(e -> e != null).findAny().orElse(null);
 }
 private NameEnvironmentAnswer internalFindClass(String qualifiedTypeName, char[] typeName, boolean asBinaryOnly, IModuleContext moduleContext) {
 	if (this.knownFileNames.contains(qualifiedTypeName)) return null; // looking for a file which we know was provided at the beginning of the compilation

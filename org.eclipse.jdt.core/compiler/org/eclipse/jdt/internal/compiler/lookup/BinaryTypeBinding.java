@@ -300,7 +300,7 @@ public BinaryTypeBinding(PackageBinding packageBinding, IBinaryType binaryType, 
 	} else if (binaryType.isMember()) {
 		this.tagBits |= TagBits.MemberTypeMask;
 	}
-	this.module = declaringModule;
+	this.module = declaringModule == null ? this.environment.UnNamedModule : declaringModule;
 	// need enclosing type to access type variables
 	char[] enclosingTypeName = binaryType.getEnclosingTypeName();
 	if (enclosingTypeName != null) {

@@ -35,4 +35,10 @@ public class ConcealedPackageBinding extends PackageBinding {
 	public char[] declaringModule() {
 		return this.declaringModule.moduleName;
 	}
+	
+	ReferenceBinding getType(char[] name, char[] mod) {
+		PackageBinding wrapped = this.declaringModule.declaredPackages.get(readableName());
+		return wrapped.getType(name, mod);
+	}
+
 }

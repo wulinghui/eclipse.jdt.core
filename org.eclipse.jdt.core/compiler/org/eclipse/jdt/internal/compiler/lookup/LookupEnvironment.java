@@ -550,7 +550,7 @@ public PackageBinding computePackageFrom(char[][] constantPoolName, boolean isMi
 }
 public PackageBinding computePackageFrom(char[][] constantPoolName, boolean isMissing, char[] declaringModule) {
 	if (constantPoolName.length == 1)
-		return this.defaultPackage;
+		return this.getDefaultPackage(declaringModule);
 
 	ModuleBinding mod = getModule(declaringModule);
 	PackageBinding packageBinding = mod.computePackageFrom(constantPoolName, isMissing);

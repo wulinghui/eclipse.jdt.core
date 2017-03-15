@@ -103,12 +103,14 @@ public class QualifiedTypeReference extends TypeReference {
 		}
 		Binding binding = scope.getPackage(this.tokens);
 		if (binding != null && !binding.isValidBinding()) {
-			if (binding instanceof ProblemReferenceBinding && binding.problemId() == ProblemReasons.NotFound) {
-				ProblemReferenceBinding problemBinding = (ProblemReferenceBinding) binding;
-				Binding pkg = scope.getTypeOrPackage(this.tokens);
-				return new ProblemReferenceBinding(problemBinding.compoundName, pkg instanceof PackageBinding ? null : scope.environment().createMissingType(null, this.tokens), ProblemReasons.NotFound);
+			if (binding instanceof ProblemReferenceBinding) {
+				if (binding.problemId() == ProblemReasons.NotFound) {
+					ProblemReferenceBinding problemBinding = (ProblemReferenceBinding) binding;
+					Binding pkg = scope.getTypeOrPackage(this.tokens);
+					return new ProblemReferenceBinding(problemBinding.compoundName, pkg instanceof PackageBinding ? null : scope.environment().createMissingType(null, this.tokens), ProblemReasons.NotFound);
+				}
+				return (ReferenceBinding) binding; // not found
 			}
-			return (ReferenceBinding) binding; // not found
 		}
 	    PackageBinding packageBinding = binding == null ? null : (PackageBinding) binding;
 	    rejectAnnotationsOnPackageQualifiers(scope, packageBinding);

@@ -2929,7 +2929,7 @@ public abstract class Scope {
 			binding = clientModule.getTypeOrPackage(name);
 			if (binding == null)
 				continue;
-			if (!binding.isValidBinding())
+			if (!(binding instanceof PackageBinding) && !binding.isValidBinding())
 				return new ProblemReferenceBinding(
 					CharOperation.subarray(compoundName, 0, currentIndex),
 					binding instanceof ReferenceBinding ? (ReferenceBinding)((ReferenceBinding)binding).closestMatch() : null,
@@ -3053,7 +3053,7 @@ public abstract class Scope {
 		ModuleBinding client = this.environment().getModule(module());
 		//if (binding instanceof PackageBinding) {
 		if (binding == null || !binding.isValidBinding()) {
-			PackageBinding packageBinding = null;//(PackageBinding) binding;
+			//PackageBinding packageBinding = null;//(PackageBinding) binding;
 			while (currentIndex < typeNameLength) {
 				//binding = packageBinding.getTypeOrPackage(compoundName[currentIndex++], module()); // does not check visibility
 				char[][] qName = CharOperation.subarray(compoundName, 0, ++currentIndex);
@@ -3073,7 +3073,7 @@ public abstract class Scope {
 						binding.problemId());
 				if (!(binding instanceof PackageBinding))
 					break;
-				packageBinding = (PackageBinding) binding;
+				//packageBinding = (PackageBinding) binding;
 			}
 			if (binding instanceof PackageBinding) {
 				char[][] qName = CharOperation.subarray(compoundName, 0, currentIndex);
