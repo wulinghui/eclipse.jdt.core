@@ -2578,5 +2578,6 @@ public class ModuleBuilderTests extends ModifyingResourceTests {
 		super.tearDownSuite();
 		deleteProject("P1");
 		System.setProperty("modules.on.demand", "");
+		System.setProperty("modules.to.load", "");
 	}
 }

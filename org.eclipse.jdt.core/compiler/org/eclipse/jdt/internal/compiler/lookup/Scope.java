@@ -2916,6 +2916,8 @@ public abstract class Scope {
 		if (binding != null && binding.isValidBinding()) { // found type
 			return null;
 		}
+		// See if we can do better
+		Binding problemBinding = binding;
 		int currentIndex = 0, length = compoundName.length;
 		ModuleBinding clientModule = this.environment().getModule(module());
 		PackageBinding packageBinding = null;//(PackageBinding) binding;
@@ -2938,8 +2940,19 @@ public abstract class Scope {
 				return ((ReferenceBinding) binding).fPackage;
 			packageBinding = (PackageBinding) binding;
 		}
-		char[][] problemName = CharOperation.subarray(compoundName, 0, packageBinding != null ? packageBinding.compoundName.length + 1 : 1);
-		return new ProblemReferenceBinding(problemName == null ? compoundName : problemName, null /* no closest match since search for pkg*/, ProblemReasons.NotFound);
+		// Could not resolve, probably partially resolved
+		if (packageBinding != null) {
+			if (packageBinding.compoundName.length < length) { // partially resolved
+				return new ProblemReferenceBinding(CharOperation.subarray(compoundName, 0, packageBinding.compoundName.length + 1), null, ProblemReasons.NotFound);
+			} else {
+				return new ProblemReferenceBinding(compoundName, null, ProblemReasons.NotFound);
+			}
+		} else if (problemBinding == null) { // reuse problem binding if exists
+			char[][] qName = new char[][] { compoundName[0] };
+			problemBinding = new ProblemReferenceBinding(qName, environment().createMissingType(null, compoundName), ProblemReasons.NotFound);
+		}
+
+		return problemBinding;
 	}
 
 	/* Answer the package from the compoundName or null if it begins with a type.
