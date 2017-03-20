@@ -490,38 +490,40 @@ private Binding findImport(char[][] compoundName, int length) {
 //		}
 //		return packageBinding;
 //	}
-	int i = 0;
+	Binding binding = clientModule.getPackage(null, compoundName[0]);
+	int i = 1;
 //	Binding binding = clientModule.getTypeOrPackage(compoundName);
-//	PackageBinding packageBinding = null;
+	PackageBinding packageBinding = null;
 //	int matchLength = length;
 //	if (binding != null) {
 //		return binding;
 //	}
-	Binding binding = null;
-	PackageBinding packageBinding = null;
-	while (i++ < length) {
-		char[][] qualifiedName = CharOperation.subarray(compoundName, 0, i);
-//		packageBinding = clientModule.getPackage(qualifiedName);
-//		if (packageBinding != null) {
-//			binding = packageBinding.getType(compoundName[i], modName);
-//			if (binding instanceof ReferenceBinding)
-//				break;
-//		}
-//		if (packageBinding != null && binding instanceof PackageBinding) {
-//			packageBinding = (PackageBinding) binding; // Package matching longest name
-//			binding = null;
-//			matchLength = i;
-//		}
-//		if (binding != null)
-//			break;
-		binding = clientModule.getTypeOrPackage(qualifiedName);
-		if (binding instanceof ReferenceBinding)
-			break; // found a type, need to look for member types
-		if (binding instanceof PackageBinding) {
-			if (i == length)
-				return binding;
-			packageBinding = (PackageBinding) binding;
-			binding = null;
+	foundNothingOrType: if (binding != null) {
+		if (length == 1) return binding;
+		packageBinding = (PackageBinding) binding;
+		while (i++ < length) {
+			char[][] qualifiedName = CharOperation.subarray(compoundName, 0, i);
+	//		packageBinding = clientModule.getPackage(qualifiedName);
+	//		if (packageBinding != null) {
+	//			binding = packageBinding.getType(compoundName[i], modName);
+	//			if (binding instanceof ReferenceBinding)
+	//				break;
+	//		}
+	//		if (packageBinding != null && binding instanceof PackageBinding) {
+	//			packageBinding = (PackageBinding) binding; // Package matching longest name
+	//			binding = null;
+	//			matchLength = i;
+	//		}
+	//		if (binding != null)
+	//			break;
+			binding = clientModule.getTypeOrPackage(qualifiedName);
+			if (binding instanceof ReferenceBinding)
+				break foundNothingOrType; // found a type, need to look for member types
+			if (binding instanceof PackageBinding) {
+				if (i == length) return binding;
+				packageBinding = (PackageBinding) binding;
+				binding = null;
+			}
 		}
 	}
 	ReferenceBinding type;

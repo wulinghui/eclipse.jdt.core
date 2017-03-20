@@ -60,7 +60,7 @@ public class UnNamedModuleBinding extends ModuleBinding {
 			return packageBinding;
 		}
 		if (declaresPackage(new char[][] {name})) {
-				packageBinding = new PackageBinding(name, this.environment);
+			packageBinding = new PackageBinding(name, this.environment);
 		}
 		if (packageBinding != null) {
 		//if (this.nameEnvironment.isPackage(null, name, mod)) {
@@ -155,12 +155,14 @@ public class UnNamedModuleBinding extends ModuleBinding {
 		if (constantPoolName.length == 1)
 			return this.environment.getDefaultPackage(this.moduleName);
 
-		PackageBinding packageBinding = this.declaredPackages.get(constantPoolName[0]);
-		if (packageBinding == null || packageBinding == LookupEnvironment.TheNotFoundPackage) {
+		PackageBinding packageBinding = getPackage(CharOperation.subarray(constantPoolName, 0, constantPoolName.length - 1));//this.declaredPackages.get(constantPoolName[0]);
+		if (packageBinding != null && packageBinding.isValidBinding())
+			return packageBinding;
+//		if (packageBinding == null || packageBinding == LookupEnvironment.TheNotFoundPackage) {
 			packageBinding = new PackageBinding(constantPoolName[0], this.environment);
 			if (isMissing) packageBinding.tagBits |= TagBits.HasMissingType;
 			this.declaredPackages.put(constantPoolName[0], packageBinding);
-		}
+//		}
 
 		for (int i = 1, length = constantPoolName.length - 1; i < length; i++) {
 			PackageBinding parent = packageBinding;
@@ -173,18 +175,5 @@ public class UnNamedModuleBinding extends ModuleBinding {
 			}
 		}
 		return packageBinding;
-	}
-	public ReferenceBinding getCachedType(char[][] compoundName) {
-		if (compoundName.length == 1) {
-			return this.environment.getDefaultPackage(this.moduleName).getType0(compoundName[0]);
-		}
-		PackageBinding packageBinding = this.declaredPackages.get(compoundName[0]);
-		if (packageBinding == null || packageBinding == LookupEnvironment.TheNotFoundPackage)
-			return null;
-
-		for (int i = 1, packageLength = compoundName.length - 1; i < packageLength; i++)
-			if ((packageBinding = packageBinding.getPackage0(compoundName[i])) == null || packageBinding == LookupEnvironment.TheNotFoundPackage)
-				return null;
-		return packageBinding.getType0(compoundName[compoundName.length - 1]);
 	}
 }
