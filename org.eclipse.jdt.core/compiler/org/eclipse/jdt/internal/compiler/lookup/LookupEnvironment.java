@@ -526,27 +526,28 @@ public TypeBinding computeBoxingType(TypeBinding type) {
 }
 
 public PackageBinding computePackageFrom(char[][] constantPoolName, boolean isMissing) {
-	if (constantPoolName.length == 1)
-		return this.defaultPackage;
-
-	PackageBinding packageBinding = getPackage0(constantPoolName[0]);
-	if (packageBinding == null || packageBinding == TheNotFoundPackage) {
-		packageBinding = new PackageBinding(constantPoolName[0], this);
-		if (isMissing) packageBinding.tagBits |= TagBits.HasMissingType;
-		this.knownPackages.put(constantPoolName[0], packageBinding);
-	}
-
-	for (int i = 1, length = constantPoolName.length - 1; i < length; i++) {
-		PackageBinding parent = packageBinding;
-		if ((packageBinding = parent.getPackage0(constantPoolName[i])) == null || packageBinding == TheNotFoundPackage) {
-			packageBinding = new PackageBinding(CharOperation.subarray(constantPoolName, 0, i + 1), parent, this);
-			if (isMissing) {
-				packageBinding.tagBits |= TagBits.HasMissingType;
-			}
-			parent.addPackage(packageBinding);
-		}
-	}
-	return packageBinding;
+//	if (constantPoolName.length == 1)
+//		return this.defaultPackage;
+//
+//	PackageBinding packageBinding = getPackage0(constantPoolName[0]);
+//	if (packageBinding == null || packageBinding == TheNotFoundPackage) {
+//		packageBinding = new PackageBinding(constantPoolName[0], this);
+//		if (isMissing) packageBinding.tagBits |= TagBits.HasMissingType;
+//		this.knownPackages.put(constantPoolName[0], packageBinding);
+//	}
+//
+//	for (int i = 1, length = constantPoolName.length - 1; i < length; i++) {
+//		PackageBinding parent = packageBinding;
+//		if ((packageBinding = parent.getPackage0(constantPoolName[i])) == null || packageBinding == TheNotFoundPackage) {
+//			packageBinding = new PackageBinding(CharOperation.subarray(constantPoolName, 0, i + 1), parent, this);
+//			if (isMissing) {
+//				packageBinding.tagBits |= TagBits.HasMissingType;
+//			}
+//			parent.addPackage(packageBinding);
+//		}
+//	}
+//	return packageBinding;
+	return computePackageFrom(constantPoolName, isMissing, null);
 }
 public PackageBinding computePackageFrom(char[][] constantPoolName, boolean isMissing, char[] declaringModule) {
 	if (constantPoolName.length == 1)
@@ -831,10 +832,10 @@ public BinaryTypeBinding createBinaryTypeFrom(IBinaryType binaryType, PackageBin
  * If package is given, then reuse the package; if not then infer a package from compound name.
  * If the package is existing, then install the missing type in type cache
 */
-public MissingTypeBinding createMissingType(PackageBinding packageBinding, char[][] compoundName) {
+public MissingTypeBinding createMissingType(PackageBinding packageBinding, char[][] compoundName, char[] moduleName) {
 	// create a proxy for the missing BinaryType
 	if (packageBinding == null) {
-		packageBinding = computePackageFrom(compoundName, true /* missing */);
+		packageBinding = computePackageFrom(compoundName, true /* missing */, moduleName);
 		if (packageBinding == TheNotFoundPackage) packageBinding = this.defaultPackage;
 	}
 	MissingTypeBinding missingType = new MissingTypeBinding(packageBinding, compoundName, this);
@@ -842,7 +843,7 @@ public MissingTypeBinding createMissingType(PackageBinding packageBinding, char[
 		// make Object be its superclass - it could in turn be missing as well
 		ReferenceBinding objectType = getType(TypeConstants.JAVA_LANG_OBJECT, null);
 		if (objectType == null) {
-			objectType = createMissingType(null, TypeConstants.JAVA_LANG_OBJECT);	// create a proxy for the missing Object type
+			objectType = createMissingType(null, TypeConstants.JAVA_LANG_OBJECT, moduleName);	// create a proxy for the missing Object type
 		}
 		missingType.setMissingSuperclass(objectType);
 	}
@@ -1402,7 +1403,7 @@ public ReferenceBinding getResolvedType(char[][] compoundName, Scope scope) {
 		compoundName,
 		scope == null ? this.unitBeingCompleted : scope.referenceCompilationUnit(),
 		this.missingClassFileLocation);
-	return createMissingType(null, compoundName);
+	return createMissingType(null, compoundName, scope.module());
 }
 
 /* Answer the top level package named name.

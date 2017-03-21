@@ -612,15 +612,15 @@ public class ModuleBinding extends Binding {
 			return this.environment.getDefaultPackage(this.moduleName);
 
 		char[][] pkgName = CharOperation.subarray(constantPoolName, 0, constantPoolName.length - 1);
-//		char[] qualifiedName = CharOperation.concatWith(pkgName, '.');
+		char[] qualifiedName = CharOperation.concatWith(pkgName, '.');
 		PackageBinding packageBinding = getPackage(pkgName);//this.declaredPackages.get(qualifiedName);
-//		if (packageBinding == null || packageBinding == LookupEnvironment.TheNotFoundPackage) {
-//			packageBinding = new PackageBinding(pkgName, null, this.environment);
-//			this.declaredPackages.put(qualifiedName, packageBinding);
-//			if (isMissing) {
-//				packageBinding.tagBits |= TagBits.HasMissingType;
-//			}
-//		}
+		if (packageBinding == null || packageBinding == LookupEnvironment.TheNotFoundPackage) {
+			packageBinding = new PackageBinding(pkgName, null, this.environment);
+			this.declaredPackages.put(qualifiedName, packageBinding);
+			if (isMissing) {
+				packageBinding.tagBits |= TagBits.HasMissingType;
+			}
+		}
 		return packageBinding;
 	}
 	public TypeBinding getTypeFromTypeSignature(SignatureWrapper wrapper, TypeVariableBinding[] staticVariables, ReferenceBinding enclosingType, 
@@ -900,7 +900,7 @@ public class ModuleBinding extends Binding {
 				this.environment.problemReporter.isClassPathCorrect(compoundName, this.environment.unitBeingCompleted, this.environment.missingClassFileLocation);
 			}
 			// create a proxy for the missing BinaryType
-			binding = this.environment.createMissingType(null, compoundName);
+			binding = this.environment.createMissingType(null, compoundName, this.moduleName);
 		} else if (!isParameterized) {
 		    // check raw type, only for resolved types
 	        binding = (ReferenceBinding) this.environment.convertUnresolvedBinaryToRawType(binding);

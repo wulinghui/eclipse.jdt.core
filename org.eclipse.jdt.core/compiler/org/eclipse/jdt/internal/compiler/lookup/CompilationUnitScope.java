@@ -647,7 +647,7 @@ ImportBinding[] getDefaultImports() {
 				TypeConstants.JAVA_LANG_OBJECT,
 			this.referenceContext,
 			this.environment.missingClassFileLocation);
-		BinaryTypeBinding missingObject = this.environment.createMissingType(null, TypeConstants.JAVA_LANG_OBJECT);
+		BinaryTypeBinding missingObject = this.environment.createMissingType(null, TypeConstants.JAVA_LANG_OBJECT, module());
 		importBinding = missingObject.fPackage;
 	}
 

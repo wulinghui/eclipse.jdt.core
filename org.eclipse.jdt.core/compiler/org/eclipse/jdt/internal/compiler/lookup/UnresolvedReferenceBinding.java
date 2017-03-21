@@ -114,7 +114,7 @@ ReferenceBinding resolve(LookupEnvironment environment, boolean convertGenericTo
 					environment.missingClassFileLocation);
 			}
 			// create a proxy for the missing BinaryType
-			targetType = environment.createMissingType(null, this.compoundName);
+			targetType = environment.createMissingType(null, this.compoundName, null);
 		}
 		if (targetType.id != TypeIds.NoId) {
 			this.id = targetType.id;

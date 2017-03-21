@@ -156,22 +156,21 @@ public class UnNamedModuleBinding extends ModuleBinding {
 			return this.environment.getDefaultPackage(this.moduleName);
 
 		PackageBinding packageBinding = getPackage(CharOperation.subarray(constantPoolName, 0, constantPoolName.length - 1));//this.declaredPackages.get(constantPoolName[0]);
-		if (packageBinding != null && packageBinding.isValidBinding())
-			return packageBinding;
-//		if (packageBinding == null || packageBinding == LookupEnvironment.TheNotFoundPackage) {
+//		if (packageBinding != null && packageBinding.isValidBinding())
+//			return packageBinding;
+		if (packageBinding == null || packageBinding == LookupEnvironment.TheNotFoundPackage) {
 			packageBinding = new PackageBinding(constantPoolName[0], this.environment);
 			if (isMissing) packageBinding.tagBits |= TagBits.HasMissingType;
 			this.declaredPackages.put(constantPoolName[0], packageBinding);
-//		}
-
-		for (int i = 1, length = constantPoolName.length - 1; i < length; i++) {
-			PackageBinding parent = packageBinding;
-			if ((packageBinding = parent.getPackage0(constantPoolName[i])) == null || packageBinding == LookupEnvironment.TheNotFoundPackage) {
-				packageBinding = new PackageBinding(CharOperation.subarray(constantPoolName, 0, i + 1), parent, this.environment);
-				if (isMissing) {
-					packageBinding.tagBits |= TagBits.HasMissingType;
+			for (int i = 1, length = constantPoolName.length - 1; i < length; i++) {
+				PackageBinding parent = packageBinding;
+				if ((packageBinding = parent.getPackage0(constantPoolName[i])) == null || packageBinding == LookupEnvironment.TheNotFoundPackage) {
+					packageBinding = new PackageBinding(CharOperation.subarray(constantPoolName, 0, i + 1), parent, this.environment);
+					if (isMissing) {
+						packageBinding.tagBits |= TagBits.HasMissingType;
+					}
+					parent.addPackage(packageBinding);
 				}
-				parent.addPackage(packageBinding);
 			}
 		}
 		return packageBinding;

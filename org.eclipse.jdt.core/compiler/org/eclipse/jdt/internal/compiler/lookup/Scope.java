@@ -2931,7 +2931,7 @@ public abstract class Scope {
 			binding = clientModule.getTypeOrPackage(name);
 			if (binding == null)
 				continue;
-			if (!(binding instanceof PackageBinding) && !binding.isValidBinding())
+			if (binding.problemId() == ProblemReasons.NotFound)
 				return new ProblemReferenceBinding(
 					CharOperation.subarray(compoundName, 0, currentIndex),
 					binding instanceof ReferenceBinding ? (ReferenceBinding)((ReferenceBinding)binding).closestMatch() : null,
@@ -2949,7 +2949,7 @@ public abstract class Scope {
 			}
 		} else if (problemBinding == null) { // reuse problem binding if exists
 			char[][] qName = new char[][] { compoundName[0] };
-			problemBinding = new ProblemReferenceBinding(qName, environment().createMissingType(null, compoundName), ProblemReasons.NotFound);
+			problemBinding = new ProblemReferenceBinding(qName, environment().createMissingType(null, compoundName, module()), ProblemReasons.NotFound);
 		}
 
 		return problemBinding;
@@ -3092,7 +3092,7 @@ public abstract class Scope {
 				char[][] qName = CharOperation.subarray(compoundName, 0, currentIndex);
 				return new ProblemReferenceBinding(
 					qName,
-					environment().createMissingType(null, qName),
+					environment().createMissingType(null, qName, module()),
 					ProblemReasons.NotFound);
 			}
 			checkVisibility = true;
@@ -3100,7 +3100,7 @@ public abstract class Scope {
 
 		if (binding == null) {
 			char[][] qName = new char[][] { compoundName[0] };
-			return new ProblemReferenceBinding(qName, environment().createMissingType(compilationUnitScope().getCurrentPackage(), qName), ProblemReasons.NotFound);
+			return new ProblemReferenceBinding(qName, environment().createMissingType(compilationUnitScope().getCurrentPackage(), qName, module()), ProblemReasons.NotFound);
 		}
 		if (!binding.isValidBinding()) {
 //			if (binding instanceof PackageBinding) {
@@ -3379,13 +3379,13 @@ public abstract class Scope {
 			ReferenceBinding closestMatch = null;
 			if ((mask & Binding.PACKAGE) != 0) {
 				if (needResolve) {
-					closestMatch = environment().createMissingType(unitScope.fPackage, qName);
+					closestMatch = environment().createMissingType(unitScope.fPackage, qName, module());
 				}
 			} else {
 				PackageBinding packageBinding = unitScope.environment.getTopLevelPackage(name, module());
 				if (packageBinding == null || !packageBinding.isValidBinding()) {
 					if (needResolve) {
-						closestMatch = environment().createMissingType(unitScope.fPackage, qName);
+						closestMatch = environment().createMissingType(unitScope.fPackage, qName, module());
 					}
 				}
 			}

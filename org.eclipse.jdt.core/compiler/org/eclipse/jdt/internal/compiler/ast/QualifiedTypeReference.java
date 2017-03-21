@@ -107,7 +107,7 @@ public class QualifiedTypeReference extends TypeReference {
 				if (binding.problemId() == ProblemReasons.NotFound) {
 					ProblemReferenceBinding problemBinding = (ProblemReferenceBinding) binding;
 					Binding pkg = scope.getTypeOrPackage(this.tokens);
-					return new ProblemReferenceBinding(problemBinding.compoundName, pkg instanceof PackageBinding ? null : scope.environment().createMissingType(null, this.tokens), ProblemReasons.NotFound);
+					return new ProblemReferenceBinding(problemBinding.compoundName, pkg instanceof PackageBinding ? null : scope.environment().createMissingType(null, this.tokens, scope.module()), ProblemReasons.NotFound);
 				}
 				return (ReferenceBinding) binding; // not found
 			}
