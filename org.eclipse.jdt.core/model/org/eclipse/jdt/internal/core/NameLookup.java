@@ -17,6 +17,7 @@ package org.eclipse.jdt.internal.core;
 
 import java.io.File;
 import java.util.*;
+import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -531,6 +532,13 @@ public class NameLookup implements SuffixConstants {
 	public long timeSpentInSeekTypesInSourcePackage = 0;
 	public long timeSpentInSeekTypesInBinaryPackage = 0;
 
+	static BiPredicate<char[], PackageFragmentRoot> moduleMatcher = (moduleName, root) -> {
+		IModuleDescription mod = root.getModuleDescription();
+		if (moduleName == null || moduleName.length == 0)
+			return mod == null;
+		return (mod != null && CharOperation.equals(moduleName, mod.getElementName().toCharArray()));
+	};
+
 	public NameLookup(
 			IPackageFragmentRoot[] packageFragmentRoots,
 			HashtableOfArrayToObject packageFragments,
@@ -882,6 +890,30 @@ public class NameLookup implements SuffixConstants {
 		return findPackageFragments(name, partialMatch, false);
 	}
 
+	public IPackageFragment[] findPackageFragments(String name, char[] moduleName) {
+		String[] splittedName = Util.splitOn('.', name, 0, name.length());
+		int pkgIndex = this.packageFragments.getIndex(splittedName);
+		if (pkgIndex == -1)
+			return null;
+		Object value = this.packageFragments.valueTable[pkgIndex];
+		// reuse existing String[]
+		String[] pkgName = (String[]) this.packageFragments.keyTable[pkgIndex];
+		if (value instanceof PackageFragmentRoot) {
+			PackageFragmentRoot root = (PackageFragmentRoot) value;
+			if (moduleMatcher.test(moduleName, root))
+				return new IPackageFragment[] {root.getPackageFragment(pkgName)};
+		} else {
+			IPackageFragmentRoot[] roots = (IPackageFragmentRoot[]) value;
+			List<IPackageFragment> result = new ArrayList<>();
+			for (int i= 0; i < roots.length; i++) {
+				PackageFragmentRoot root = (PackageFragmentRoot) roots[i];
+				if (moduleMatcher.test(moduleName, root))
+					result.add(root.getPackageFragment(pkgName));
+			}
+			return result.size() > 0 ? result.toArray(new IPackageFragment[result.size()]) : null;
+		}
+		return null;
+	}
 	/**
 	 * Returns the package fragments whose name matches the given
 	 * (qualified) name or pattern, or <code>null</code> if none exist.
@@ -1073,31 +1105,24 @@ public class NameLookup implements SuffixConstants {
 				monitor,
 				IModuleContext.UNNAMED_MODULE_CONTEXT);
 	}
-	/**
-	 * Find type. Considering secondary types and waiting for indexes depends on given corresponding parameters.
-	 */
 	public Answer findType(
 			String typeName,
 			String packageName,
+			IPackageFragment[] packages,
 			boolean partialMatch,
 			int acceptFlags,
 			boolean considerSecondaryTypes,
 			boolean waitForIndexes,
 			boolean checkRestrictions,
-			IProgressMonitor monitor,
-			IModuleContext context) {
+			IProgressMonitor monitor
+			) {
 		if (packageName == null || packageName.length() == 0) {
 			packageName= IPackageFragment.DEFAULT_PACKAGE_NAME;
 		} else if (typeName.length() > 0 && ScannerHelper.isLowerCase(typeName.charAt(0))) {
 			// see if this is a known package and not a type
+			// TODO: Should check only in the provided roots
 			if (findPackageFragments(packageName + "." + typeName, false) != null) return null; //$NON-NLS-1$
 		}
-
-		// Look for concerned package fragments
-		JavaElementRequestor elementRequestor = new JavaElementRequestor();
-		seekPackageFragments(packageName, false, elementRequestor, context);
-		IPackageFragment[] packages= elementRequestor.getPackageFragments();
-
 		// Try to find type in package fragments list
 		IType type = null;
 		int length= packages.length;
@@ -1172,6 +1197,107 @@ public class NameLookup implements SuffixConstants {
 			}
 		}
 		return type == null ? null : new Answer(type, null, null);
+	}
+	/**
+	 * Find type. Considering secondary types and waiting for indexes depends on given corresponding parameters.
+	 */
+	public Answer findType(
+			String typeName,
+			String packageName,
+			boolean partialMatch,
+			int acceptFlags,
+			boolean considerSecondaryTypes,
+			boolean waitForIndexes,
+			boolean checkRestrictions,
+			IProgressMonitor monitor,
+			IModuleContext context) {
+		if (packageName == null || packageName.length() == 0) {
+			packageName= IPackageFragment.DEFAULT_PACKAGE_NAME;
+		} else if (typeName.length() > 0 && ScannerHelper.isLowerCase(typeName.charAt(0))) {
+			// see if this is a known package and not a type
+			if (findPackageFragments(packageName + "." + typeName, false) != null) return null; //$NON-NLS-1$
+		}
+
+		// Look for concerned package fragments
+		JavaElementRequestor elementRequestor = new JavaElementRequestor();
+		seekPackageFragments(packageName, false, elementRequestor, context);
+		IPackageFragment[] packages= elementRequestor.getPackageFragments();
+		
+		return findType(typeName, packageName, packages, partialMatch, acceptFlags, considerSecondaryTypes, waitForIndexes, checkRestrictions, monitor);
+//		// Try to find type in package fragments list
+//		IType type = null;
+//		int length= packages.length;
+//		HashSet projects = null;
+//		IJavaProject javaProject = null;
+//		Answer suggestedAnswer = null;
+//		for (int i= 0; i < length; i++) {
+//			type = findType(typeName, packages[i], partialMatch, acceptFlags, waitForIndexes, considerSecondaryTypes);
+//			if (type != null) {
+//				AccessRestriction accessRestriction = null;
+//				PackageFragmentRoot root = (PackageFragmentRoot) type.getAncestor(IJavaElement.PACKAGE_FRAGMENT_ROOT);
+//				ClasspathEntry entry = (ClasspathEntry) this.rootToResolvedEntries.get(root);
+//				if (entry != null) { // reverse map always contains resolved CP entry
+//					if (checkRestrictions) {
+//						accessRestriction = getViolatedRestriction(typeName, packageName, entry, accessRestriction);
+//					}
+//				}
+//				Answer answer = new Answer (type, accessRestriction, entry, getModule(root));
+//				if (!answer.ignoreIfBetter()) {
+//					if (answer.isBetter(suggestedAnswer))
+//						return answer;
+//				} else if (answer.isBetter(suggestedAnswer))
+//					// remember suggestion and keep looking
+//					suggestedAnswer = answer;
+//			}
+//			else if (suggestedAnswer == null && considerSecondaryTypes) {
+//				if (javaProject == null) {
+//					javaProject = packages[i].getJavaProject();
+//				} else if (projects == null)  {
+//					if (!javaProject.equals(packages[i].getJavaProject())) {
+//						projects = new HashSet(3);
+//						projects.add(javaProject);
+//						projects.add(packages[i].getJavaProject());
+//					}
+//				} else {
+//					projects.add(packages[i].getJavaProject());
+//				}
+//			}
+//		}
+//		if (suggestedAnswer != null)
+//			// no better answer was found
+//			return suggestedAnswer;
+//
+//		// If type was not found, try to find it as secondary in source folders
+//		if (considerSecondaryTypes && javaProject != null) {
+//			if (projects == null) {
+//				type = findSecondaryType(packageName, typeName, javaProject, waitForIndexes, monitor);
+//			} else {
+//				Iterator allProjects = projects.iterator();
+//				while (type == null && allProjects.hasNext()) {
+//					type = findSecondaryType(packageName, typeName, (IJavaProject) allProjects.next(), waitForIndexes, monitor);
+//				}
+//			}
+//		}
+//		if (type != null) {
+//			ICompilationUnit unit = type.getCompilationUnit();
+//			if (unit != null && unit.isWorkingCopy()) { // https://bugs.eclipse.org/bugs/show_bug.cgi?id=421902
+//				IType[] types = null;
+//				try {
+//					types = unit.getTypes();
+//				} catch (JavaModelException e) {
+//					return null;
+//				}
+//				boolean typeFound = false;
+//				for (int i = 0, typesLength = types == null ? 0 : types.length; i < typesLength; i++) {
+//					if (types[i].getElementName().equals(typeName)) {
+//						typeFound = true;
+//						break;
+//					}
+//				}
+//				if (!typeFound) type = null;
+//			}
+//		}
+//		return type == null ? null : new Answer(type, null, null);
 	}
 
 	public IModule getModuleDescriptionInfo(IModuleDescription moduleDesc) {
@@ -1350,6 +1476,16 @@ public class NameLookup implements SuffixConstants {
 		return this.packageFragments.get(pkgName) != null;
 	}
 
+	public boolean isPackage(String[] pkgName, char[] moduleName) {
+		Object value = this.packageFragments.get(pkgName);
+		if (value instanceof PackageFragmentRoot) {
+			return moduleMatcher.test(moduleName, (PackageFragmentRoot)value);
+		} else if (value instanceof IPackageFragmentRoot[]) {
+			IPackageFragmentRoot[] roots = (IPackageFragmentRoot[]) value;
+			return Stream.of(roots).anyMatch(r -> moduleMatcher.test(moduleName, (PackageFragmentRoot)r));
+		}
+		return false;
+	}
 	public boolean isPackage(String[] pkgName, IModuleContext context) {
 		if (context == IModuleContext.UNNAMED_MODULE_CONTEXT)
 			return isPackage(pkgName);
@@ -1640,6 +1776,7 @@ public class NameLookup implements SuffixConstants {
 			}
 		}
 	}
+
 	public IModuleEnvironment getModuleEnvironmentFor(char[] moduleName) throws JavaModelException {
 		if (moduleName == null || moduleName.length == 0) {
 			List<IPackageFragmentRoot> roots = Stream.of(this.packageFragmentRoots).filter(root -> !(root instanceof IModulePathEntry) && root.getModuleDescription() == null).collect(Collectors.toList());
