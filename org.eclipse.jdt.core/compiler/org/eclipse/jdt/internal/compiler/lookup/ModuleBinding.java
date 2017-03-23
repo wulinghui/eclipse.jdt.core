@@ -32,6 +32,7 @@ import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.IModule.IModuleReference;
 import org.eclipse.jdt.internal.compiler.env.IModule.IPackageExport;
 import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
+import org.eclipse.jdt.internal.compiler.env.INameEnvironmentExtension;
 import org.eclipse.jdt.internal.compiler.env.ITypeAnnotationWalker;
 import org.eclipse.jdt.internal.compiler.util.HashtableOfPackage;
 import org.eclipse.jdt.internal.compiler.util.JRTUtil;
@@ -173,83 +174,68 @@ public class ModuleBinding extends Binding {
 		}
 		return false;
 	}
-//	public PackageBinding getTopLevelPackage(char[] name) {
-//		// return package binding if there exists a package named name in this module's context and it can be seen by this module
-//		// A package can be seen by this module if it declares the package or someone exports that package to it
-//		PackageBinding existing = this.environment.getPackage0(name);
-//		if (existing != null) {
-//			if (existing == LookupEnvironment.TheNotFoundPackage)
-//				return null;
-//		}
-//		if (declaresPackage(null, name)) {
-//			return new PackageBinding(name, this.environment);
-//		} else {
-//			return Stream.of(getAllRequiredModules()).sorted((m1, m2) -> m1.requires.length - m2.requires.length)
-//					.map(m -> {
-//						PackageBinding binding = m.getExportedPackage(name);
-//						if (binding != null && m.isPackageExportedTo(binding, this)) {
-//							return m.declaredPackages.get(name);
-//						}
-//						return null;
-//					})
-//			.filter(p -> p != null).findFirst().orElse(null);
-//		}
-//	}
-	// Given parent is declared in this module, see if there is sub package named name declared in this module
-//	private PackageBinding getDeclaredPackage(PackageBinding parent, char[] name) {
-//		PackageBinding pkg = parent.getPackage0(name);
-//		if (pkg != null && pkg != LookupEnvironment.TheNotFoundPackage)
-//			return pkg;
-//		if (declaresPackage(parent.compoundName, name)) {
-//			char[][] subPkgCompoundName = CharOperation.arrayConcat(parent.compoundName, name);
-//			PackageBinding binding = new PackageBinding(subPkgCompoundName, parent, this.environment);
-//			parent.addPackage(binding);
-//			this.declaredPackages.put(binding.readableName(), binding);
-//			return binding;
-//		}
-//		// TODO: Situation can probably improved by adding NOtFoundPackage to this.declaredPackages 
-//		//parent.addNotFoundPackage(name); Not a package in this module does not mean not a package at all
-//		return null;
-//	}
-//	public PackageBinding getDeclaredPackage(char[] qualifiedName) {
-//		// return package binding if there exists a package named name in this module
-//		if (qualifiedName == null || qualifiedName.length == 0) {
-//			return this.environment.getDefaultPackage(this.moduleName);
-//		}
-//
-////		PackageBinding pkg = parent.getPackage0(name);
-////		if (pkg != null && pkg != LookupEnvironment.TheNotFoundPackage)
-////			return pkg;
-//		if (declaresPackage(qualifiedName)) {
-//			char[][] subPkgCompoundName = CharOperation.splitOn('.', qualifiedName);
-//			PackageBinding binding = new PackageBinding(subPkgCompoundName, null, this.environment);
-//			//parent.addPackage(binding);
-//			this.declaredPackages.put(binding.readableName(), binding);
-//			return binding;
-//		}
-//		// TODO: Situation can probably improved by adding NOtFoundPackage to this.declaredPackages 
-//		//parent.addNotFoundPackage(name); Not a package in this module does not mean not a package at all
-//		return null;
-//	}
+	PackageBinding getTopLevelPackage(char[] name) {
+		PackageBinding packageBinding = this.declaredPackages.get(name);
+		if (packageBinding != null) {
+			if (packageBinding == LookupEnvironment.TheNotFoundPackage)
+				return null;
+			return packageBinding;
+		}
+		if (declaresPackage(new char[][] {name})) {
+			packageBinding = new PackageBinding(name, this.environment);
+		}
+		if (packageBinding != null) {
+			this.declaredPackages.put(name, packageBinding);
+			return packageBinding;
+		}
+
+		this.declaredPackages.put(name, LookupEnvironment.TheNotFoundPackage); // saves asking the oracle next time
+		return null;
+	}
+
 	public PackageBinding getDeclaredPackage(char[][] name) {
 		// return package binding if there exists a package named name in this module
 		if (name == null || name.length == 0) {
 			return this.environment.getDefaultPackage(this.moduleName);
 		}
-		char[] qualifiedName = CharOperation.concatWith(name, '.');
-		PackageBinding binding = this.declaredPackages.get(qualifiedName);
-		if (binding != null) {
-			if (binding == LookupEnvironment.TheNotFoundPackage)
-				return null;
-			return binding;
+//		char[] qualifiedName = CharOperation.concatWith(name, '.');
+		PackageBinding packageBinding = getTopLevelPackage(name[0]);
+		if (packageBinding == null || packageBinding == LookupEnvironment.TheNotFoundPackage)
+			return null;
+		int length = name.length, index = 1;
+		while (index < length) {
+			char[] simpleName = name[index++];
+			PackageBinding binding = packageBinding.getPackage0(simpleName);
+			if (binding != null) {
+				if (binding == LookupEnvironment.TheNotFoundPackage) {
+					return null;
+				}
+			} else {
+				if (declaresPackage(packageBinding.compoundName, simpleName)) {
+					char[][] subPkgCompoundName = CharOperation.arrayConcat(packageBinding.compoundName, simpleName);
+					binding = new PackageBinding(subPkgCompoundName, packageBinding, this.environment);
+					packageBinding.addPackage(binding);
+				} else {
+					packageBinding.addNotFoundPackage(simpleName);
+					return null;
+				}
+			}
+			packageBinding = binding;
 		}
-		if (declaresPackage(name)) {
-			binding = new PackageBinding(name, null, this.environment);
-		} else {
-			binding = LookupEnvironment.TheNotFoundPackage;
-		}
-		this.declaredPackages.put(qualifiedName, binding);
-		return binding;
+		return packageBinding;
+//		PackageBinding binding = this.declaredPackages.get(qualifiedName);
+//		if (binding != null) {
+//			if (binding == LookupEnvironment.TheNotFoundPackage)
+//				return null;
+//			return binding;
+//		}
+//		if (declaresPackage(name)) {
+//			binding = new PackageBinding(name, null, this.environment);
+//		} else {
+//			binding = LookupEnvironment.TheNotFoundPackage;
+//		}
+//		this.declaredPackages.put(qualifiedName, binding);
+//		return binding;
 //		PackageBinding parent = null;
 //		PackageBinding existing = this.environment.getPackage0(name[0]); 
 //		if (existing != null) { // known top level package
@@ -287,7 +273,7 @@ public class ModuleBinding extends Binding {
 		}
 		//Resolve exports to see if the package or a sub package is exported
 		return Stream.of(this.exports).sorted((e1, e2) -> e1.name().length - e2.name().length)
-		.filter(e -> CharOperation.equals(qualifiedPackageName, e.name())) // TODO: improve this
+		.filter(e -> CharOperation.equals(qualifiedPackageName, e.name()))
 		.map(e -> {
 			PackageBinding binding = getDeclaredPackage(CharOperation.splitOn('.', e.name()));
 			if (binding != null) {
@@ -302,7 +288,6 @@ public class ModuleBinding extends Binding {
 		if (pkg == null) {
 			pkg = getDeclaredPackage(p.compoundName);
 			if (pkg == p) {
-				//this.declaredPackages.put(p.readableName(), p);
 				return true;
 			}
 		}
@@ -499,17 +484,7 @@ public class ModuleBinding extends Binding {
 			}
 		});
 	}
-//	public ReferenceBinding getType(char[][] compoundName) {
-//		ReferenceBinding binding = null;
-//		char[][] parentPackageName =  CharOperation.subarray(compoundName, 0, compoundName.length - 1);
-//		PackageBinding pkg = getPackage(parentPackageName);
-//		if (pkg != null) {
-//			binding = pkg.getType0(compoundName[compoundName.length - 1]);
-//		}
-//		return binding;
-//	}
 	public ReferenceBinding findType(char[][] compoundName) {
-		// TODO
 		ReferenceBinding binding = null;
 		char[][] parentPackageName =  CharOperation.subarray(compoundName, 0, compoundName.length - 1);
 		PackageBinding pkg = getPackage(parentPackageName);
@@ -525,69 +500,55 @@ public class ModuleBinding extends Binding {
 		if (type != null && type.isValidBinding())
 			return type;
 		PackageBinding packageBinding = getPackage(compoundName);
-//		if (packageBinding != null) {
-//			if (packageBinding.isValidBinding() || packageBinding.problemId() == ProblemReasons.Ambiguous)
-//				return packageBinding;
-//		}
-//		int currentIndex = 0, length = compoundName.length;
-//		//ModuleBinding clientModule = this.environment().getModule(module());
-//		Binding binding = null;
-//		PackageBinding packageBinding = null;//(PackageBinding) binding;
-//		while (currentIndex < length) {
-////			binding = packageBinding.getTypeOrPackage(compoundName[currentIndex++], module());
-////			if (binding == null) {
-////				return new ProblemReferenceBinding(CharOperation.subarray(compoundName, 0, currentIndex), null /* no closest match since search for pkg*/, ProblemReasons.NotFound);
-////			}
-//			char[][] name = CharOperation.subarray(compoundName, 0, ++currentIndex);
-//			binding = findType(name);
-//			if (binding != null && binding.isValidBinding())
-//				return binding;
-////			if (!(binding instanceof PackageBinding))// && !binding.isValidBinding())
-////				return new ProblemReferenceBinding(
-////					CharOperation.subarray(compoundName, 0, currentIndex),
-////					binding instanceof ReferenceBinding ? (ReferenceBinding)((ReferenceBinding)binding).closestMatch() : null,
-////					binding.problemId());
-////			if (binding instanceof ReferenceBinding)
-////				return binding;
-//			binding = getPackage(name);
-//			if (binding != null)
-//				packageBinding = (PackageBinding)binding;
-//		}
-//		// Could not resolve, probably partially resolved
-//		if (packageBinding != null) {
-//			if (packageBinding.compoundName.length < length) { // partially resolved
-//				return new ProblemReferenceBinding(CharOperation.subarray(compoundName, 0, packageBinding.compoundName.length + 1), null, ProblemReasons.NotFound);
-//			} else {
-//				return new ProblemReferenceBinding(compoundName, null, ProblemReasons.NotFound);
-//			}
-//		} else if (problemBinding == null) { // reuse problem binding if exists
-//			char[][] qName = new char[][] { compoundName[0] };
-//			problemBinding = new ProblemReferenceBinding(qName, environment().createMissingType(null, compoundName), ProblemReasons.NotFound);
-//		}	
 		return packageBinding;
 	}
-	
+
 	public PackageBinding createPackage(char[][] compoundName) {
-		for(int i = 1; i < compoundName.length; i++) {
-//			char[][] typeName = CharOperation.subarray(compoundName, 0, i);
-			ReferenceBinding type;// = findType(typeName);
-//			if (type != null && type != LookupEnvironment.TheNotFoundType && !(type instanceof UnresolvedReferenceBinding))
-//				return null;
-			char[][] packageName = CharOperation.subarray(compoundName, 0, i);
-			PackageBinding pkg = this.declaredPackages.get(CharOperation.concatWith(packageName, '.'));
-			if (pkg != null) {
-				type = pkg.getType0(compoundName[i]);
-				if (type != null && type != LookupEnvironment.TheNotFoundType && !(type instanceof UnresolvedReferenceBinding))
-					return null;
+		PackageBinding packageBinding = this.declaredPackages.get(compoundName[0]);
+		if (packageBinding == null || packageBinding == LookupEnvironment.TheNotFoundPackage) {
+			packageBinding = new PackageBinding(compoundName[0], this.environment);
+			this.declaredPackages.put(compoundName[0], packageBinding);
+		}
+		for (int i = 1, length = compoundName.length; i < length; i++) {
+			// check to see if it collides with a known type...
+			// this case can only happen if the package does not exist as a directory in the file system
+			// otherwise when the source type was defined, the correct error would have been reported
+			// unless its an unresolved type which is referenced from an inconsistent class file
+			// NOTE: empty packages are not packages according to changes in JLS v2, 7.4.3
+			// so not all types cause collision errors when they're created even though the package did exist
+			ReferenceBinding type = packageBinding.getType0(compoundName[i]);
+			if (type != null && type != LookupEnvironment.TheNotFoundType
+					&& !(type instanceof UnresolvedReferenceBinding))
+				return null;
+
+			PackageBinding parent = packageBinding;
+			if ((packageBinding = parent.getPackage0(compoundName[i])) == null
+					|| packageBinding == LookupEnvironment.TheNotFoundPackage) {
+				// if the package is unknown, check to see if a type exists which would collide with the new package
+				// catches the case of a package statement of: package java.lang.Object;
+				// since the package can be added after a set of source files have already been compiled,
+				// we need to check whenever a package is created
+				INameEnvironment nameEnvironment = this.environment.nameEnvironment;
+				if (nameEnvironment instanceof INameEnvironmentExtension) {
+					// When the nameEnvironment is an instance of INameEnvironmentWithProgress, it can get avoided to
+					// search for secondaryTypes (see flag).
+					// This is a performance optimization, because it is very expensive to search for secondary types
+					// and it isn't necessary to check when creating a package,
+					// because package name can not collide with a secondary type name.
+					if (((INameEnvironmentExtension) nameEnvironment).findType(compoundName[i], parent.compoundName,
+							false, getDependencyClosureContext()) != null) {
+						return null;
+					}
+				} else {
+					if (nameEnvironment.findType(compoundName[i], parent.compoundName) != null) {
+						return null;
+					}
+				}
+				packageBinding = new PackageBinding(CharOperation.subarray(compoundName, 0, i + 1), parent,
+						this.environment);
+				parent.addPackage(packageBinding);
 			}
 		}
-		char[] qualifiedName = CharOperation.concatWith(compoundName, '.');
-		PackageBinding packageBinding = this.declaredPackages.get(qualifiedName);
-		if (packageBinding == null || packageBinding == LookupEnvironment.TheNotFoundPackage) {
-			packageBinding = new PackageBinding(compoundName, null, this.environment);
-			this.declaredPackages.put(qualifiedName, packageBinding);
-		}
-		//PackageBinding packageBinding = getPackage(compoundName);
 		return packageBinding;
 	}
 	public ReferenceBinding getCachedType(char[][] compoundName) {
@@ -597,13 +558,7 @@ public class ModuleBinding extends Binding {
 			return unnamed.getType0(compoundName[0]);
 		}
 		char[][] pkgName = CharOperation.subarray(compoundName, 0, compoundName.length - 1);
-//		char[] qName = CharOperation.concatWith(pkgName, '.');
-//		PackageBinding pkg = this.declaredPackages.get(qName);
 		PackageBinding pkg = getPackage(pkgName);
-//		if (pkg == null || !pkg.isValidBinding()) {
-//			pkg = Stream.of(getAllRequiredModules()).map(m -> m.declaredPackages.get(qName))
-//					.filter(p -> p != null && p.isValidBinding()).findFirst().orElse(null); // shouldn't encounter duplicates
-//		}
 
 		return  (pkg != null && pkg.isValidBinding()) ? pkg.getType0(compoundName[compoundName.length - 1]) : null;
 	}
@@ -611,14 +566,20 @@ public class ModuleBinding extends Binding {
 		if (constantPoolName.length == 1)
 			return this.environment.getDefaultPackage(this.moduleName);
 
-		char[][] pkgName = CharOperation.subarray(constantPoolName, 0, constantPoolName.length - 1);
-		char[] qualifiedName = CharOperation.concatWith(pkgName, '.');
-		PackageBinding packageBinding = getPackage(pkgName);//this.declaredPackages.get(qualifiedName);
+		PackageBinding packageBinding = getPackage(CharOperation.subarray(constantPoolName, 0, constantPoolName.length - 1));//this.declaredPackages.get(constantPoolName[0]);
 		if (packageBinding == null || packageBinding == LookupEnvironment.TheNotFoundPackage) {
-			packageBinding = new PackageBinding(pkgName, null, this.environment);
-			this.declaredPackages.put(qualifiedName, packageBinding);
-			if (isMissing) {
-				packageBinding.tagBits |= TagBits.HasMissingType;
+			packageBinding = new PackageBinding(constantPoolName[0], this.environment);
+			if (isMissing) packageBinding.tagBits |= TagBits.HasMissingType;
+			this.declaredPackages.put(constantPoolName[0], packageBinding);
+			for (int i = 1, length = constantPoolName.length - 1; i < length; i++) {
+				PackageBinding parent = packageBinding;
+				if ((packageBinding = parent.getPackage0(constantPoolName[i])) == null || packageBinding == LookupEnvironment.TheNotFoundPackage) {
+					packageBinding = new PackageBinding(CharOperation.subarray(constantPoolName, 0, i + 1), parent, this.environment);
+					if (isMissing) {
+						packageBinding.tagBits |= TagBits.HasMissingType;
+					}
+					parent.addPackage(packageBinding);
+				}
 			}
 		}
 		return packageBinding;

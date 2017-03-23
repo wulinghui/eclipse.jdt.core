@@ -14,13 +14,7 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IModuleDescription;
-import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.internal.compiler.env.IModule;
 import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
@@ -54,29 +48,29 @@ public class ProjectEntry implements IModulePathEntry {
 	@Override
 	public IModuleEnvironment getLookupEnvironment() {
 		// 
-		return this.project;
+		return null;//this.project;
 	}
 
 	@Override
 	public IModuleEnvironment getLookupEnvironmentFor(IModule module) {
 		//
-		if (getModule() == module) {
-			try {
-				ArrayList<IPackageFragmentRoot> children = this.project.getChildrenOfType(IJavaElement.PACKAGE_FRAGMENT_ROOT);
-				List<IPackageFragmentRoot> srcRoots = children.stream().filter(r -> {
-					try {
-						return r instanceof PackageFragmentRoot && r.getKind() == IPackageFragmentRoot.K_SOURCE;
-					} catch (JavaModelException e) {
-						//
-					}
-					return false;
-				}).collect(Collectors.toList());
-				return new NameLookup.Roots(srcRoots.toArray(new PackageFragmentRoot[srcRoots.size()]));
-			} catch (JavaModelException e) {
-				//
-			}		
-//			return this.project;
-		}
+//		if (getModule() == module) {
+//			try {
+//				ArrayList<IPackageFragmentRoot> children = this.project.getChildrenOfType(IJavaElement.PACKAGE_FRAGMENT_ROOT);
+//				List<IPackageFragmentRoot> srcRoots = children.stream().filter(r -> {
+//					try {
+//						return r instanceof PackageFragmentRoot && r.getKind() == IPackageFragmentRoot.K_SOURCE;
+//					} catch (JavaModelException e) {
+//						//
+//					}
+//					return false;
+//				}).collect(Collectors.toList());
+//				return new NameLookup.Roots(srcRoots.toArray(new PackageFragmentRoot[srcRoots.size()]));
+//			} catch (JavaModelException e) {
+//				//
+//			}		
+////			return this.project;
+//		}
 		return null;
 	}
 	@Override

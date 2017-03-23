@@ -181,6 +181,7 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.env.AccessRestriction;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.env.IModuleContext;
+import org.eclipse.jdt.internal.compiler.env.IModuleEnvironment;
 import org.eclipse.jdt.internal.compiler.env.INameEnvironment;
 import org.eclipse.jdt.internal.compiler.env.ISourceType;
 import org.eclipse.jdt.internal.compiler.env.NameEnvironmentAnswer;
@@ -234,7 +235,6 @@ import org.eclipse.jdt.internal.core.INamingRequestor;
 import org.eclipse.jdt.internal.core.InternalNamingConventions;
 import org.eclipse.jdt.internal.core.JavaElementRequestor;
 import org.eclipse.jdt.internal.core.JavaModelManager;
-import org.eclipse.jdt.internal.core.JavaProject;
 import org.eclipse.jdt.internal.core.ModuleSourcePathManager;
 import org.eclipse.jdt.internal.core.SourceMethod;
 import org.eclipse.jdt.internal.core.SourceMethodElementInfo;
@@ -717,10 +717,6 @@ public final class CompletionEngine
 	char[] source;
 	ModuleDeclaration moduleDeclaration;
 	char[] completionToken;
-	IModuleContext moduleContext = () -> {
-		return Stream.of((JavaProject)this.javaProject);
-	};
-
 	char[] qualifiedCompletionToken;
 	boolean resolvingImports = false;
 	boolean resolvingStaticImports = false;
@@ -10691,7 +10687,15 @@ public final class CompletionEngine
 	}
 
 	private void findPackagesInCurrentModule() {
-		this.nameEnvironment.findPackages(CharOperation.toLowerCase(this.completionToken), this, this.moduleContext);
+		IModuleDescription mod = null;
+		try {
+			mod = this.javaProject.getModuleDescription();
+		} catch (JavaModelException e) {
+			// do nothing
+		}
+		IModuleEnvironment env = this.nameEnvironment.getModuleEnvironmentFor(mod == null ? null : mod.getElementName().toCharArray());
+		IModuleContext context = env == null ? IModuleContext.UNNAMED_MODULE_CONTEXT : () -> Stream.of(env);
+		this.nameEnvironment.findPackages(CharOperation.toLowerCase(this.completionToken), this, context);
 	}
 	private void findPackages(CompletionOnPackageReference packageStatement) {
 		this.completionToken = CharOperation.concatWithAll(packageStatement.tokens, '.');

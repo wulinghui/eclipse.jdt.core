@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.zip.ZipFile;
 
 import org.eclipse.core.runtime.IPath;
@@ -56,15 +55,18 @@ private String externalAnnotationPath;
 private ZipFile annotationZipFile;
 String zipFilename; // keep for equals
 
-protected Function<char[], ITypeLookup> typeLookupForModule = modName -> 
-(typeName, qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly) -> {
-return typeLookup().findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly, modName);
-};
+protected ITypeLookup typeLookupForModule(char[] modName) {
+	return (typeName, qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly) -> {
+		return typeLookup().findClass(typeName, qualifiedPackageName, qualifiedBinaryFileName, asBinaryOnly,
+				modName);
+	};
+}
 
-protected Function<char[], IPackageLookup> pkgLookupForModule = modName -> 
-qualifiedPackageName -> {
-return packageLookup().isPackage(qualifiedPackageName, modName);
-};
+protected IPackageLookup pkgLookupForModule(char[] modName) {
+	return qualifiedPackageName -> {
+		return packageLookup().isPackage(qualifiedPackageName, modName);
+	};
+}
 
 public ClasspathJrt(String zipFilename, IPath externalAnnotationPath, INameEnvironment env) {
 	this.zipFilename = zipFilename;
@@ -303,18 +305,20 @@ public IModuleEnvironment getLookupEnvironment() {
 @Override
 public IModuleEnvironment getLookupEnvironmentFor(IModule mod) {
 	// 
+	if (mod == null || !servesModule(mod.name()))
+		return null;
 	return new IModuleEnvironment() {
 		
 		@Override
 		public ITypeLookup typeLookup() {
 			//
-			return servesModule(mod.name()) ? ClasspathJrt.this.typeLookupForModule.apply(mod.name()) : ITypeLookup.Dummy;
+			return ClasspathJrt.this.typeLookupForModule(mod.name());
 		}
 		
 		@Override
 		public IPackageLookup packageLookup() {
 			//
-			return servesModule(mod.name()) ? ClasspathJrt.this.pkgLookupForModule.apply(mod.name()) : IPackageLookup.Dummy;
+			return ClasspathJrt.this.pkgLookupForModule(mod.name());
 		}
 	};
 }

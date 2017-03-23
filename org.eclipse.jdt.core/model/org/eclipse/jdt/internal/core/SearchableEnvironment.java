@@ -121,9 +121,7 @@ public class SearchableEnvironment
 			String[] pkgName = new String[length];
 			for (int i = 0; i < length; i++)
 				pkgName[i] = new String(splitName[i]);
-			return 
-				(this.owner != null && this.owner.isPackage(pkgName))
-				|| this.nameLookup.isPackage(pkgName, moduleName);
+			return this.nameLookup.isPackage(pkgName, moduleName);
 		};
 	}
 	protected NameEnvironmentAnswer findType(String typeName, String packageName, IPackageFragment[] packages) {
@@ -197,8 +195,7 @@ public class SearchableEnvironment
 				packageName,
 				false/*exact match*/,
 				NameLookup.ACCEPT_ALL,
-				this.checkAccessRestrictions,
-				context);
+				this.checkAccessRestrictions);
 		if (answer != null) {
 			// construct name env answer
 			if (answer.type instanceof BinaryType) { // BinaryType
@@ -815,21 +812,22 @@ public class SearchableEnvironment
 	 * @see ModuleEnvironment#isPackage(char[][], char[])
 	 */
 	public boolean isPackage(char[][] parentPackageName, char[] subPackageName, IModuleContext moduleContext) {
-//		String[] pkgName;
-//		if (parentPackageName == null)
-//			pkgName = new String[] {new String(subPackageName)};
-//		else {
-//			int length = parentPackageName.length;
-//			pkgName = new String[length+1];
-//			for (int i = 0; i < length; i++)
-//				pkgName[i] = new String(parentPackageName[i]);
-//			pkgName[length] = new String(subPackageName);
-//		}
-//		return 
-//			(this.owner != null && this.owner.isPackage(pkgName))
-//			|| this.nameLookup.isPackage(pkgName, moduleContext);
-		return moduleContext.getEnvironment().map(e -> e.packageLookup())
-				.filter(l -> l.isPackage(new String(CharOperation.concatWith(parentPackageName, subPackageName, '.')))).findAny().isPresent();
+		String[] pkgName;
+		if (parentPackageName == null)
+			pkgName = new String[] {new String(subPackageName)};
+		else {
+			int length = parentPackageName.length;
+			pkgName = new String[length+1];
+			for (int i = 0; i < length; i++)
+				pkgName[i] = new String(parentPackageName[i]);
+			pkgName[length] = new String(subPackageName);
+		}
+		if (this.owner != null && this.owner.isPackage(pkgName))
+			return true;
+		return moduleContext == IModuleContext.UNNAMED_MODULE_CONTEXT ? this.nameLookup.isPackage(pkgName)
+				: moduleContext.getEnvironment().map(e -> e.packageLookup()).filter(
+						l -> l.isPackage(new String(CharOperation.concatWith(parentPackageName, subPackageName, '.'))))
+						.findAny().isPresent();
 	}
 
 	/**
