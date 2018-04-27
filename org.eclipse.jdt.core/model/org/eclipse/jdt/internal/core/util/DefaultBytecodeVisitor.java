@@ -2040,6 +2040,19 @@ public class DefaultBytecodeVisitor implements IBytecodeVisitor {
 					Integer.toString(index),
 					returnConstantClassName(constantPoolEntry)
 				}));
+				break;
+			case IConstantPoolConstant.CONSTANT_MethodType :
+				appendConstantMethodType(this.buffer, Messages.classformat_ldc_w_methodhandle,
+						IOpcodeMnemonics.LDC_W, index, constantPoolEntry);
+				break;
+			case IConstantPoolConstant.CONSTANT_MethodHandle :
+				appendConstantMethodHandle(this.buffer, Messages.classformat_ldc_w_methodhandle,
+						IOpcodeMnemonics.LDC_W, index, constantPoolEntry);
+				break;
+			case IConstantPoolConstant.CONSTANT_Dynamic :
+				appendConstantDynamic(this.buffer, Messages.classformat_ldc_w_dynamic,
+						IOpcodeMnemonics.LDC_W, index, constantPoolEntry);
+				break;
 		}
 		writeNewLine();
 	}
@@ -2078,10 +2091,52 @@ public class DefaultBytecodeVisitor implements IBytecodeVisitor {
 					Integer.toString(index),
 					returnConstantClassName(constantPoolEntry)
 				}));
+				break;
+			case IConstantPoolConstant.CONSTANT_MethodType :
+				appendConstantMethodType(this.buffer, Messages.classformat_ldc_w_methodhandle,
+						IOpcodeMnemonics.LDC, index, constantPoolEntry);
+				break;
+			case IConstantPoolConstant.CONSTANT_MethodHandle :
+				appendConstantMethodHandle(this.buffer, Messages.classformat_ldc_w_methodhandle,
+						IOpcodeMnemonics.LDC, index, constantPoolEntry);
+				break;
+			case IConstantPoolConstant.CONSTANT_Dynamic :
+				appendConstantDynamic(this.buffer, Messages.classformat_ldc_w_dynamic,
+						IOpcodeMnemonics.LDC, index, constantPoolEntry);
+				break;
 		}
 		writeNewLine();
 	}
 
+	private StringBuffer appendConstantDynamic(StringBuffer s, String messageKind, int opcode,
+			int index, IConstantPoolEntry constantPoolEntry) {
+		return s.append(Messages.bind(messageKind, new String[] {
+				OpcodeStringValues.BYTECODE_NAMES[opcode],
+				Integer.toString(index),
+				Integer.toString(((IConstantPoolEntry2) constantPoolEntry).getBootstrapMethodAttributeIndex()),
+				new String(constantPoolEntry.getMethodName()),
+				new String(constantPoolEntry.getMethodDescriptor())
+			}));
+	}
+
+	private StringBuffer appendConstantMethodType(StringBuffer s, String messageKind, int opcode,
+			int index, IConstantPoolEntry constantPoolEntry) {
+		return s.append(Messages.bind(messageKind, new String[] {
+				OpcodeStringValues.BYTECODE_NAMES[opcode],
+				Integer.toString(index),
+				new String(constantPoolEntry.getMethodDescriptor())
+			}));
+	}
+
+	private StringBuffer appendConstantMethodHandle(StringBuffer s, String messageKind, int opcode,
+			int index, IConstantPoolEntry constantPoolEntry) {
+		return s.append(Messages.bind(messageKind, new String[] {
+				OpcodeStringValues.BYTECODE_NAMES[opcode],
+				Integer.toString(index),
+				Integer.toString(((IConstantPoolEntry2) constantPoolEntry).getReferenceKind()),
+				Integer.toString(((IConstantPoolEntry2) constantPoolEntry).getReferenceIndex())
+			}));
+	}
 	/**
 	 * @see IBytecodeVisitor#_ldc2_w(int, int, IConstantPoolEntry)
 	 */

@@ -1,9 +1,13 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2016 IBM Corporation and others.
+ * Copyright (c) 2000, 2018 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * This is an implementation of an early-draft specification developed under the Java
+ * Community Process (JCP) and is made available for testing and evaluation purposes
+ * only. The code is not compatible with any specification of the JCP.
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -267,10 +271,9 @@ public class CodeAttribute extends ClassFileAttribute implements ICodeAttribute 
 				case IOpcodeMnemonics.LDC :
 					index = u1At(this.classFileBytes, 1, pc);
 					constantPoolEntry = this.constantPool.decodeEntry(index);
-					if (constantPoolEntry.getKind() != IConstantPoolConstant.CONSTANT_Float
-						&& constantPoolEntry.getKind() != IConstantPoolConstant.CONSTANT_Integer
-						&& constantPoolEntry.getKind() != IConstantPoolConstant.CONSTANT_String
-						&& constantPoolEntry.getKind() != IConstantPoolConstant.CONSTANT_Class) {
+					int kind = constantPoolEntry.getKind();
+					if (kind == IConstantPoolConstant.CONSTANT_Long ||
+						kind == IConstantPoolConstant.CONSTANT_Double) {
 							throw new ClassFormatException(ClassFormatException.INVALID_CONSTANT_POOL_ENTRY);
 					}
 					visitor._ldc(pc - this.codeOffset, index, constantPoolEntry);
@@ -279,10 +282,9 @@ public class CodeAttribute extends ClassFileAttribute implements ICodeAttribute 
 				case IOpcodeMnemonics.LDC_W :
 					index = u2At(this.classFileBytes, 1, pc);
 					constantPoolEntry = this.constantPool.decodeEntry(index);
-					if (constantPoolEntry.getKind() != IConstantPoolConstant.CONSTANT_Float
-						&& constantPoolEntry.getKind() != IConstantPoolConstant.CONSTANT_Integer
-						&& constantPoolEntry.getKind() != IConstantPoolConstant.CONSTANT_String
-						&& constantPoolEntry.getKind() != IConstantPoolConstant.CONSTANT_Class) {
+					int kind1 = constantPoolEntry.getKind();
+					if (kind1 == IConstantPoolConstant.CONSTANT_Long ||
+							kind1 == IConstantPoolConstant.CONSTANT_Double) {
 							throw new ClassFormatException(ClassFormatException.INVALID_CONSTANT_POOL_ENTRY);
 					}
 					visitor._ldc_w(pc - this.codeOffset, index, constantPoolEntry);
