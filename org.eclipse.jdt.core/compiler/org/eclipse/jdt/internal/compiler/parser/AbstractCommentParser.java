@@ -1072,6 +1072,7 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 		int parserKind = this.kind & PARSER_KIND;
 		nextToken : for (int iToken = 0; ; iToken++) {
 			int token = readTokenSafely();
+			this.scanner.disambiguatedRestrictedKeyword(token);	//pre-process for yield >= 13
 			switch (token) {
 				case TerminalTokens.TokenNameIdentifier :
 					if (((iToken & 1) != 0)) { // identifiers must be odd tokens

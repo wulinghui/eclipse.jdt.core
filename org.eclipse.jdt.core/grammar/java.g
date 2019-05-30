@@ -49,6 +49,7 @@ $Terminals
 	protected public return short static strictfp super switch
 	synchronized this throw throws transient true try void
 	volatile while module open requires transitive exports opens to uses provides with
+	yield
 
 	IntegerLiteral
 	LongLiteral
@@ -1206,6 +1207,7 @@ StatementWithoutTrailingSubstatement -> SynchronizedStatement
 StatementWithoutTrailingSubstatement -> ThrowStatement
 StatementWithoutTrailingSubstatement -> TryStatement
 StatementWithoutTrailingSubstatement -> TryStatementWithResources
+StatementWithoutTrailingSubstatement -> YieldStatement
 /:$readableName Statement:/
 
 EmptyStatement ::= ';'
@@ -1416,6 +1418,11 @@ TryStatementWithResources ::= 'try' ResourceSpecification TryBlock Catchesopt Fi
 /.$putCase consumeStatementTry(true, true); $break ./
 /:$readableName TryStatementWithResources:/
 /:$compliance 1.7:/
+
+YieldStatement ::= 'yield' Expression ;
+/.$putCase consumeStatementYield(); $break ./
+/:$readableName YieldStatement:/
+/:$compliance 12:/
 
 ResourceSpecification ::= '(' Resources ;opt ')'
 /.$putCase consumeResourceSpecification(); $break ./

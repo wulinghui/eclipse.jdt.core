@@ -1182,6 +1182,10 @@ public int getNextToken() throws InvalidInputException {
 			token = disambiguatedRestrictedKeyword(token);
 		updateScanContext(token);
 	}
+	if (isRestrictedKeywordYieldActive()) {
+		if (isRestrictedKeyword(token))
+			token = disambiguatedRestrictedKeywordYield(token);
+	}
 	if (this.activeParser == null) { // anybody interested in the grammatical structure of the program should have registered.
 		return token;
 	}
@@ -2570,6 +2574,9 @@ public boolean isInModuleDeclaration() {
 protected boolean areRestrictedModuleKeywordsActive() {
 	return this.scanContext != null && this.scanContext != ScanContext.INACTIVE;
 }
+protected boolean isRestrictedKeywordYieldActive() {
+	return this.sourceLevel > ClassFileConstants.JDK12;
+}
 void updateScanContext(int token) {
 	switch (token) {
 		case TerminalTokens.TokenNameSEMICOLON:	// next could be a KEYWORD
@@ -3679,6 +3686,15 @@ private int internalScanIdentifierOrKeyword(int index, int length, char[] data) 
 					return TokenNameIdentifier;
 			}
 
+		case 'y' :
+			if (isRestrictedKeywordYieldActive()
+					&& (data[++index] == 'i')
+					&& (data[++index] == 'e')
+					&& (data[++index] == 'l')
+					&& (data[++index] == 'd')) {
+				return disambiguatedRestrictedKeywordYield(TokenNameyield);
+			} else
+				return TokenNameIdentifier;
 		case 'w' : //while widefp with
 			switch (length) {
 				case 4:
@@ -4457,6 +4473,10 @@ private static final class VanguardScanner extends Scanner {
 				token = disambiguatedRestrictedKeyword(token);
 			updateScanContext(token);
 		}
+		if (isRestrictedKeywordYieldActive()) {
+			if (isRestrictedKeyword(token))
+				token = disambiguatedRestrictedKeywordYield(token);
+		}
 		if (token == TokenNameAT && atTypeAnnotation()) {
 			if (((VanguardParser) this.activeParser).currentGoal == Goal.LambdaParameterListGoal) {
 				token = disambiguatedToken(token);
@@ -4787,6 +4807,7 @@ public static boolean isRestrictedKeyword(int token) {
 		case TokenNameuses:
 		case TokenNameprovides:
 		case TokenNamewith:
+		case TokenNameyield:
 			return true;
 		default:
 			return false;
@@ -4826,6 +4847,42 @@ int disambiguatedRestrictedKeyword(int restrictedKeywordToken) {
 				token = TokenNameIdentifier;
 			}
 			break;
+	}
+	return token;
+}
+int disambiguatedRestrictedKeywordYield(int restrictedKeywordToken) {
+	int token = restrictedKeywordToken;
+	if (this.scanContext == ScanContext.EXPECTING_IDENTIFIER)
+		return TokenNameIdentifier;
+
+	if (TokenNameyield != restrictedKeywordToken || this.sourceLevel < ClassFileConstants.JDK13)
+			return TokenNameIdentifier;
+
+	getVanguardParser();
+	this.vanguardScanner.resetTo(this.currentPosition, this.eofPosition - 1, true, ScanContext.EXPECTING_KEYWORD);
+	try {
+		int lookAhead = this.vanguardScanner.getNextToken();
+		if (isKeyword(lookAhead) || isLiteral(lookAhead) || isIdentifier(lookAhead))
+			return token;
+		
+		switch (lookAhead) {
+			case TokenNamePLUS:
+			case TokenNameMINUS:
+			case TokenNameNOT:
+			case TokenNameLPAREN:
+				break;
+				
+			case TokenNamePLUS_PLUS:
+			case TokenNameMINUS_MINUS:
+				int nextLookAhead = this.vanguardScanner.getNextToken();
+				if (TokenNameSEMICOLON != nextLookAhead)
+					break;
+				//$FALL-THROUGH$
+			default:
+				token = TokenNameIdentifier;
+		}
+	} catch (InvalidInputException e) {
+		// 
 	}
 	return token;
 }
@@ -4875,6 +4932,7 @@ public int fastForward(Statement unused) {
 	while (true) {
 		try {
 			token = getNextToken();
+			token = disambiguatedRestrictedKeywordYield(token); // for >= 13
 		} catch (InvalidInputException e) {
 			return TokenNameEOF;
 		}
@@ -4890,6 +4948,7 @@ public int fastForward(Statement unused) {
 			case TokenNameassert:
 			case TokenNameboolean:
 			case TokenNamebreak:
+			case TokenNameyield:
 			case TokenNamebyte:
 			case TokenNamecase:
 			case TokenNamechar:
